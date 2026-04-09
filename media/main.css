@@ -1,0 +1,476 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f4efe7;
+  --panel: rgba(255, 250, 243, 0.82);
+  --card: rgba(255, 255, 255, 0.7);
+  --line: rgba(97, 63, 38, 0.18);
+  --text: #2d231b;
+  --muted: #6a5646;
+  --accent: #c05a2b;
+  --accent-soft: rgba(192, 90, 43, 0.12);
+  --shadow: 0 18px 40px rgba(79, 48, 23, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1815;
+    --panel: rgba(39, 31, 26, 0.88);
+    --card: rgba(53, 42, 35, 0.85);
+    --line: rgba(255, 222, 197, 0.12);
+    --text: #f5ede6;
+    --muted: #cab8aa;
+    --accent: #ff9b63;
+    --accent-soft: rgba(255, 155, 99, 0.16);
+    --shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(255, 210, 172, 0.22), transparent 32%),
+    linear-gradient(180deg, var(--bg), color-mix(in srgb, var(--bg) 86%, black 14%));
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  padding: 12px 16px 16px;
+  gap: 12px;
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(36, 28, 23, 0.88);
+  box-shadow: var(--shadow);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.topbar-title {
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.topbar-file-wrap {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.topbar-file {
+  font-size: 20px;
+  line-height: 1.05;
+  word-break: break-word;
+}
+
+.topbar-path {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.topbar-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+}
+
+.topbar-stat label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.card-title-row h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badge.subtle {
+  color: var(--muted);
+}
+
+.tree-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tree-toolbar {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tree-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tree-tab {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.tree-tab:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.tree-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+
+.tree-hint {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.tree-root {
+  flex: 1;
+  min-height: 0;
+}
+
+.tree-section {
+  display: grid;
+  gap: 10px;
+  min-height: 100%;
+}
+
+.tree-section-header {
+  display: grid;
+  gap: 6px;
+}
+
+.tree-section-title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.03em;
+}
+
+.tree-section-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.canvas-shell {
+  position: relative;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(circle at top center, rgba(255, 255, 255, 0.06), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    rgba(0, 0, 0, 0.08);
+  cursor: grab;
+  scroll-behavior: smooth;
+}
+
+.canvas-shell.is-dragging {
+  cursor: grabbing;
+}
+
+.canvas-stage {
+  position: relative;
+}
+
+.canvas-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.canvas-edge-path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 20%, var(--line));
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.canvas-nodes {
+  position: absolute;
+  inset: 0;
+}
+
+.canvas-node {
+  position: absolute;
+}
+
+.flow-card {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent), var(--card);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+.flow-card-action {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    color-mix(in srgb, var(--card) 88%, var(--accent) 12%);
+}
+
+.flow-card-control {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    color-mix(in srgb, var(--card) 75%, #1e3f55 25%);
+}
+
+.flow-card-decorator {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    color-mix(in srgb, var(--card) 78%, #5f4b22 22%);
+}
+
+.flow-card-subtree {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    color-mix(in srgb, var(--card) 75%, #4f2d6a 25%);
+}
+
+.flow-card-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-node-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.flow-node-name {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.flow-node-summary {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.flow-io {
+  display: grid;
+  gap: 6px;
+}
+
+.flow-io-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.flow-node-attributes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.flow-attribute-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-attribute-chip.tone-input {
+  border-color: rgba(93, 163, 255, 0.32);
+  background: rgba(93, 163, 255, 0.12);
+  color: color-mix(in srgb, var(--text) 82%, #8cc5ff 18%);
+}
+
+.flow-attribute-chip.tone-output {
+  border-color: rgba(108, 204, 140, 0.32);
+  background: rgba(108, 204, 140, 0.12);
+  color: color-mix(in srgb, var(--text) 82%, #8de6a6 18%);
+}
+
+.flow-attribute-chip.tone-param {
+  border-color: rgba(255, 208, 110, 0.24);
+  background: rgba(255, 208, 110, 0.1);
+}
+
+.subtree-jump {
+  justify-self: start;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.subtree-jump:hover {
+  filter: brightness(1.04);
+}
+
+.empty-state {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.canvas-btn {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.canvas-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.zoom-level {
+  min-width: 48px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .topbar-stats {
+    justify-content: flex-start;
+  }
+
+  .flow-card {
+    min-width: 0;
+  }
+}

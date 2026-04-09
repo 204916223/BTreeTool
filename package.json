@@ -1,0 +1,70 @@
+{
+  "name": "btree-tool",
+  "displayName": "BTreeTool",
+  "description": "A VS Code scaffold for BehaviorTree XML preview and editing.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:btreeTool.openPreview",
+    "onLanguage:xml"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "btreeTool.openPreview",
+        "title": "BTreeTool: Open Preview",
+        "icon": {
+          "light": "media/preview-light.svg",
+          "dark": "media/preview-dark.svg"
+        }
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "btreeTool.openPreview",
+          "when": "resourceLangId == xml || resourceExtname == .xml",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "btreeTool.openPreview",
+          "when": "resourceLangId == xml || resourceExtname == .xml",
+          "group": "navigation"
+        }
+      ],
+      "editor/tab/context": [
+        {
+          "command": "btreeTool.openPreview",
+          "when": "resourceExtname == .xml",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "btreeTool.openPreview",
+          "when": "resourceExtname == .xml",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.3"
+  }
+}
