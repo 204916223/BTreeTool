@@ -13,6 +13,7 @@
   ],
   "activationEvents": [
     "onCommand:btreeTool.openPreview",
+    "onCommand:btreeTool.normalizeXml",
     "onLanguage:xml"
   ],
   "main": "./dist/extension.js",
@@ -25,12 +26,21 @@
           "light": "media/preview-light.svg",
           "dark": "media/preview-dark.svg"
         }
+      },
+      {
+        "command": "btreeTool.normalizeXml",
+        "title": "BTreeTool: Normalize XML"
       }
     ],
     "menus": {
       "editor/title": [
         {
           "command": "btreeTool.openPreview",
+          "when": "resourceLangId == xml || resourceExtname == .xml",
+          "group": "navigation"
+        },
+        {
+          "command": "btreeTool.normalizeXml",
           "when": "resourceLangId == xml || resourceExtname == .xml",
           "group": "navigation"
         }
@@ -40,11 +50,21 @@
           "command": "btreeTool.openPreview",
           "when": "resourceLangId == xml || resourceExtname == .xml",
           "group": "navigation"
+        },
+        {
+          "command": "btreeTool.normalizeXml",
+          "when": "resourceLangId == xml || resourceExtname == .xml",
+          "group": "navigation"
         }
       ],
       "editor/tab/context": [
         {
           "command": "btreeTool.openPreview",
+          "when": "resourceExtname == .xml",
+          "group": "navigation"
+        },
+        {
+          "command": "btreeTool.normalizeXml",
           "when": "resourceExtname == .xml",
           "group": "navigation"
         }
@@ -54,13 +74,20 @@
           "command": "btreeTool.openPreview",
           "when": "resourceExtname == .xml",
           "group": "navigation"
+        },
+        {
+          "command": "btreeTool.normalizeXml",
+          "when": "resourceExtname == .xml",
+          "group": "navigation"
         }
       ]
     }
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "watch": "tsc -w -p ./"
+    "watch": "tsc -w -p ./",
+    "dev:link": "sh ./scripts/install-local-dev.sh",
+    "dev:refresh": "npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
