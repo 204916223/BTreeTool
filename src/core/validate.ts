@@ -1,4 +1,5 @@
 import { BtDocumentAst, BtNodeAst, BtNodeModel, BtWarning } from "./btAst";
+import { validateNodeSemantics } from "./issueRules";
 
 const BUILTIN_CONTROL_NODES = new Set([
   "Sequence",
@@ -133,6 +134,7 @@ function validateNode(
   }
 
   validateChildCount(node, nodeKind, context.warnings, scopedNode, context.treeId, context.nodePath);
+  validateNodeSemantics(node, context.warnings, scopedNode, context.treeId, context.nodePath);
 
   for (const [index, child] of node.children.entries()) {
     validateNode(child, {
@@ -255,7 +257,6 @@ function validateChildCount(
     });
   }
 }
-
 function isExplicitSyntaxNode(node: BtNodeAst): boolean {
   return node.tagName === "Action" || node.tagName === "Condition" || node.tagName === "Decorator" || node.tagName === "Control";
 }

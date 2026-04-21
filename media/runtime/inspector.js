@@ -45,7 +45,12 @@
     renderInspectorStatus("", "info");
     renderInspectorWarnings(selectedNode.warnings);
     renderAttributeRowsFromNode(selectedNode);
-    setInspectorButtonsDisabled(!hasEditableInspectorFields(selectedNode));
+    setInspectorButtonsDisabled(
+      !app.canPerformAction("applyInspectorAttributes", {
+        node: selectedNode,
+        hasEditableFields: hasEditableInspectorFields(selectedNode)
+      })
+    );
   }
 
   function renderInspectorEmpty(title, summary) {
@@ -107,6 +112,9 @@
 
   function appendAttributeRow(field) {
     const copy = runtime.i18n.getInspectorCopy();
+    const editModeEnabled = runtime.app.canPerformAction("applyInspectorAttributes", {
+      hasEditableFields: true
+    });
     const row = document.createElement("div");
     row.className = "attribute-row";
     row.dataset.role = field.role || "param";
@@ -121,16 +129,16 @@
     keyInput.type = "text";
     keyInput.placeholder = copy.attributePlaceholder;
     keyInput.value = field.key || "";
-    keyInput.readOnly = !field.editableKey;
-    keyInput.disabled = !field.editableKey;
+    keyInput.readOnly = !editModeEnabled || !field.editableKey;
+    keyInput.disabled = !editModeEnabled || !field.editableKey;
 
     const valueInput = document.createElement("input");
     valueInput.className = "attribute-input attribute-value";
     valueInput.type = "text";
     valueInput.placeholder = copy.valuePlaceholder;
     valueInput.value = field.value || "";
-    valueInput.readOnly = !field.editableValue;
-    valueInput.disabled = !field.editableValue;
+    valueInput.readOnly = !editModeEnabled || !field.editableValue;
+    valueInput.disabled = !editModeEnabled || !field.editableValue;
 
     row.appendChild(roleBadge);
     row.appendChild(keyInput);
@@ -153,6 +161,16 @@
     }
 
     if (!selectedNode || !hasEditableInspectorFields(selectedNode)) {
+      renderInspectorStatus(copy.readOnlyNode, "info");
+      return;
+    }
+
+    if (
+      !app.canPerformAction("applyInspectorAttributes", {
+        node: selectedNode,
+        hasEditableFields: hasEditableInspectorFields(selectedNode)
+      })
+    ) {
       renderInspectorStatus(copy.readOnlyNode, "info");
       return;
     }

@@ -6,6 +6,7 @@ import {
   buildNodeCatalog,
   resolveNodeCatalogEntry
 } from "./nodeCatalog";
+import { isBlockingWarning } from "./issueRules";
 import { BtUserSettings, cloneUserSettings } from "../userSettings";
 
 export interface BtPreviewAttribute {
@@ -84,6 +85,7 @@ export interface BtPreviewDocument {
   modelCount: number;
   mainTreeToExecute: string | null;
   defaultTreeId: string | null;
+  hasBlockingIssues: boolean;
   behaviorTrees: BtPreviewTree[];
   nodeModels: BtPreviewNodeModel[];
   catalog: BtPreviewCatalogGroup[];
@@ -113,6 +115,7 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
     modelCount: ast.nodeModels.length,
     mainTreeToExecute: ast.mainTreeToExecute,
     defaultTreeId: selectDefaultTreeId(ast, behaviorTrees.map((tree) => tree.id)),
+    hasBlockingIssues: ast.warnings.some(isBlockingWarning),
     behaviorTrees,
     nodeModels: ast.nodeModels.map(cloneNodeModel),
     catalog: buildPreviewCatalog(catalog, ast.nodeModels),
@@ -132,6 +135,7 @@ function toPreviewNode(
   const title = getNodeTitle(node, entry);
   const ioGroups = groupAttributes(node.attributes, entry);
   const warnings = warningIndex.get(toWarningKey(treeId, nodePath)) || [];
+  const blockingWarnings = warnings.filter(isBlockingWarning);
 
   return {
     nodePath,
@@ -148,8 +152,8 @@ function toPreviewNode(
     inspectorFields: buildInspectorFields(node.attributes, entry),
     editorFields: buildEditorFields(node.attributes, entry),
     modelKind: entry?.modelKind || "",
-    warningCount: warnings.length,
-    hasError: warnings.some((warning) => warning.severity === "error"),
+    warningCount: blockingWarnings.length,
+    hasError: blockingWarnings.length > 0,
     warnings,
     children: node.children.map((child, index) =>
       toPreviewNode(child, catalog, treeId, `${nodePath}.${index}`, warningIndex)

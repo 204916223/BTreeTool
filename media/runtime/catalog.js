@@ -26,6 +26,16 @@
     const { refs, state, app } = runtime;
     const { catalogList, catalogSearchInput } = refs;
     const copy = runtime.i18n.getCatalogCopy();
+    const canCreateNodeModel = app.canPerformAction("createNodeModel");
+    const canRevealNodeModelSource = app.canPerformAction("revealNodeModelSource");
+    const canDragPaletteNode = app.canPerformAction("dragPaletteNode", { treeId: state.selectedTreeId });
+
+    if (refs.addNodeModelButton) {
+      refs.addNodeModelButton.disabled = !canCreateNodeModel;
+    }
+    if (refs.editNodeDefinitionsButton) {
+      refs.editNodeDefinitionsButton.disabled = !canRevealNodeModelSource;
+    }
 
     if (!catalogList) {
       return;
@@ -79,7 +89,7 @@
         const row = document.createElement("div");
         row.className = item.editableModelId ? "catalog-item is-editable" : "catalog-item";
         row.title = `${item.category}: ${item.title}`;
-        row.draggable = true;
+        row.draggable = canDragPaletteNode;
 
         const label = document.createElement("span");
         label.className = "catalog-item-label";
@@ -95,15 +105,26 @@
           editButton.setAttribute("aria-label", editTitle);
           editButton.innerHTML =
             '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 15.75 8.94-8.94 3.25 3.25L7.25 19H4zm12.85-9.6 1.4-1.4a1 1 0 0 1 1.41 0l.79.79a1 1 0 0 1 0 1.41l-1.4 1.4-3.25-3.25z"/></svg>';
+          editButton.disabled = !app.canPerformAction("openNodeModelEditor", {
+            editableModelId: item.editableModelId
+          });
           editButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
+            if (!runtime.app.canPerformAction("openNodeModelEditor", { editableModelId: item.editableModelId })) {
+              return;
+            }
             runtime.overlays.showTreeNodesModelDialog({ focusModelId: item.editableModelId });
           });
           row.appendChild(editButton);
         }
 
         row.addEventListener("dragstart", (event) => {
+          if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: state.selectedTreeId, item })) {
+            event.preventDefault();
+            return;
+          }
+
           if (event.target instanceof Element && event.target.closest(".catalog-item-edit")) {
             event.preventDefault();
             return;
@@ -147,6 +168,10 @@
     }
 
     catalogPanel.addEventListener("dragover", (event) => {
+      if (!runtime.app.canPerformAction("requestNodeDelete", { dragState: state.currentDragState })) {
+        return;
+      }
+
       if (!state.currentDragState || state.currentDragState.kind !== "move") {
         return;
       }
@@ -158,6 +183,10 @@
     });
 
     catalogPanel.addEventListener("drop", (event) => {
+      if (!runtime.app.canPerformAction("requestNodeDelete", { dragState: state.currentDragState })) {
+        return;
+      }
+
       if (!state.currentDragState || state.currentDragState.kind !== "move") {
         return;
       }
@@ -184,12 +213,17 @@
       renderCatalog(state.currentCatalogGroups);
     });
     refs.addNodeModelButton?.addEventListener("click", () => {
+      if (!runtime.app.canPerformAction("createNodeModel")) {
+        return;
+      }
       runtime.overlays.showTreeNodesModelDialog({ createNew: true });
     });
     refs.editNodeDefinitionsButton?.addEventListener("click", () => {
+      if (!runtime.app.canPerformAction("revealNodeModelSource")) {
+        return;
+      }
       vscode.postMessage({ type: "revealTreeNodesModel" });
     });
-
     enableCatalogDeleteTarget();
   }
 

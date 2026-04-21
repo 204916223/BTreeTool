@@ -60,6 +60,7 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
+    "test": "npm run compile && node --test dist/test/*.test.js tests/*.test.mjs",
     "watch": "tsc -w -p ./",
     "dev:link": "sh ./scripts/install-local-dev.sh",
     "dev:refresh": "npm run compile"

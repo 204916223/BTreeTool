@@ -125,6 +125,10 @@
   }
 
   function showNodeContextMenu(x, y, state) {
+    if (!runtime.app.canPerformAction("openNodeContextMenu", state || {})) {
+      return;
+    }
+
     const overlayCopy = runtime.i18n.getOverlayCopy();
     nodeContextMenu.state = state;
     nodeContextMenu.addBeforeButton.textContent = overlayCopy.addBefore;
@@ -214,6 +218,10 @@
   }
 
   function requestDeleteConfirmation(state) {
+    if (!runtime.app.canPerformAction("requestNodeDelete", state || {})) {
+      return;
+    }
+
     if (!state?.treeId || !state.nodePath) {
       return;
     }
@@ -773,6 +781,10 @@
   }
 
   function showNodePicker(state) {
+    if (!runtime.app.canPerformAction("openNodePicker", state || {})) {
+      return;
+    }
+
     if (!state?.treeId || !state.targetParentPath || !Number.isInteger(state.targetIndex)) {
       return;
     }
@@ -864,6 +876,10 @@
   }
 
   function showTreeNodesModelDialog(options = {}) {
+    if (!runtime.app.canPerformAction("openNodeModelEditor", options)) {
+      return;
+    }
+
     if (!treeNodesModelDialog) {
       return;
     }
@@ -896,6 +912,10 @@
   }
 
   function showNodeEditorDialog(options = {}) {
+    if (!runtime.app.canPerformAction("openNodeEditor", options)) {
+      return;
+    }
+
     if (!nodeEditorDialog || !runtime.state.currentPreview) {
       return;
     }
@@ -1068,6 +1088,10 @@
 
   function saveCurrentNodeEditorState() {
     if (!nodeEditorDialog || !runtime.state.currentPreview) {
+      return;
+    }
+
+    if (!runtime.app.canPerformAction("saveNodeEditor", nodeEditorDialog.state || {})) {
       return;
     }
 
@@ -1341,6 +1365,10 @@
   }
 
   function saveCurrentTreeNodeModel() {
+    if (!runtime.app.canPerformAction("saveNodeModel", treeNodesModelDialog?.state || {})) {
+      return;
+    }
+
     if (!treeNodesModelDialog || !runtime.state.currentPreview) {
       return;
     }
@@ -1381,6 +1409,10 @@
   }
 
   function deleteCurrentTreeNodeModel() {
+    if (!runtime.app.canPerformAction("deleteNodeModel", treeNodesModelDialog?.state || {})) {
+      return;
+    }
+
     if (!treeNodesModelDialog || !runtime.state.currentPreview) {
       return;
     }
@@ -1586,7 +1618,12 @@
         button.className = "catalog-item node-picker-item";
         button.textContent = item.title;
         button.title = `${item.category}: ${item.title}`;
+        button.disabled = !runtime.app.canPerformAction("openNodePicker", nodePicker.state || {});
         button.addEventListener("click", () => {
+          if (!runtime.app.canPerformAction("openNodePicker", nodePicker.state || {})) {
+            return;
+          }
+
           const state = nodePicker.state;
           if (!state) {
             return;

@@ -504,6 +504,31 @@
     }
   }
 
+  function focusNodePath(nodePath) {
+    if (!runtime.state.currentCanvasState?.layout || !runtime.state.currentCanvasState?.shell) {
+      return;
+    }
+
+    const entry = runtime.state.currentCanvasState.layout.nodes.find((item) => item.node?.nodePath === nodePath);
+    if (!entry) {
+      return;
+    }
+
+    const { shell } = runtime.state.currentCanvasState;
+    const targetPanX = shell.clientWidth / 2 - (entry.x + entry.width / 2) * runtime.state.currentZoom;
+    const targetPanY = shell.clientHeight / 2 - (entry.y + entry.height / 2) * runtime.state.currentZoom;
+    setCanvasPan(targetPanX, targetPanY);
+  }
+
+  function refreshViewport() {
+    if (!runtime.state.currentCanvasState?.shell || !runtime.state.currentCanvasState?.layout) {
+      return;
+    }
+
+    setCanvasPan(runtime.state.currentCanvasState.panX, runtime.state.currentCanvasState.panY);
+    updateZoomLabel();
+  }
+
   function syncCanvasInteractionMode() {
     if (runtime.state.currentCanvasState?.shell) {
       runtime.state.currentCanvasState.shell.classList.toggle("is-hand-mode", runtime.state.isSpacePressed);
@@ -524,6 +549,8 @@
     updateZoomLabel,
     syncCanvasInteractionMode,
     zoomCanvas,
-    setCanvasPan
+    setCanvasPan,
+    focusNodePath,
+    refreshViewport
   };
 })();

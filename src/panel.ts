@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { BtNodeModel } from "./core/btAst";
 import { deleteNode, insertNode, moveNode, replaceNodeAttributes, replaceNodeModels } from "./core/edit";
+import { isBlockingWarning } from "./core/issueRules";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { serializeBehaviorTreeDocument } from "./core/serialize";
 import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
@@ -123,6 +124,7 @@ function getPanelCopy(language: string) {
     presetsImportFailed: (message: string) => `Failed to import recommended presets. ${message}`,
     documentSaved: "XML file saved.",
     documentSaveFailed: "Failed to save the XML file.",
+    documentSaveBlocked: "The current behavior tree has blocking issues and cannot be saved from the preview.",
     saveDocumentConfirm: "Save the current XML file now?",
     saveAction: "Save"
   };
@@ -165,6 +167,7 @@ function getPanelCopy(language: string) {
     presetsImportFailed: (message: string) => `导入推荐预设失败。${message}`,
     documentSaved: "XML 文件已保存。",
     documentSaveFailed: "保存 XML 文件失败。",
+    documentSaveBlocked: "当前行为树存在阻断性问题，无法从预览窗口保存。",
     saveDocumentConfirm: "现在保存当前 XML 文件吗？",
     saveAction: "保存"
   };
@@ -645,6 +648,11 @@ export class BehaviorTreePreviewPanel {
 
     try {
       const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
+      if (this.isSaveBlocked(document.getText())) {
+        this.postEditResult(false, copy.documentSaveBlocked);
+        return;
+      }
+
       const saved = await document.save();
 
       if (!saved) {
@@ -657,6 +665,15 @@ export class BehaviorTreePreviewPanel {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.postEditResult(false, `${copy.documentSaveFailed} ${message}`);
+    }
+  }
+
+  private isSaveBlocked(source: string): boolean {
+    try {
+      const parsed = parseBehaviorTreeDocument(source);
+      return parsed.warnings.some(isBlockingWarning);
+    } catch (_error) {
+      return true;
     }
   }
 
@@ -735,6 +752,9 @@ export class BehaviorTreePreviewPanel {
   private getHtml(webview: vscode.Webview): string {
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "main.css"));
     const i18nScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "i18n.js"));
+    const modeRulesScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "mode-rules.js")
+    );
     const catalogScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "catalog.js"));
     const inspectorScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "inspector.js"));
     const overlaysScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "overlays.js"));
@@ -763,6 +783,17 @@ export class BehaviorTreePreviewPanel {
         <div class="card-title-row tree-topbar">
           <div class="tree-topbar-main">
             <button
+              id="toggle-edit-mode"
+              class="mode-toggle-btn is-active"
+              type="button"
+              title="Edit mode"
+              aria-label="Edit mode"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l9.06-9.06.92.92L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.13 1.13 3.75 3.75 1.13-1.13z"/>
+              </svg>
+            </button>
+            <button
               id="save-document"
               class="save-indicator-btn"
               type="button"
@@ -773,12 +804,6 @@ export class BehaviorTreePreviewPanel {
             <div id="tree-switcher" class="tree-switcher"></div>
           </div>
           <div class="tree-actions">
-            <button id="toggle-catalog" class="canvas-btn icon-btn" type="button" title="Show or hide the node palette" aria-label="Show or hide the node palette">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v6H4zM13 5h7v6h-7zM4 13h7v6H4zM13 13h7v6h-7z"/></svg>
-            </button>
-            <button id="toggle-inspector" class="canvas-btn icon-btn" type="button" title="Show or hide the node inspector" aria-label="Show or hide the node inspector">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v3H5zm0 5h9v11H5zm11 0h3v11h-3z"/></svg>
-            </button>
             <button id="toggle-simplify" class="canvas-btn icon-btn" type="button" title="Show a simplified tree flow with only node names and descriptions" aria-label="Show a simplified tree flow with only node names and descriptions">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v2H5zm0 5h10v2H5zm0 5h14v2H5z"/></svg>
             </button>
@@ -789,6 +814,13 @@ export class BehaviorTreePreviewPanel {
           </div>
         </div>
         <div class="tree-workspace">
+          <button
+            id="toggle-catalog"
+            class="panel-edge-toggle panel-edge-toggle-left"
+            type="button"
+            title="Show or hide the node palette"
+            aria-label="Show or hide the node palette"
+          ></button>
           <aside id="catalog-panel" class="catalog-card" hidden>
             <div class="catalog-header">
               <span id="catalog-eyebrow" class="eyebrow">Node Palette</span>
@@ -821,7 +853,45 @@ export class BehaviorTreePreviewPanel {
           </aside>
           <div id="catalog-resizer" class="panel-resizer" hidden></div>
           <div id="tree-root" class="tree-root">
-            <p class="empty-state">Open an XML file and run the preview command.</p>
+            <aside id="tree-search-panel" class="tree-search-panel" hidden>
+              <div class="tree-search-header">
+                <strong id="tree-search-title" class="tree-search-title">Node Search</strong>
+                <button id="tree-search-close" class="canvas-btn subtle tree-search-close" type="button">Close</button>
+              </div>
+              <div class="tree-search-input-row">
+                <input
+                  id="tree-search-input"
+                  class="panel-search tree-search-input"
+                  type="text"
+                  placeholder="Search node names"
+                  spellcheck="false"
+                />
+                <button id="tree-search-advanced-toggle" class="canvas-btn subtle tree-search-advanced-toggle" type="button">
+                  Filters
+                </button>
+              </div>
+              <div id="tree-search-options" class="tree-search-options" hidden>
+                <label class="settings-checkbox">
+                  <input id="tree-search-description" type="checkbox" />
+                  <span id="tree-search-description-label">Description</span>
+                </label>
+                <label class="settings-checkbox">
+                  <input id="tree-search-attributes" type="checkbox" />
+                  <span id="tree-search-attributes-label">Attributes</span>
+                </label>
+              </div>
+              <div class="tree-search-toolbar">
+                <span id="tree-search-count" class="tree-search-count">0 / 0</span>
+                <div class="tree-search-nav">
+                  <button id="tree-search-prev" class="canvas-btn subtle" type="button">↑</button>
+                  <button id="tree-search-next" class="canvas-btn subtle" type="button">↓</button>
+                </div>
+              </div>
+              <div id="tree-search-results" class="tree-search-results"></div>
+            </aside>
+            <div id="tree-content" class="tree-content">
+              <p class="empty-state">Open an XML file and run the preview command.</p>
+            </div>
           </div>
           <div id="inspector-resizer" class="panel-resizer" hidden></div>
           <aside id="inspector-panel" class="inspector-card" hidden>
@@ -842,10 +912,18 @@ export class BehaviorTreePreviewPanel {
               <button id="apply-attributes" class="canvas-btn accent" type="button">Apply</button>
             </div>
           </aside>
+          <button
+            id="toggle-inspector"
+            class="panel-edge-toggle panel-edge-toggle-right"
+            type="button"
+            title="Show or hide the node inspector"
+            aria-label="Show or hide the node inspector"
+          ></button>
         </div>
       </section>
     </main>
     <script nonce="${nonce}" src="${i18nScriptUri}"></script>
+    <script nonce="${nonce}" src="${modeRulesScriptUri}"></script>
     <script nonce="${nonce}" src="${catalogScriptUri}"></script>
     <script nonce="${nonce}" src="${inspectorScriptUri}"></script>
     <script nonce="${nonce}" src="${overlaysScriptUri}"></script>

@@ -373,8 +373,11 @@
 
   function getChromeCopy(language = getCurrentLanguage()) {
     const base = {
-      saveXmlTitle: "Save XML",
-      saveXmlDirtyTitle: "Unsaved XML changes. Save now",
+      editModeEnabledTitle: "Edit mode is enabled",
+      monitorModeTitle: "Monitor mode placeholder. Click to return to edit mode",
+      saveXmlHealthyTitle: "Behavior tree is complete",
+      saveXmlDirtyTitle: "Behavior tree changed and is ready to save",
+      saveXmlErrorTitle: "Behavior tree has blocking issues. Fix them before saving",
       saveXmlConfirm: "Save the current XML file now?",
       toggleCatalogTitle: "Show or hide the node palette",
       toggleInspectorTitle: "Show or hide the node inspector",
@@ -385,8 +388,11 @@
     return localize(
       base,
       {
-        saveXmlTitle: "保存 XML",
-        saveXmlDirtyTitle: "XML 有未保存修改。立即保存",
+        editModeEnabledTitle: "当前为编辑模式",
+        monitorModeTitle: "监控模式占位。点击切回编辑模式",
+        saveXmlHealthyTitle: "当前行为树完整",
+        saveXmlDirtyTitle: "行为树已修改，等待保存",
+        saveXmlErrorTitle: "行为树存在阻断性问题，修复后才能保存",
         saveXmlConfirm: "现在保存当前 XML 文件吗？",
         toggleCatalogTitle: "显示或隐藏节点面板",
         toggleInspectorTitle: "显示或隐藏节点检查器",
@@ -397,9 +403,48 @@
     );
   }
 
+  function getSearchCopy(language = getCurrentLanguage()) {
+    const base = {
+      title: "Node Search",
+      placeholder: "Search node names",
+      close: "Close",
+      filters: "Filters",
+      searchDescription: "Description",
+      searchAttributes: "Attributes",
+      noQuery: "Type to search the current XML.",
+      noResults: "No nodes matched the current search.",
+      prev: "Previous",
+      next: "Next",
+      matchName: "Name",
+      matchDescription: "Description",
+      matchAttributes: "Attributes"
+    };
+
+    return localize(
+      base,
+      {
+        title: "节点搜索",
+        placeholder: "按节点名称搜索",
+        close: "关闭",
+        filters: "筛选",
+        searchDescription: "描述",
+        searchAttributes: "属性",
+        noQuery: "输入关键字后搜索当前 XML。",
+        noResults: "当前搜索没有匹配的节点。",
+        prev: "上一条",
+        next: "下一条",
+        matchName: "名称",
+        matchDescription: "描述",
+        matchAttributes: "属性"
+      },
+      language
+    );
+  }
+
   runtime.i18n = {
     getCurrentLanguage,
     getChromeCopy,
+    getSearchCopy,
     getCatalogCopy,
     getInspectorCopy,
     getOverlayCopy,

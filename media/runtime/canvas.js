@@ -52,12 +52,12 @@
   function renderTree(tree, result, viewportState = null) {
     const section = document.createElement("section");
     section.className = "tree-section";
-    section.appendChild(renderCanvasTree(tree.node, result, viewportState));
+    section.appendChild(renderCanvasTree(tree, result, viewportState));
     return section;
   }
 
-  function renderCanvasTree(rootNode, result, viewportState = null) {
-    const layout = runtime.viewport.buildTreeLayout(rootNode, result);
+  function renderCanvasTree(tree, result, viewportState = null) {
+    const layout = runtime.viewport.buildTreeLayout(tree.node, result);
     const shell = document.createElement("div");
     shell.className = "canvas-shell";
 
@@ -88,7 +88,7 @@
     const nodesLayer = document.createElement("div");
     nodesLayer.className = "canvas-nodes";
     layout.nodes.forEach((entry) => {
-      nodesLayer.appendChild(renderCanvasNode(entry, result));
+      nodesLayer.appendChild(renderCanvasNode(entry, result, tree.id));
     });
 
     stage.appendChild(svg);
@@ -99,7 +99,7 @@
     return shell;
   }
 
-  function renderCanvasNode(entry, result) {
+  function renderCanvasNode(entry, result, currentTreeId) {
     const wrapper = document.createElement("div");
     wrapper.className = "canvas-node";
     wrapper.dataset.nodePath = entry.node.nodePath;
@@ -110,7 +110,8 @@
 
     const card = buildNodeCard(entry.node, result, {
       interactive: true,
-      selected: entry.node.nodePath === runtime.state.selectedNodePath
+      selected: entry.node.nodePath === runtime.state.selectedNodePath,
+      currentTreeId
     });
     wrapper.appendChild(card);
     return wrapper;
@@ -131,10 +132,21 @@
     const acceptsAppendDrop = canAppendChildren(node);
 
     if (interactive && parentPath !== null) {
-      card.draggable = true;
+      card.draggable = runtime.app.canPerformAction("dragCanvasNode", {
+        parentPath,
+        siblingIndex
+      });
     }
     if (options.selected) {
       card.classList.add("is-selected");
+    }
+    const searchMatchKey = `${options.currentTreeId || ""}::${node.nodePath}`;
+    if (runtime.state.searchMatchedNodePaths?.has(searchMatchKey)) {
+      card.classList.add("is-search-match");
+      const activeSearchResult = runtime.state.searchResults?.[runtime.state.activeSearchResultIndex];
+      if (activeSearchResult?.treeId === options.currentTreeId && activeSearchResult?.nodePath === node.nodePath) {
+        card.classList.add("is-search-active");
+      }
     }
     if (node.warningCount > 0) {
       card.classList.add("has-warning");
@@ -164,10 +176,13 @@
       card.addEventListener("dblclick", (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (!runtime.app.canPerformAction("openNodeEditor", { node })) {
+          return;
+        }
         runtime.overlays.hideNodeContextMenu();
         runtime.state.selectedNodePath = node.nodePath;
         runtime.app.persistUiState();
-        runtime.app.renderCurrentTree(result, { preserveViewport: true });
+        runtime.inspector.renderInspector();
         runtime.overlays.showNodeEditorDialog({
           nodePath: node.nodePath
         });
@@ -175,6 +190,9 @@
 
       card.addEventListener("contextmenu", (event) => {
         event.preventDefault();
+        if (!runtime.app.canPerformAction("openNodeContextMenu", { node })) {
+          return;
+        }
         runtime.overlays.showNodeContextMenu(event.clientX, event.clientY, {
           treeId: runtime.state.selectedTreeId,
           nodePath: node.nodePath,
@@ -188,7 +206,13 @@
       });
 
       card.addEventListener("dragstart", (event) => {
-        if (parentPath === null || siblingIndex === null || runtime.state.isSpacePressed) {
+        if (
+          !runtime.app.canPerformAction("dragCanvasNode", {
+            node,
+            parentPath,
+            siblingIndex
+          })
+        ) {
           event.preventDefault();
           return;
         }
@@ -271,7 +295,7 @@
           runtime.state.selectedTreeId = node.targetTreeId;
           runtime.state.selectedNodePath = "0";
           runtime.app.persistUiState();
-          runtime.app.renderCurrentTree(result);
+          runtime.app.renderCurrentTree(result, { preserveViewport: true });
           document.querySelector(".tree-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       }
@@ -436,6 +460,9 @@
     slot.textContent = label;
 
     slot.addEventListener("dragover", (event) => {
+      if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: runtime.state.selectedTreeId })) {
+        return;
+      }
       const dropTarget = resolveDropTarget();
       if (!dropTarget) {
         return;
@@ -459,6 +486,9 @@
     });
 
     slot.addEventListener("drop", (event) => {
+      if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: runtime.state.selectedTreeId })) {
+        return;
+      }
       const dropTarget = resolveDropTarget();
       const dragState = runtime.state.currentDragState;
       if (!dropTarget || !dragState) {
