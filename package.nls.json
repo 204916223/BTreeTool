@@ -1,0 +1,5 @@
+{
+  "extension.displayName": "BTreeTool",
+  "extension.description": "BehaviorTree XML preview and editing for VS Code.",
+  "command.openPreview.title": "BTreeTool: Open Behavior Tree View"
+}

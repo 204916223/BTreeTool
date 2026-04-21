@@ -1,0 +1,5 @@
+{
+  "extension.displayName": "BTreeTool",
+  "extension.description": "用于 VS Code 的 BehaviorTree XML 预览与编辑工具。",
+  "command.openPreview.title": "BTreeTool：打开行为树视图"
+}

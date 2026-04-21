@@ -1,15 +1,26 @@
 import * as vscode from "vscode";
-import { deleteNode, insertNode, moveNode, replaceNodeAttributes } from "./core/edit";
+import { BtNodeModel } from "./core/btAst";
+import { deleteNode, insertNode, moveNode, replaceNodeAttributes, replaceNodeModels } from "./core/edit";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { serializeBehaviorTreeDocument } from "./core/serialize";
 import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
+import {
+  BtUserSettings,
+  cloneUserSettings,
+  loadUserSettings,
+  mergeRecommendedPresets,
+  saveUserSettings
+} from "./userSettings";
 
 type PreviewPayload = {
   fileName: string;
   languageId: string;
   hasDocument: boolean;
+  isDirty: boolean;
   preview: BtPreviewDocument | null;
   parseError: string | null;
+  settings: BtUserSettings;
+  settingsFilePath: string;
 };
 
 type WebviewMessage =
@@ -24,6 +35,10 @@ type WebviewMessage =
     }
   | {
       type: "revealTreeNodesModel";
+    }
+  | {
+      type: "saveTreeNodeModels";
+      payload?: BtNodeModel[];
     }
   | {
       type: "moveNode";
@@ -50,7 +65,110 @@ type WebviewMessage =
         treeId?: string;
         nodePath?: string;
       };
+    }
+  | {
+      type: "saveUserSettings";
+      payload?: BtUserSettings;
+    }
+  | {
+      type: "openUserSettingsFile";
+    }
+  | {
+      type: "importRecommendedPresets";
+    }
+  | {
+      type: "saveCurrentDocument";
     };
+
+type XmlMutation = {
+  unchangedMessage: string;
+  successMessage: string;
+  failurePrefix: string;
+  mutate: (documentText: string) => string;
+};
+
+function getPanelCopy(language: string) {
+  const isChinese = language === "zh-CN";
+  const base = {
+    noAttachedDocument: "No XML document is currently attached to the preview.",
+    incompleteNodeEdit: "The webview sent an incomplete node edit request.",
+    nodeAttributesUnchanged: "Node attributes already match the current XML.",
+    nodeAttributesApplied: "Node attributes applied.",
+    nodeAttributesFailed: "Failed to apply node attributes.",
+    noAttachedDocumentWarning: "BTreeTool: No XML document is attached to the preview.",
+    incompleteTreeNodesModel: "The webview sent an incomplete TreeNodesModel update request.",
+    treeNodesModelUnchanged: "TreeNodesModel already matches the current XML.",
+    treeNodesModelUpdated: "TreeNodesModel updated.",
+    treeNodesModelFailed: "Failed to update TreeNodesModel.",
+    incompleteNodeMove: "The webview sent an incomplete node move request.",
+    nodeOrderUnchanged: "Node order already matches the current XML.",
+    nodeOrderUpdated: "Node order updated.",
+    nodeOrderFailed: "Failed to reorder node.",
+    incompleteNodeCreate: "The webview sent an incomplete node create request.",
+    nodeCreateUnchanged: "Node already matches the target position.",
+    nodeCreated: "Node created.",
+    nodeCreateFailed: "Failed to create node.",
+    incompleteNodeDelete: "The webview sent an incomplete node delete request.",
+    nodeDeleteUnchanged: "Node was already removed.",
+    nodeDeleted: "Node deleted.",
+    nodeDeleteFailed: "Failed to delete node.",
+    xmlUpdateRejected: "VS Code rejected the XML update.",
+    loadSettingsFailed: (message: string) => `BTreeTool: Failed to load user settings. ${message}`,
+    settingsNotReady: "Settings could not be saved because the configuration file is not ready.",
+    settingsSaved: "Settings saved.",
+    settingsSaveFailed: (message: string) => `Failed to save settings. ${message}`,
+    settingsFileNotReadyWarning: "BTreeTool: The user settings file is not ready yet.",
+    settingsFileNotReady: "The user settings file is not ready yet.",
+    presetsImported: "Recommended presets imported.",
+    presetsImportFailed: (message: string) => `Failed to import recommended presets. ${message}`,
+    documentSaved: "XML file saved.",
+    documentSaveFailed: "Failed to save the XML file.",
+    saveDocumentConfirm: "Save the current XML file now?",
+    saveAction: "Save"
+  };
+
+  if (!isChinese) {
+    return base;
+  }
+
+  return {
+    noAttachedDocument: "当前预览未附加 XML 文档。",
+    incompleteNodeEdit: "Webview 发送的节点编辑请求不完整。",
+    nodeAttributesUnchanged: "节点属性与当前 XML 已一致。",
+    nodeAttributesApplied: "节点属性已应用。",
+    nodeAttributesFailed: "应用节点属性失败。",
+    noAttachedDocumentWarning: "BTreeTool：当前预览未附加 XML 文档。",
+    incompleteTreeNodesModel: "Webview 发送的 TreeNodesModel 更新请求不完整。",
+    treeNodesModelUnchanged: "TreeNodesModel 与当前 XML 已一致。",
+    treeNodesModelUpdated: "TreeNodesModel 已更新。",
+    treeNodesModelFailed: "更新 TreeNodesModel 失败。",
+    incompleteNodeMove: "Webview 发送的节点移动请求不完整。",
+    nodeOrderUnchanged: "节点顺序与当前 XML 已一致。",
+    nodeOrderUpdated: "节点顺序已更新。",
+    nodeOrderFailed: "节点重排失败。",
+    incompleteNodeCreate: "Webview 发送的节点创建请求不完整。",
+    nodeCreateUnchanged: "节点已经位于目标位置。",
+    nodeCreated: "节点已创建。",
+    nodeCreateFailed: "创建节点失败。",
+    incompleteNodeDelete: "Webview 发送的节点删除请求不完整。",
+    nodeDeleteUnchanged: "节点此前已被移除。",
+    nodeDeleted: "节点已删除。",
+    nodeDeleteFailed: "删除节点失败。",
+    xmlUpdateRejected: "VS Code 拒绝了这次 XML 更新。",
+    loadSettingsFailed: (message: string) => `BTreeTool：加载用户设置失败。${message}`,
+    settingsNotReady: "配置文件尚未就绪，暂时无法保存设置。",
+    settingsSaved: "设置已保存。",
+    settingsSaveFailed: (message: string) => `保存设置失败。${message}`,
+    settingsFileNotReadyWarning: "BTreeTool：用户设置文件尚未就绪。",
+    settingsFileNotReady: "用户设置文件尚未就绪。",
+    presetsImported: "推荐预设已导入。",
+    presetsImportFailed: (message: string) => `导入推荐预设失败。${message}`,
+    documentSaved: "XML 文件已保存。",
+    documentSaveFailed: "保存 XML 文件失败。",
+    saveDocumentConfirm: "现在保存当前 XML 文件吗？",
+    saveAction: "保存"
+  };
+}
 
 export class BehaviorTreePreviewPanel {
   private static currentPanel: BehaviorTreePreviewPanel | undefined;
@@ -58,11 +176,19 @@ export class BehaviorTreePreviewPanel {
     fileName: "No active document",
     languageId: "unknown",
     hasDocument: false,
+    isDirty: false,
     preview: null,
-    parseError: null
+    parseError: null,
+    settings: {
+      language: "en-US",
+      themePreset: "midnight",
+      simplifyHiddenSections: ["code", "inputs", "outputs", "params", "subtreeJump"],
+      presetNodes: []
+    },
+    settingsFilePath: ""
   };
 
-  static createOrShow(extensionUri: vscode.Uri): void {
+  static createOrShow(extensionUri: vscode.Uri, globalStorageUri: vscode.Uri): void {
     const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
 
     if (BehaviorTreePreviewPanel.currentPanel) {
@@ -81,7 +207,7 @@ export class BehaviorTreePreviewPanel {
       }
     );
 
-    BehaviorTreePreviewPanel.currentPanel = new BehaviorTreePreviewPanel(panel, extensionUri);
+    BehaviorTreePreviewPanel.currentPanel = new BehaviorTreePreviewPanel(panel, extensionUri, globalStorageUri);
   }
 
   static isOpen(): boolean {
@@ -92,22 +218,35 @@ export class BehaviorTreePreviewPanel {
     BehaviorTreePreviewPanel.currentPanel?.pushDocument(document);
   }
 
+  static refreshIfAttached(document: vscode.TextDocument): void {
+    BehaviorTreePreviewPanel.currentPanel?.refreshIfAttachedDocument(document);
+  }
+
   static disposeCurrent(): void {
     BehaviorTreePreviewPanel.currentPanel?.dispose();
   }
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
+  private readonly globalStorageUri: vscode.Uri;
   private readonly disposables: vscode.Disposable[] = [];
   private latestPayload: PreviewPayload = BehaviorTreePreviewPanel.emptyPayload;
   private latestDocumentUri: vscode.Uri | null = null;
+  private settingsFileUri: vscode.Uri | null = null;
+  private currentSettings: BtUserSettings = cloneUserSettings(BehaviorTreePreviewPanel.emptyPayload.settings);
   private webviewReady = false;
 
-  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+  private getCopy() {
+    return getPanelCopy(this.currentSettings.language);
+  }
+
+  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, globalStorageUri: vscode.Uri) {
     this.panel = panel;
     this.extensionUri = extensionUri;
+    this.globalStorageUri = globalStorageUri;
 
     this.panel.webview.html = this.getHtml(this.panel.webview);
+    void this.initializeSettings();
 
     this.panel.onDidDispose(() => this.cleanup(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
@@ -128,6 +267,11 @@ export class BehaviorTreePreviewPanel {
           return;
         }
 
+        if (message.type === "saveTreeNodeModels" && "payload" in message) {
+          void this.handleSaveTreeNodeModels(message.payload);
+          return;
+        }
+
         if (message.type === "moveNode" && "payload" in message) {
           void this.handleMoveNode(message.payload);
           return;
@@ -140,6 +284,26 @@ export class BehaviorTreePreviewPanel {
 
         if (message.type === "deleteNode" && "payload" in message) {
           void this.handleDeleteNode(message.payload);
+          return;
+        }
+
+        if (message.type === "saveUserSettings" && "payload" in message) {
+          void this.handleSaveUserSettings(message.payload);
+          return;
+        }
+
+        if (message.type === "openUserSettingsFile") {
+          void this.openUserSettingsFile();
+          return;
+        }
+
+        if (message.type === "importRecommendedPresets") {
+          void this.handleImportRecommendedPresets();
+          return;
+        }
+
+        if (message.type === "saveCurrentDocument") {
+          void this.handleSaveCurrentDocument();
           return;
         }
       },
@@ -159,6 +323,18 @@ export class BehaviorTreePreviewPanel {
     this.postLatestPayload();
   }
 
+  refreshIfAttachedDocument(document: vscode.TextDocument): void {
+    if (!this.latestDocumentUri || this.latestDocumentUri.toString() !== document.uri.toString()) {
+      return;
+    }
+
+    this.latestPayload = this.toPayload(document);
+
+    if (this.webviewReady) {
+      this.postLatestPayload();
+    }
+  }
+
   private postLatestPayload(): void {
     this.panel.webview.postMessage({
       type: "btreeDocument",
@@ -166,18 +342,23 @@ export class BehaviorTreePreviewPanel {
     });
   }
 
-  private postEditResult(ok: boolean, message: string): void {
+  private postEditResult(ok: boolean, message: string, dirtyState?: "dirty" | "saved"): void {
     this.panel.webview.postMessage({
       type: "editResult",
       payload: {
         ok,
-        message
+        message,
+        dirtyState
       }
     });
   }
 
   private async refreshPreviewFromUri(): Promise<void> {
     if (!this.latestDocumentUri) {
+      this.latestPayload = this.toPayload(undefined);
+      if (this.webviewReady) {
+        this.postLatestPayload();
+      }
       return;
     }
 
@@ -191,13 +372,20 @@ export class BehaviorTreePreviewPanel {
 
   private toPayload(document: vscode.TextDocument | undefined): PreviewPayload {
     if (!document) {
-      return BehaviorTreePreviewPanel.emptyPayload;
+      return {
+        ...BehaviorTreePreviewPanel.emptyPayload,
+        settings: cloneUserSettings(this.currentSettings),
+        settingsFilePath: this.settingsFileUri?.fsPath || ""
+      };
     }
 
     return {
       fileName: document.fileName,
       languageId: document.languageId,
       hasDocument: true,
+      isDirty: document.isDirty,
+      settings: cloneUserSettings(this.currentSettings),
+      settingsFilePath: this.settingsFileUri?.fsPath || "",
       ...this.buildPayloadState(document.getText())
     };
   }
@@ -206,7 +394,7 @@ export class BehaviorTreePreviewPanel {
     try {
       const ast = parseBehaviorTreeDocument(source);
       return {
-        preview: buildPreviewDocument(ast),
+        preview: buildPreviewDocument(ast, this.currentSettings),
         parseError: null
       };
     } catch (error) {
@@ -220,48 +408,32 @@ export class BehaviorTreePreviewPanel {
   private async handleUpdateNodeAttributes(
     payload: { treeId?: string; nodePath?: string; attributes?: Record<string, string> } | undefined
   ): Promise<void> {
+    const copy = this.getCopy();
     if (!this.latestDocumentUri) {
-      this.postEditResult(false, "No XML document is currently attached to the preview.");
+      this.postEditResult(false, copy.noAttachedDocument);
       return;
     }
 
     if (!payload?.treeId || !payload.nodePath || !payload.attributes) {
-      this.postEditResult(false, "The webview sent an incomplete node edit request.");
+      this.postEditResult(false, copy.incompleteNodeEdit);
       return;
     }
 
-    try {
-      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-      const parsed = parseBehaviorTreeDocument(document.getText());
-      replaceNodeAttributes(parsed, payload.treeId, payload.nodePath, payload.attributes);
-      const nextXml = serializeBehaviorTreeDocument(parsed);
-
-      if (nextXml === document.getText()) {
-        this.postEditResult(true, "Node attributes already match the current XML.");
-        return;
+    await this.applyXmlMutation({
+      unchangedMessage: copy.nodeAttributesUnchanged,
+      successMessage: copy.nodeAttributesApplied,
+      failurePrefix: copy.nodeAttributesFailed,
+      mutate: (documentText) => {
+        const parsed = parseBehaviorTreeDocument(documentText);
+        replaceNodeAttributes(parsed, payload.treeId!, payload.nodePath!, payload.attributes!);
+        return serializeBehaviorTreeDocument(parsed);
       }
-
-      const edit = new vscode.WorkspaceEdit();
-      const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
-
-      edit.replace(document.uri, fullRange, nextXml);
-      const applied = await vscode.workspace.applyEdit(edit);
-
-      if (!applied) {
-        throw new Error("VS Code rejected the XML update.");
-      }
-
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, "Node attributes applied.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, `Failed to apply node attributes. ${message}`);
-    }
+    });
   }
 
   private async revealTreeNodesModel(): Promise<void> {
     if (!this.latestDocumentUri) {
-      void vscode.window.showWarningMessage("BTreeTool: No XML document is attached to the preview.");
+      void vscode.window.showWarningMessage(this.getCopy().noAttachedDocumentWarning);
       return;
     }
 
@@ -281,11 +453,36 @@ export class BehaviorTreePreviewPanel {
     editor.revealRange(new vscode.Range(targetPosition, targetPosition), vscode.TextEditorRevealType.InCenter);
   }
 
+  private async handleSaveTreeNodeModels(payload: BtNodeModel[] | undefined): Promise<void> {
+    const copy = this.getCopy();
+    if (!this.latestDocumentUri) {
+      this.postEditResult(false, copy.noAttachedDocument);
+      return;
+    }
+
+    if (!payload || !Array.isArray(payload)) {
+      this.postEditResult(false, copy.incompleteTreeNodesModel);
+      return;
+    }
+
+    await this.applyXmlMutation({
+      unchangedMessage: copy.treeNodesModelUnchanged,
+      successMessage: copy.treeNodesModelUpdated,
+      failurePrefix: copy.treeNodesModelFailed,
+      mutate: (documentText) => {
+        const parsed = parseBehaviorTreeDocument(documentText);
+        replaceNodeModels(parsed, payload);
+        return serializeBehaviorTreeDocument(parsed);
+      }
+    });
+  }
+
   private async handleMoveNode(
     payload: { treeId?: string; sourceNodePath?: string; targetParentPath?: string; targetIndex?: number } | undefined
   ): Promise<void> {
+    const copy = this.getCopy();
     if (!this.latestDocumentUri) {
-      this.postEditResult(false, "No XML document is currently attached to the preview.");
+      this.postEditResult(false, copy.noAttachedDocument);
       return;
     }
 
@@ -298,36 +495,20 @@ export class BehaviorTreePreviewPanel {
       typeof targetIndex !== "number" ||
       !Number.isInteger(targetIndex)
     ) {
-      this.postEditResult(false, "The webview sent an incomplete node move request.");
+      this.postEditResult(false, copy.incompleteNodeMove);
       return;
     }
 
-    try {
-      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-      const parsed = parseBehaviorTreeDocument(document.getText());
-      moveNode(parsed, payload.treeId, payload.sourceNodePath, payload.targetParentPath, targetIndex);
-      const nextXml = serializeBehaviorTreeDocument(parsed);
-
-      if (nextXml === document.getText()) {
-        this.postEditResult(true, "Node order already matches the current XML.");
-        return;
+    await this.applyXmlMutation({
+      unchangedMessage: copy.nodeOrderUnchanged,
+      successMessage: copy.nodeOrderUpdated,
+      failurePrefix: copy.nodeOrderFailed,
+      mutate: (documentText) => {
+        const parsed = parseBehaviorTreeDocument(documentText);
+        moveNode(parsed, payload.treeId!, payload.sourceNodePath!, payload.targetParentPath!, targetIndex);
+        return serializeBehaviorTreeDocument(parsed);
       }
-
-      const edit = new vscode.WorkspaceEdit();
-      const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
-      edit.replace(document.uri, fullRange, nextXml);
-      const applied = await vscode.workspace.applyEdit(edit);
-
-      if (!applied) {
-        throw new Error("VS Code rejected the XML update.");
-      }
-
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, "Node order updated.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, `Failed to reorder node. ${message}`);
-    }
+    });
   }
 
   private async handleCreateNode(
@@ -341,8 +522,9 @@ export class BehaviorTreePreviewPanel {
         }
       | undefined
   ): Promise<void> {
+    const copy = this.getCopy();
     if (!this.latestDocumentUri) {
-      this.postEditResult(false, "No XML document is currently attached to the preview.");
+      this.postEditResult(false, copy.noAttachedDocument);
       return;
     }
 
@@ -356,36 +538,28 @@ export class BehaviorTreePreviewPanel {
       !payload.nodeKey ||
       !payload.nodeCategory
     ) {
-      this.postEditResult(false, "The webview sent an incomplete node create request.");
+      this.postEditResult(false, copy.incompleteNodeCreate);
       return;
     }
 
-    try {
-      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-      const parsed = parseBehaviorTreeDocument(document.getText());
-      insertNode(parsed, payload.treeId, payload.targetParentPath, targetIndex, payload.nodeKey, payload.nodeCategory);
-      const nextXml = serializeBehaviorTreeDocument(parsed);
-
-      if (nextXml === document.getText()) {
-        this.postEditResult(true, "Node already matches the target position.");
-        return;
+    await this.applyXmlMutation({
+      unchangedMessage: copy.nodeCreateUnchanged,
+      successMessage: copy.nodeCreated,
+      failurePrefix: copy.nodeCreateFailed,
+      mutate: (documentText) => {
+        const parsed = parseBehaviorTreeDocument(documentText);
+        insertNode(
+          parsed,
+          payload.treeId!,
+          payload.targetParentPath!,
+          targetIndex,
+          payload.nodeKey!,
+          payload.nodeCategory!,
+          this.currentSettings
+        );
+        return serializeBehaviorTreeDocument(parsed);
       }
-
-      const edit = new vscode.WorkspaceEdit();
-      const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
-      edit.replace(document.uri, fullRange, nextXml);
-      const applied = await vscode.workspace.applyEdit(edit);
-
-      if (!applied) {
-        throw new Error("VS Code rejected the XML update.");
-      }
-
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, "Node created.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, `Failed to create node. ${message}`);
-    }
+    });
   }
 
   private async handleDeleteNode(
@@ -396,46 +570,178 @@ export class BehaviorTreePreviewPanel {
         }
       | undefined
   ): Promise<void> {
+    const copy = this.getCopy();
     if (!this.latestDocumentUri) {
-      this.postEditResult(false, "No XML document is currently attached to the preview.");
+      this.postEditResult(false, copy.noAttachedDocument);
       return;
     }
 
     if (!payload?.treeId || !payload.nodePath) {
-      this.postEditResult(false, "The webview sent an incomplete node delete request.");
+      this.postEditResult(false, copy.incompleteNodeDelete);
+      return;
+    }
+
+    await this.applyXmlMutation({
+      unchangedMessage: copy.nodeDeleteUnchanged,
+      successMessage: copy.nodeDeleted,
+      failurePrefix: copy.nodeDeleteFailed,
+      mutate: (documentText) => {
+        const parsed = parseBehaviorTreeDocument(documentText);
+        deleteNode(parsed, payload.treeId!, payload.nodePath!);
+        return serializeBehaviorTreeDocument(parsed);
+      }
+    });
+  }
+
+  private async applyXmlMutation(mutation: XmlMutation): Promise<void> {
+    if (!this.latestDocumentUri) {
+      this.postEditResult(false, this.getCopy().noAttachedDocument);
       return;
     }
 
     try {
       const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-      const parsed = parseBehaviorTreeDocument(document.getText());
-      deleteNode(parsed, payload.treeId, payload.nodePath);
-      const nextXml = serializeBehaviorTreeDocument(parsed);
+      const currentText = document.getText();
+      const nextXml = mutation.mutate(currentText);
 
-      if (nextXml === document.getText()) {
-        this.postEditResult(true, "Node was already removed.");
+      if (nextXml === currentText) {
+        this.postEditResult(true, mutation.unchangedMessage);
         return;
       }
 
       const edit = new vscode.WorkspaceEdit();
-      const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
+      const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(currentText.length));
       edit.replace(document.uri, fullRange, nextXml);
       const applied = await vscode.workspace.applyEdit(edit);
 
       if (!applied) {
-        throw new Error("VS Code rejected the XML update.");
+        throw new Error(this.getCopy().xmlUpdateRejected);
       }
 
       await this.refreshPreviewFromUri();
-      this.postEditResult(true, "Node deleted.");
+      this.postEditResult(true, mutation.successMessage, "dirty");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, `Failed to delete node. ${message}`);
+      this.postEditResult(false, `${mutation.failurePrefix} ${message}`);
+    }
+  }
+
+  private async handleSaveCurrentDocument(): Promise<void> {
+    const copy = this.getCopy();
+    if (!this.latestDocumentUri) {
+      this.postEditResult(false, copy.noAttachedDocument);
+      return;
+    }
+
+    const choice = await vscode.window.showWarningMessage(
+      copy.saveDocumentConfirm,
+      { modal: true },
+      copy.saveAction
+    );
+
+    if (choice !== copy.saveAction) {
+      return;
+    }
+
+    try {
+      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
+      const saved = await document.save();
+
+      if (!saved) {
+        this.postEditResult(false, copy.documentSaveFailed);
+        return;
+      }
+
+      await this.refreshPreviewFromUri();
+      this.postEditResult(true, copy.documentSaved, "saved");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.postEditResult(false, `${copy.documentSaveFailed} ${message}`);
+    }
+  }
+
+  private async initializeSettings(): Promise<void> {
+    try {
+      const { settings, configUri } = await loadUserSettings(this.globalStorageUri);
+      this.currentSettings = settings;
+      this.settingsFileUri = configUri;
+      const attachedDocument = this.latestDocumentUri
+        ? await vscode.workspace.openTextDocument(this.latestDocumentUri)
+        : vscode.window.activeTextEditor?.document;
+      this.latestPayload = this.toPayload(attachedDocument);
+      if (this.webviewReady) {
+        this.postLatestPayload();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(this.getCopy().loadSettingsFailed(message));
+    }
+  }
+
+  private async handleSaveUserSettings(payload: BtUserSettings | undefined): Promise<void> {
+    const copy = this.getCopy();
+    if (!this.settingsFileUri || !payload) {
+      this.postEditResult(false, copy.settingsNotReady);
+      return;
+    }
+
+    try {
+      this.currentSettings = await saveUserSettings(this.settingsFileUri, payload);
+      await this.refreshPreviewFromUri();
+      this.postEditResult(true, this.getCopy().settingsSaved);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.postEditResult(false, this.getCopy().settingsSaveFailed(message));
+    }
+  }
+
+  private async openUserSettingsFile(): Promise<void> {
+    if (!this.settingsFileUri) {
+      await this.initializeSettings();
+    }
+
+    if (!this.settingsFileUri) {
+      void vscode.window.showWarningMessage(this.getCopy().settingsFileNotReadyWarning);
+      return;
+    }
+
+    const document = await vscode.workspace.openTextDocument(this.settingsFileUri);
+    await vscode.window.showTextDocument(document, {
+      preview: false,
+      preserveFocus: false
+    });
+  }
+
+  private async handleImportRecommendedPresets(): Promise<void> {
+    if (!this.settingsFileUri) {
+      await this.initializeSettings();
+    }
+
+    if (!this.settingsFileUri) {
+      this.postEditResult(false, this.getCopy().settingsFileNotReady);
+      return;
+    }
+
+    try {
+      this.currentSettings = await saveUserSettings(this.settingsFileUri, mergeRecommendedPresets(this.currentSettings));
+      await this.refreshPreviewFromUri();
+      this.postEditResult(true, this.getCopy().presetsImported);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.postEditResult(false, this.getCopy().presetsImportFailed(message));
     }
   }
 
   private getHtml(webview: vscode.Webview): string {
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "main.css"));
+    const i18nScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "i18n.js"));
+    const catalogScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "catalog.js"));
+    const inspectorScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "inspector.js"));
+    const overlaysScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "overlays.js"));
+    const canvasScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "canvas.js"));
+    const viewportScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "viewport-layout.js")
+    );
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "main.js"));
     const nonce = getNonce();
 
@@ -456,27 +762,37 @@ export class BehaviorTreePreviewPanel {
       <section class="card tree-card">
         <div class="card-title-row tree-topbar">
           <div class="tree-topbar-main">
+            <button
+              id="save-document"
+              class="save-indicator-btn"
+              type="button"
+              title="Save XML"
+              aria-label="Save XML"
+            ></button>
             <div id="file-label" class="file-label">No active document</div>
             <div id="tree-switcher" class="tree-switcher"></div>
           </div>
           <div class="tree-actions">
-            <button id="toggle-catalog" class="canvas-btn icon-btn" type="button" title="Show or hide the node palette" aria-label="Toggle node palette">
+            <button id="toggle-catalog" class="canvas-btn icon-btn" type="button" title="Show or hide the node palette" aria-label="Show or hide the node palette">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v6H4zM13 5h7v6h-7zM4 13h7v6H4zM13 13h7v6h-7z"/></svg>
             </button>
-            <button id="toggle-inspector" class="canvas-btn icon-btn" type="button" title="Show or hide the node inspector" aria-label="Toggle node inspector">
+            <button id="toggle-inspector" class="canvas-btn icon-btn" type="button" title="Show or hide the node inspector" aria-label="Show or hide the node inspector">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v3H5zm0 5h9v11H5zm11 0h3v11h-3z"/></svg>
             </button>
-            <button id="toggle-simplify" class="canvas-btn icon-btn" type="button" title="Show a simplified tree flow with only node names and descriptions" aria-label="Toggle simplified tree flow">
+            <button id="toggle-simplify" class="canvas-btn icon-btn" type="button" title="Show a simplified tree flow with only node names and descriptions" aria-label="Show a simplified tree flow with only node names and descriptions">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v2H5zm0 5h10v2H5zm0 5h14v2H5z"/></svg>
             </button>
             <span id="zoom-level" class="zoom-level">100%</span>
+            <button id="open-settings" class="canvas-btn icon-btn" type="button" title="Open BTreeTool settings" aria-label="Open BTreeTool settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94a7.96 7.96 0 0 0 .06-.94 7.96 7.96 0 0 0-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.28 7.28 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 1h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 7.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.62-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .49.42h3.8a.5.5 0 0 0 .49-.42l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4Z"/></svg>
+            </button>
           </div>
         </div>
         <div class="tree-workspace">
           <aside id="catalog-panel" class="catalog-card" hidden>
             <div class="catalog-header">
-              <span class="eyebrow">Node Palette</span>
-              <p class="catalog-summary">
+              <span id="catalog-eyebrow" class="eyebrow">Node Palette</span>
+              <p id="catalog-summary" class="catalog-summary">
                 Built-in nodes, model-backed actions, and SubTree entries available in this XML.
               </p>
               <input
@@ -487,6 +803,15 @@ export class BehaviorTreePreviewPanel {
                 spellcheck="false"
               />
               <div class="panel-actions">
+                <button
+                  id="add-node-model"
+                  class="canvas-btn icon-btn"
+                  type="button"
+                  title="Add TreeNodesModel node definition"
+                  aria-label="Add TreeNodesModel node definition"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+                </button>
                 <button id="edit-node-definitions" class="canvas-btn subtle" type="button">
                   Edit XML
                 </button>
@@ -501,7 +826,7 @@ export class BehaviorTreePreviewPanel {
           <div id="inspector-resizer" class="panel-resizer" hidden></div>
           <aside id="inspector-panel" class="inspector-card" hidden>
             <div class="inspector-header">
-              <span class="eyebrow">Node Inspector</span>
+              <span id="inspector-eyebrow" class="eyebrow">Node Inspector</span>
               <div class="inspector-title-row">
                 <strong id="inspector-title" class="inspector-title">No node selected</strong>
                 <span id="inspector-kind" class="badge subtle">none</span>
@@ -518,9 +843,14 @@ export class BehaviorTreePreviewPanel {
             </div>
           </aside>
         </div>
-        <div id="warning-list" class="warning-list"></div>
       </section>
     </main>
+    <script nonce="${nonce}" src="${i18nScriptUri}"></script>
+    <script nonce="${nonce}" src="${catalogScriptUri}"></script>
+    <script nonce="${nonce}" src="${inspectorScriptUri}"></script>
+    <script nonce="${nonce}" src="${overlaysScriptUri}"></script>
+    <script nonce="${nonce}" src="${canvasScriptUri}"></script>
+    <script nonce="${nonce}" src="${viewportScriptUri}"></script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;

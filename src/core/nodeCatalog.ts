@@ -1,4 +1,5 @@
 import { BtDocumentAst, BtNodeAst, BtNodeModel } from "./btAst";
+import { BtPresetNodeSettings, BtUserSettings } from "../userSettings";
 
 export type BtNodeCategory = "Action" | "Condition" | "Control" | "Decorator" | "SubTree";
 export type BtFieldRole = "input" | "output" | "inout" | "param";
@@ -29,9 +30,9 @@ export interface BtNodeCatalog {
   byCategory: Map<BtNodeCategory, BtNodeCatalogEntry[]>;
 }
 
-export function buildNodeCatalog(document: BtDocumentAst): BtNodeCatalog {
+export function buildNodeCatalog(document: BtDocumentAst, settings?: BtUserSettings): BtNodeCatalog {
   const entries = [
-    ...getBuiltinEntries(),
+    ...getBuiltinEntries(settings),
     ...document.nodeModels.map(toModelCatalogEntry),
     ...document.behaviorTrees.map((tree) => toSubTreeCatalogEntry(tree.id))
   ];
@@ -109,7 +110,7 @@ function toSubTreeCatalogEntry(treeId: string): BtNodeCatalogEntry {
   };
 }
 
-function getBuiltinEntries(): BtNodeCatalogEntry[] {
+function getBuiltinEntries(settings?: BtUserSettings): BtNodeCatalogEntry[] {
   const controls = [
     "AsyncFallback",
     "AsyncSequence",
@@ -154,7 +155,7 @@ function getBuiltinEntries(): BtNodeCatalogEntry[] {
   const actions = ["AlwaysFailure", "AlwaysSuccess", "Script", "SetBlackboard", "Sleep", "UnsetBlackboard"];
   const conditions = ["ScriptCondition"];
 
-  return [
+  const entries = [
     ...controls.map((key) => createBuiltinEntry(key, "Control", builtinFieldsFor(key))),
     ...decorators.map((key) => createBuiltinEntry(key, "Decorator", builtinFieldsFor(key))),
     ...actions.map((key) => createBuiltinEntry(key, "Action", builtinFieldsFor(key))),
@@ -164,6 +165,8 @@ function getBuiltinEntries(): BtNodeCatalogEntry[] {
       createFixedField("_autoremap", "param", false, "builtin")
     ])
   ];
+
+  return applyPresetNodeOverrides(entries, settings?.presetNodes || []);
 }
 
 function createBuiltinEntry(
@@ -190,7 +193,10 @@ function builtinFieldsFor(key: string): BtNodeFieldDefinition[] {
         createFixedField("success_count", "param", true, "builtin")
       ];
     case "Precondition":
-      return [createFixedField("if", "param", true, "builtin")];
+      return [
+        createFixedField("if", "param", true, "builtin"),
+        createFixedField("else", "param", true, "builtin")
+      ];
     case "Repeat":
       return [createFixedField("num_cycles", "param", true, "builtin")];
     case "RetryUntilFailure":
@@ -232,6 +238,38 @@ function createFixedField(
     removable: false,
     source
   };
+}
+
+function applyPresetNodeOverrides(
+  builtinEntries: BtNodeCatalogEntry[],
+  presetNodes: BtPresetNodeSettings[]
+): BtNodeCatalogEntry[] {
+  if (presetNodes.length === 0) {
+    return builtinEntries;
+  }
+
+  const byKey = new Map(builtinEntries.map((entry) => [entry.key, entry]));
+
+  for (const preset of presetNodes) {
+    byKey.set(preset.key, {
+      key: preset.key,
+      title: preset.title,
+      category: preset.category,
+      modelKind: preset.modelKind,
+      allowCustomAttributes: preset.allowCustomAttributes,
+      fields: preset.fields.map((field) => ({
+        key: field.key,
+        role: field.role,
+        required: field.required,
+        editableKey: field.editableKey,
+        editableValue: field.editableValue,
+        removable: field.removable,
+        source: "builtin" as const
+      }))
+    });
+  }
+
+  return Array.from(byKey.values());
 }
 
 function toCategory(modelKind: string): BtNodeCategory {

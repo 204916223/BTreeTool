@@ -1,4 +1,5 @@
-import { BtDocumentAst, BtNodeAst } from "./btAst";
+import { BtDocumentAst, BtNodeAst, BtNodeModel, BtPortModel } from "./btAst";
+import { BtUserSettings } from "../userSettings";
 
 export function replaceNodeAttributes(
   document: BtDocumentAst,
@@ -76,7 +77,8 @@ export function insertNode(
   targetParentPath: string,
   targetIndex: number,
   nodeKey: string,
-  nodeCategory: string
+  nodeCategory: string,
+  settings?: BtUserSettings
 ): string {
   const tree = document.behaviorTrees.find((entry) => entry.id === treeId);
 
@@ -90,7 +92,7 @@ export function insertNode(
 
   const targetParentNode = findNodeByPath(tree.node, targetParentPath);
   const normalizedTargetIndex = Math.max(0, Math.min(targetIndex, targetParentNode.children.length));
-  const nextNode = createNodeFromPalette(document, nodeKey, nodeCategory);
+  const nextNode = createNodeFromPalette(document, nodeKey, nodeCategory, settings);
 
   targetParentNode.children.splice(normalizedTargetIndex, 0, nextNode);
   return `${targetParentPath}.${normalizedTargetIndex}`;
@@ -122,6 +124,19 @@ export function deleteNode(document: BtDocumentAst, treeId: string, nodePath: st
 
   parentNode.children.splice(sourceIndex, 1);
   return parentPath;
+}
+
+export function replaceNodeModels(document: BtDocumentAst, nextNodeModels: BtNodeModel[]): void {
+  document.nodeModels = nextNodeModels.map(cloneNodeModel);
+
+  if (document.nodeModels.length > 0) {
+    if (!document.topLevelOrder.includes("treeNodesModel")) {
+      document.topLevelOrder.push("treeNodesModel");
+    }
+    return;
+  }
+
+  document.topLevelOrder = document.topLevelOrder.filter((item) => item !== "treeNodesModel");
 }
 
 function findNodeByPath(rootNode: BtNodeAst, nodePath: string): BtNodeAst {
@@ -167,7 +182,12 @@ function mergeAttributesPreservingOrder(
   return Object.fromEntries(mergedEntries);
 }
 
-function createNodeFromPalette(document: BtDocumentAst, nodeKey: string, nodeCategory: string): BtNodeAst {
+function createNodeFromPalette(
+  document: BtDocumentAst,
+  nodeKey: string,
+  nodeCategory: string,
+  settings?: BtUserSettings
+): BtNodeAst {
   if (nodeCategory === "SubTree") {
     return {
       tagName: "SubTree",
@@ -181,15 +201,16 @@ function createNodeFromPalette(document: BtDocumentAst, nodeKey: string, nodeCat
 
   return {
     tagName: nodeKey,
-    attributes: defaultAttributesFor(document, nodeKey),
+    attributes: defaultAttributesFor(document, nodeKey, settings),
     children: []
   };
 }
 
-function defaultAttributesFor(document: BtDocumentAst, nodeKey: string): Record<string, string> {
+function defaultAttributesFor(document: BtDocumentAst, nodeKey: string, settings?: BtUserSettings): Record<string, string> {
   return {
     ...defaultAttributesFromBuiltin(nodeKey),
-    ...defaultAttributesFromModel(document, nodeKey)
+    ...defaultAttributesFromModel(document, nodeKey),
+    ...defaultAttributesFromPreset(settings, nodeKey)
   };
 }
 
@@ -225,6 +246,11 @@ function defaultAttributesFromBuiltin(nodeKey: string): Record<string, string> {
       return {
         then_skip: "false"
       };
+    case "Precondition":
+      return {
+        if: "",
+        else: ""
+      };
     default:
       return {};
   }
@@ -253,4 +279,50 @@ function defaultAttributesFromModel(document: BtDocumentAst, nodeKey: string): R
   });
 
   return defaults;
+}
+
+function defaultAttributesFromPreset(settings: BtUserSettings | undefined, nodeKey: string): Record<string, string> {
+  const preset = settings?.presetNodes.find((entry) => entry.key === nodeKey);
+  if (!preset) {
+    return {};
+  }
+
+  const defaults: Record<string, string> = {};
+  preset.fields.forEach((field) => {
+    defaults[field.key] = field.defaultValue ?? "";
+  });
+  return defaults;
+}
+
+function cloneNodeModel(model: BtNodeModel): BtNodeModel {
+  const attributes: Record<string, string> = { ID: model.id };
+  for (const [key, value] of Object.entries(model.attributes)) {
+    if (!key || key === "ID") {
+      continue;
+    }
+    attributes[key] = value;
+  }
+
+  return {
+    id: model.id,
+    modelKind: model.modelKind,
+    attributes,
+    ports: model.ports.map(clonePortModel)
+  };
+}
+
+function clonePortModel(port: BtPortModel): BtPortModel {
+  const name = port.attributes.name || "";
+  const attributes: Record<string, string> = { name };
+  for (const [key, value] of Object.entries(port.attributes)) {
+    if (!key || key === "name") {
+      continue;
+    }
+    attributes[key] = value;
+  }
+
+  return {
+    tagName: port.tagName,
+    attributes
+  };
 }

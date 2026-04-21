@@ -1,4 +1,4 @@
-import { BtDocumentAst, BtNodeAst, BtWarning } from "./btAst";
+import { BtDocumentAst, BtNodeAst, BtNodeModel, BtWarning } from "./btAst";
 import {
   BtFieldRole,
   BtNodeCatalogEntry,
@@ -6,6 +6,7 @@ import {
   buildNodeCatalog,
   resolveNodeCatalogEntry
 } from "./nodeCatalog";
+import { BtUserSettings, cloneUserSettings } from "../userSettings";
 
 export interface BtPreviewAttribute {
   key: string;
@@ -26,6 +27,7 @@ export interface BtPreviewInspectorField {
 export interface BtPreviewNode {
   nodePath: string;
   title: string;
+  instanceName: string;
   kind: string;
   category: BtNodeCategory;
   targetTreeId: string;
@@ -39,6 +41,7 @@ export interface BtPreviewNode {
     params: BtPreviewAttribute[];
   };
   inspectorFields: BtPreviewInspectorField[];
+  editorFields: BtPreviewInspectorField[];
   modelKind: string;
   warningCount: number;
   hasError: boolean;
@@ -57,6 +60,7 @@ export interface BtPreviewCatalogItem {
   key: string;
   title: string;
   category: BtNodeCategory;
+  editableModelId: string | null;
 }
 
 export interface BtPreviewCatalogGroup {
@@ -64,17 +68,39 @@ export interface BtPreviewCatalogGroup {
   items: BtPreviewCatalogItem[];
 }
 
+export interface BtPreviewNodeModelPort {
+  tagName: "input_port" | "output_port" | "inout_port";
+  attributes: Record<string, string>;
+}
+
+export interface BtPreviewNodeModel {
+  id: string;
+  modelKind: string;
+  attributes: Record<string, string>;
+  ports: BtPreviewNodeModelPort[];
+}
+
 export interface BtPreviewDocument {
   modelCount: number;
   mainTreeToExecute: string | null;
   defaultTreeId: string | null;
   behaviorTrees: BtPreviewTree[];
+  nodeModels: BtPreviewNodeModel[];
   catalog: BtPreviewCatalogGroup[];
   warnings: BtPreviewWarning[];
+  settings: BtUserSettings;
 }
 
-export function buildPreviewDocument(ast: BtDocumentAst): BtPreviewDocument {
-  const catalog = buildNodeCatalog(ast);
+export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettings): BtPreviewDocument {
+  const normalizedSettings = cloneUserSettings(
+    settings || {
+      language: "en-US",
+      themePreset: "midnight",
+      simplifyHiddenSections: ["code", "inputs", "outputs", "params", "subtreeJump"],
+      presetNodes: []
+    }
+  );
+  const catalog = buildNodeCatalog(ast, normalizedSettings);
   const warningIndex = buildWarningIndex(ast.warnings);
   const behaviorTrees = ast.behaviorTrees
     .filter((tree): tree is { id: string; node: BtNodeAst } => tree.node !== null)
@@ -88,8 +114,10 @@ export function buildPreviewDocument(ast: BtDocumentAst): BtPreviewDocument {
     mainTreeToExecute: ast.mainTreeToExecute,
     defaultTreeId: selectDefaultTreeId(ast, behaviorTrees.map((tree) => tree.id)),
     behaviorTrees,
-    catalog: buildPreviewCatalog(catalog),
-    warnings: ast.warnings
+    nodeModels: ast.nodeModels.map(cloneNodeModel),
+    catalog: buildPreviewCatalog(catalog, ast.nodeModels),
+    warnings: ast.warnings,
+    settings: normalizedSettings
   };
 }
 
@@ -108,6 +136,7 @@ function toPreviewNode(
   return {
     nodePath,
     title,
+    instanceName: node.attributes.name || "",
     kind: node.tagName,
     category: entry?.category || inferFallbackCategory(node),
     targetTreeId: node.tagName === "SubTree" ? node.attributes.ID || "" : "",
@@ -117,6 +146,7 @@ function toPreviewNode(
     attributes: node.attributes,
     ioGroups,
     inspectorFields: buildInspectorFields(node.attributes, entry),
+    editorFields: buildEditorFields(node.attributes, entry),
     modelKind: entry?.modelKind || "",
     warningCount: warnings.length,
     hasError: warnings.some((warning) => warning.severity === "error"),
@@ -230,20 +260,22 @@ function buildInspectorFields(
   const fields: BtPreviewInspectorField[] = [];
   const definedKeys = new Set<string>();
   const isSubTreeReference = entry?.category === "SubTree";
-
-  fields.push({
-    key: "_description",
-    value: attributes._description ?? "",
-    role: "param",
-    editableKey: false,
-    editableValue: !isSubTreeReference,
-    removable: false,
-    required: false,
-    source: "extra"
-  });
-  definedKeys.add("_description");
+  const editorOnlyKeys = new Set([
+    "_description",
+    "_skipIf",
+    "_failureIf",
+    "_while",
+    "_successIf",
+    "_onSuccess",
+    "_onFailure",
+    "_onHalted",
+    "_post"
+  ]);
 
   for (const field of entry?.fields || []) {
+    if (editorOnlyKeys.has(field.key)) {
+      continue;
+    }
     definedKeys.add(field.key);
     fields.push({
       key: field.key,
@@ -255,6 +287,84 @@ function buildInspectorFields(
       required: field.required,
       source: field.source
     });
+  }
+
+  for (const [key, value] of Object.entries(attributes)) {
+    if (key === "name" || key === "ID" || definedKeys.has(key) || editorOnlyKeys.has(key)) {
+      continue;
+    }
+
+    fields.push({
+      key,
+      value,
+      role: "param",
+      editableKey: !isSubTreeReference,
+      editableValue: !isSubTreeReference,
+      removable: !isSubTreeReference,
+      required: false,
+      source: "extra"
+    });
+  }
+
+  return fields;
+}
+
+function buildEditorFields(
+  attributes: Record<string, string>,
+  entry: BtNodeCatalogEntry | undefined
+): BtPreviewInspectorField[] {
+  const fields: BtPreviewInspectorField[] = [];
+  const definedKeys = new Set<string>();
+  const isSubTreeReference = entry?.category === "SubTree";
+
+  const pushField = (
+    key: string,
+    role: BtFieldRole,
+    required: boolean,
+    editableKey: boolean,
+    editableValue: boolean,
+    removable: boolean,
+    source: BtPreviewInspectorField["source"]
+  ) => {
+    if (definedKeys.has(key)) {
+      return;
+    }
+
+    definedKeys.add(key);
+    fields.push({
+      key,
+      value: attributes[key] ?? "",
+      role,
+      editableKey: isSubTreeReference ? false : editableKey,
+      editableValue: isSubTreeReference ? false : editableValue,
+      removable: isSubTreeReference ? false : removable,
+      required,
+      source
+    });
+  };
+
+  pushField("_description", "param", false, false, true, false, "extra");
+  [
+    "_skipIf",
+    "_failureIf",
+    "_while",
+    "_successIf",
+    "_onSuccess",
+    "_onFailure",
+    "_onHalted",
+    "_post"
+  ].forEach((key) => pushField(key, "param", false, false, true, false, "builtin"));
+
+  for (const field of entry?.fields || []) {
+    pushField(
+      field.key,
+      field.role,
+      field.required,
+      field.editableKey,
+      field.editableValue,
+      field.removable,
+      field.source
+    );
   }
 
   for (const [key, value] of Object.entries(attributes)) {
@@ -293,8 +403,9 @@ function inferFallbackCategory(node: BtNodeAst): BtNodeCategory {
   return "Action";
 }
 
-function buildPreviewCatalog(catalog: ReturnType<typeof buildNodeCatalog>): BtPreviewCatalogGroup[] {
+function buildPreviewCatalog(catalog: ReturnType<typeof buildNodeCatalog>, nodeModels: BtNodeModel[]): BtPreviewCatalogGroup[] {
   const orderedCategories: BtNodeCategory[] = ["Action", "Condition", "Control", "Decorator", "SubTree"];
+  const editableModelIds = new Set(nodeModels.map((model) => model.id));
 
   return orderedCategories
     .map((category) => ({
@@ -303,7 +414,8 @@ function buildPreviewCatalog(catalog: ReturnType<typeof buildNodeCatalog>): BtPr
         .map((entry) => ({
           key: entry.key,
           title: entry.title,
-          category: entry.category
+          category: entry.category,
+          editableModelId: editableModelIds.has(entry.key) ? entry.key : null
         }))
         .sort((left, right) => left.title.localeCompare(right.title))
     }))
@@ -350,6 +462,18 @@ function getNodeSummary(kind: string, attributes: Record<string, string>): strin
 
 function getNodeDescription(attributes: Record<string, string>): string {
   return attributes._description || "";
+}
+
+function cloneNodeModel(model: BtNodeModel): BtPreviewNodeModel {
+  return {
+    id: model.id,
+    modelKind: model.modelKind,
+    attributes: { ...model.attributes },
+    ports: model.ports.map((port) => ({
+      tagName: port.tagName,
+      attributes: { ...port.attributes }
+    }))
+  };
 }
 
 function getNodeCode(kind: string, attributes: Record<string, string>): string {

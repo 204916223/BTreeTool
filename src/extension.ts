@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { parseBehaviorTreeDocument } from "./core/parse";
-import { serializeBehaviorTreeDocument } from "./core/serialize";
 import { BehaviorTreePreviewPanel } from "./panel";
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -113,49 +112,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const target = await openDocumentForResource(resource);
       const editor = target?.editor;
 
-      BehaviorTreePreviewPanel.createOrShow(context.extensionUri);
+      BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri);
       syncPreview(editor);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("btreeTool.normalizeXml", async (resource?: vscode.Uri) => {
-      const target = await openDocumentForResource(resource);
-      const document = target?.document;
-
-      if (!document || !isBehaviorTreeDocument(document)) {
-        void vscode.window.showWarningMessage("Open a BehaviorTree XML document before running Normalize XML.");
-        return;
-      }
-
-      try {
-        const parsed = parseBehaviorTreeDocument(document.getText());
-        const normalized = serializeBehaviorTreeDocument(parsed);
-
-        if (normalized === document.getText()) {
-          void vscode.window.showInformationMessage("BTreeTool: XML is already normalized.");
-          return;
-        }
-
-        const edit = new vscode.WorkspaceEdit();
-        const fullRange = new vscode.Range(
-          document.positionAt(0),
-          document.positionAt(document.getText().length)
-        );
-
-        edit.replace(document.uri, fullRange, normalized);
-        await vscode.workspace.applyEdit(edit);
-
-        const warningCount = parsed.warnings.length;
-        void vscode.window.showInformationMessage(
-          warningCount > 0
-            ? `BTreeTool: XML normalized. ${warningCount} warning${warningCount === 1 ? "" : "s"} remain in Problems.`
-            : "BTreeTool: XML normalized."
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        void vscode.window.showErrorMessage(`BTreeTool: Normalize failed. ${message}`);
-      }
     })
   );
 
@@ -171,20 +129,19 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument((event) => {
       updateDiagnostics(event.document);
-
-      const activeDocument = vscode.window.activeTextEditor?.document;
-
-      if (!activeDocument || activeDocument !== event.document) {
-        return;
-      }
-
-      syncPreview(vscode.window.activeTextEditor);
+      BehaviorTreePreviewPanel.refreshIfAttached(event.document);
     })
   );
 
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((document) => {
       updateDiagnostics(document);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      BehaviorTreePreviewPanel.refreshIfAttached(document);
     })
   );
 
