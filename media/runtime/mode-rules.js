@@ -23,15 +23,19 @@
   };
 
   function getMode(state = runtime.state) {
-    return state?.editModeEnabled === false ? "monitor" : "edit";
+    return state?.editModeEnabled === false ? "playback" : "edit";
   }
 
   function isEditingEnabled(state = runtime.state) {
     return getMode(state) === "edit";
   }
 
+  function isPlaybackMode(state = runtime.state) {
+    return getMode(state) === "playback";
+  }
+
   function isMonitorMode(state = runtime.state) {
-    return getMode(state) === "monitor";
+    return isPlaybackMode(state);
   }
 
   function can(action, context = {}) {
@@ -47,6 +51,7 @@
     ACTION_RULES,
     getMode,
     isEditingEnabled,
+    isPlaybackMode,
     isMonitorMode,
     can
   };

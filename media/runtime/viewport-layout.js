@@ -279,7 +279,10 @@
     }
 
     function measureNodeBox(node) {
-      const cacheKey = `${runtime.state.simplifyTreeFlow ? "simple" : "full"}::${node.nodePath}`;
+      const hiddenSections = runtime.state.forceHideNodeDetails
+        ? "all"
+        : (runtime.state.currentSettings?.simplifyHiddenSections || []).join(",");
+      const cacheKey = `${hiddenSections}::${node.nodePath}`;
       if (measuredNodes.has(cacheKey)) {
         return measuredNodes.get(cacheKey);
       }

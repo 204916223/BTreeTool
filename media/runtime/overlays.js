@@ -2,6 +2,7 @@
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
 
   let nodeContextMenu = null;
+  let canvasContextMenu = null;
   let deleteConfirmBar = null;
   let nodePicker = null;
   let settingsDialog = null;
@@ -25,6 +26,7 @@
 
   function init() {
     nodeContextMenu = createNodeContextMenu();
+    canvasContextMenu = createCanvasContextMenu();
     deleteConfirmBar = createDeleteConfirmBar();
     nodePicker = createNodePicker();
     settingsDialog = createSettingsDialog();
@@ -32,6 +34,7 @@
     nodeEditorDialog = createNodeEditorDialog();
 
     document.body.appendChild(nodeContextMenu.element);
+    document.body.appendChild(canvasContextMenu.element);
     document.body.appendChild(deleteConfirmBar.element);
     document.body.appendChild(nodePicker.element);
     document.body.appendChild(settingsDialog.element);
@@ -45,7 +48,21 @@
     element.hidden = true;
     const overlayCopy = runtime.i18n.getOverlayCopy();
 
-    const addBeforeButton = createMenuButton(overlayCopy.addBefore, () => {
+    const copyNodeButton = createMenuButton(overlayCopy.copyNode, () => {
+      const state = nodeContextMenu.state;
+      if (!state?.nodeTemplate) {
+        return;
+      }
+
+      runtime.state.copiedNodeTemplate = {
+        title: state.nodeTitle || state.nodeTemplate.tagName,
+        tagName: state.nodeTemplate.tagName,
+        attributes: { ...(state.nodeTemplate.attributes || {}) }
+      };
+      hideNodeContextMenu();
+    });
+
+    const addBeforeButton = createMenuButton(overlayCopy.addNewBefore, () => {
       const state = nodeContextMenu.state;
       if (!state || !state.parentPath || !Number.isInteger(state.siblingIndex)) {
         return;
@@ -60,7 +77,7 @@
       hideNodeContextMenu();
     });
 
-    const addAfterButton = createMenuButton(overlayCopy.addAfter, () => {
+    const addAfterButton = createMenuButton(overlayCopy.addNewAfter, () => {
       const state = nodeContextMenu.state;
       if (!state || !state.parentPath || !Number.isInteger(state.siblingIndex)) {
         return;
@@ -75,7 +92,7 @@
       hideNodeContextMenu();
     });
 
-    const addChildButton = createMenuButton(overlayCopy.addChild, () => {
+    const addChildButton = createMenuButton(overlayCopy.addNewChild, () => {
       const state = nodeContextMenu.state;
       if (!state || !state.allowAppendChild) {
         return;
@@ -90,6 +107,48 @@
       hideNodeContextMenu();
     });
 
+    const pasteBeforeButton = createMenuButton(overlayCopy.pasteCopyBefore, () => {
+      const state = nodeContextMenu.state;
+      if (!state || !state.parentPath || !Number.isInteger(state.siblingIndex)) {
+        return;
+      }
+
+      pasteCopiedNode({
+        treeId: state.treeId,
+        targetParentPath: state.parentPath,
+        targetIndex: state.siblingIndex
+      });
+      hideNodeContextMenu();
+    });
+
+    const pasteAfterButton = createMenuButton(overlayCopy.pasteCopyAfter, () => {
+      const state = nodeContextMenu.state;
+      if (!state || !state.parentPath || !Number.isInteger(state.siblingIndex)) {
+        return;
+      }
+
+      pasteCopiedNode({
+        treeId: state.treeId,
+        targetParentPath: state.parentPath,
+        targetIndex: state.siblingIndex + 1
+      });
+      hideNodeContextMenu();
+    });
+
+    const pasteChildButton = createMenuButton(overlayCopy.pasteCopyAsChild, () => {
+      const state = nodeContextMenu.state;
+      if (!state || !state.allowAppendChild) {
+        return;
+      }
+
+      pasteCopiedNode({
+        treeId: state.treeId,
+        targetParentPath: state.nodePath,
+        targetIndex: state.childCount || 0
+      });
+      hideNodeContextMenu();
+    });
+
     const deleteButton = createMenuButton(overlayCopy.deleteNode, () => {
       const state = nodeContextMenu.state;
       if (!state) {
@@ -100,19 +159,47 @@
       hideNodeContextMenu();
     }, "danger");
 
+    element.appendChild(copyNodeButton);
     element.appendChild(addBeforeButton);
     element.appendChild(addAfterButton);
     element.appendChild(addChildButton);
+    element.appendChild(pasteBeforeButton);
+    element.appendChild(pasteAfterButton);
+    element.appendChild(pasteChildButton);
     element.appendChild(deleteButton);
 
     return {
       element,
       state: null,
+      copyNodeButton,
       addBeforeButton,
       addAfterButton,
       addChildButton,
+      pasteBeforeButton,
+      pasteAfterButton,
+      pasteChildButton,
       deleteButton
     };
+  }
+
+  function pasteCopiedNode(target) {
+    const copiedNodeTemplate = runtime.state.copiedNodeTemplate;
+    if (!copiedNodeTemplate) {
+      return;
+    }
+
+    runtime.state.selectedNodePath = `${target.targetParentPath}.${target.targetIndex}`;
+    runtime.app.persistUiState();
+    runtime.vscode.postMessage({
+      type: "createNodeCopy",
+      payload: {
+        ...target,
+        nodeTemplate: {
+          tagName: copiedNodeTemplate.tagName,
+          attributes: { ...(copiedNodeTemplate.attributes || {}) }
+        }
+      }
+    });
   }
 
   function createMenuButton(label, onClick, tone = "") {
@@ -124,6 +211,32 @@
     return button;
   }
 
+  function setMenuButtonDisabled(button, disabled) {
+    button.disabled = disabled;
+    button.classList.toggle("is-disabled", disabled);
+  }
+
+  function createCanvasContextMenu() {
+    const element = document.createElement("div");
+    element.className = "node-context-menu";
+    element.hidden = true;
+
+    const toggleDetailsButton = createMenuButton("", () => {
+      runtime.state.forceHideNodeDetails = !runtime.state.forceHideNodeDetails;
+      hideCanvasContextMenu();
+      if (runtime.state.currentPreview) {
+        runtime.app.renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
+      }
+    });
+
+    element.appendChild(toggleDetailsButton);
+
+    return {
+      element,
+      toggleDetailsButton
+    };
+  }
+
   function showNodeContextMenu(x, y, state) {
     if (!runtime.app.canPerformAction("openNodeContextMenu", state || {})) {
       return;
@@ -131,19 +244,34 @@
 
     const overlayCopy = runtime.i18n.getOverlayCopy();
     nodeContextMenu.state = state;
-    nodeContextMenu.addBeforeButton.textContent = overlayCopy.addBefore;
-    nodeContextMenu.addAfterButton.textContent = overlayCopy.addAfter;
-    nodeContextMenu.addChildButton.textContent = overlayCopy.addChild;
+    const hasCopiedNode = Boolean(runtime.state.copiedNodeTemplate);
+    nodeContextMenu.copyNodeButton.textContent = overlayCopy.copyNode;
+    nodeContextMenu.addBeforeButton.textContent = overlayCopy.addNewBefore;
+    nodeContextMenu.addAfterButton.textContent = overlayCopy.addNewAfter;
+    nodeContextMenu.addChildButton.textContent = overlayCopy.addNewChild;
+    nodeContextMenu.pasteBeforeButton.textContent = overlayCopy.pasteCopyBefore;
+    nodeContextMenu.pasteAfterButton.textContent = overlayCopy.pasteCopyAfter;
+    nodeContextMenu.pasteChildButton.textContent = overlayCopy.pasteCopyAsChild;
     nodeContextMenu.deleteButton.textContent = overlayCopy.deleteNode;
     nodeContextMenu.addBeforeButton.hidden = !state?.parentPath || !Number.isInteger(state?.siblingIndex);
     nodeContextMenu.addAfterButton.hidden = !state?.parentPath || !Number.isInteger(state?.siblingIndex);
     nodeContextMenu.addChildButton.hidden = !state?.allowAppendChild;
+    nodeContextMenu.pasteBeforeButton.hidden = nodeContextMenu.addBeforeButton.hidden;
+    nodeContextMenu.pasteAfterButton.hidden = nodeContextMenu.addAfterButton.hidden;
+    nodeContextMenu.pasteChildButton.hidden = nodeContextMenu.addChildButton.hidden;
     nodeContextMenu.deleteButton.hidden = !state?.allowDelete;
+    setMenuButtonDisabled(nodeContextMenu.pasteBeforeButton, !hasCopiedNode);
+    setMenuButtonDisabled(nodeContextMenu.pasteAfterButton, !hasCopiedNode);
+    setMenuButtonDisabled(nodeContextMenu.pasteChildButton, !hasCopiedNode);
 
     const hasVisibleAction =
+      !nodeContextMenu.copyNodeButton.hidden ||
       !nodeContextMenu.addBeforeButton.hidden ||
       !nodeContextMenu.addAfterButton.hidden ||
       !nodeContextMenu.addChildButton.hidden ||
+      !nodeContextMenu.pasteBeforeButton.hidden ||
+      !nodeContextMenu.pasteAfterButton.hidden ||
+      !nodeContextMenu.pasteChildButton.hidden ||
       !nodeContextMenu.deleteButton.hidden;
 
     if (!hasVisibleAction) {
@@ -163,6 +291,28 @@
 
     nodeContextMenu.state = null;
     nodeContextMenu.element.hidden = true;
+  }
+
+  function showCanvasContextMenu(x, y) {
+    if (!canvasContextMenu) {
+      return;
+    }
+
+    const overlayCopy = runtime.i18n.getOverlayCopy();
+    canvasContextMenu.toggleDetailsButton.textContent = runtime.state.forceHideNodeDetails
+      ? overlayCopy.showConfiguredNodeDetails
+      : overlayCopy.hideAllNodeDetails;
+    canvasContextMenu.element.hidden = false;
+    canvasContextMenu.element.style.left = `${x}px`;
+    canvasContextMenu.element.style.top = `${y}px`;
+  }
+
+  function hideCanvasContextMenu() {
+    if (!canvasContextMenu) {
+      return;
+    }
+
+    canvasContextMenu.element.hidden = true;
   }
 
   function createDeleteConfirmBar() {
@@ -344,7 +494,7 @@
     themeSelect.className = "attribute-input";
     themeRow.control.appendChild(themeSelect);
 
-    const simplifyRow = createSettingsField("Simplify View");
+    const simplifyRow = createSettingsField("Node Details");
     const simplifyHint = document.createElement("div");
     simplifyHint.className = "settings-section-hint";
     const simplifyOptions = document.createElement("div");
@@ -388,9 +538,7 @@
           ...runtime.state.currentSettings,
           language: languageSelect.value,
           themePreset: themeSelect.value,
-          simplifyHiddenSections: Array.from(simplifyOptions.querySelectorAll('input[type="checkbox"]:checked')).map(
-            (input) => input.value
-          )
+          simplifyHiddenSections: getHiddenNodeDetailSections(simplifyOptions)
         }
       });
       hideSettingsDialog();
@@ -442,6 +590,14 @@
     element.appendChild(text);
     element.appendChild(control);
     return { element, control, text };
+  }
+
+  function getHiddenNodeDetailSections(container) {
+    const allSections = ["description", "code", "inputs", "outputs", "params", "subtreeJump"];
+    const visibleSections = new Set(
+      Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value)
+    );
+    return allSections.filter((sectionKey) => !visibleSections.has(sectionKey));
   }
 
   function createTreeNodesModelDialog() {
@@ -844,7 +1000,7 @@
     settingsDialog.themeSelect.replaceChildren(...runtime.i18n.getThemeOptions());
     settingsDialog.themeSelect.value = runtime.state.currentSettings?.themePreset || "midnight";
     settingsDialog.simplifyOptions.replaceChildren();
-    const selectedSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);
+    const hiddenSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);
     ["description", "code", "inputs", "outputs", "params", "subtreeJump"].forEach((sectionKey) => {
       const label = document.createElement("label");
       label.className = "settings-checkbox";
@@ -852,7 +1008,7 @@
       const input = document.createElement("input");
       input.type = "checkbox";
       input.value = sectionKey;
-      input.checked = selectedSections.has(sectionKey);
+      input.checked = !hiddenSections.has(sectionKey);
 
       const text = document.createElement("span");
       text.textContent = copy.simplifyOptions[sectionKey];
@@ -1655,6 +1811,7 @@
 
   function hideAll() {
     hideNodeContextMenu();
+    hideCanvasContextMenu();
     hideDeleteConfirm();
     hideNodePicker();
     hideSettingsDialog();
@@ -1699,6 +1856,8 @@
     hideAll,
     showNodeContextMenu,
     hideNodeContextMenu,
+    showCanvasContextMenu,
+    hideCanvasContextMenu,
     requestDeleteConfirmation,
     showNodePicker,
     hideNodePicker,

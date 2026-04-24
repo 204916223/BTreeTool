@@ -98,6 +98,39 @@ export function insertNode(
   return `${targetParentPath}.${normalizedTargetIndex}`;
 }
 
+export function insertNodeCopy(
+  document: BtDocumentAst,
+  treeId: string,
+  targetParentPath: string,
+  targetIndex: number,
+  nodeTemplate: { tagName: string; attributes: Record<string, string> }
+): string {
+  const tree = document.behaviorTrees.find((entry) => entry.id === treeId);
+
+  if (!tree) {
+    throw new Error(`BehaviorTree "${treeId}" was not found in this document.`);
+  }
+
+  if (!tree.node) {
+    throw new Error(`BehaviorTree "${treeId}" does not contain a root node.`);
+  }
+
+  if (!nodeTemplate.tagName) {
+    throw new Error("The copied node is missing a node type.");
+  }
+
+  const targetParentNode = findNodeByPath(tree.node, targetParentPath);
+  const normalizedTargetIndex = Math.max(0, Math.min(targetIndex, targetParentNode.children.length));
+  const nextNode: BtNodeAst = {
+    tagName: nodeTemplate.tagName,
+    attributes: { ...nodeTemplate.attributes },
+    children: []
+  };
+
+  targetParentNode.children.splice(normalizedTargetIndex, 0, nextNode);
+  return `${targetParentPath}.${normalizedTargetIndex}`;
+}
+
 export function deleteNode(document: BtDocumentAst, treeId: string, nodePath: string): string {
   const tree = document.behaviorTrees.find((entry) => entry.id === treeId);
 

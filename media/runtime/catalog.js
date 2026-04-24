@@ -26,6 +26,15 @@
     const { refs, state, app } = runtime;
     const { catalogList, catalogSearchInput } = refs;
     const copy = runtime.i18n.getCatalogCopy();
+
+    if (runtime.modeRules.isPlaybackMode()) {
+      runtime.playback?.renderPlaybackBlackboard();
+      return;
+    }
+
+    refs.catalogSearchInput.hidden = false;
+    refs.addNodeModelButton.hidden = false;
+    refs.editNodeDefinitionsButton.hidden = false;
     const canCreateNodeModel = app.canPerformAction("createNodeModel");
     const canRevealNodeModelSource = app.canPerformAction("revealNodeModelSource");
     const canDragPaletteNode = app.canPerformAction("dragPaletteNode", { treeId: state.selectedTreeId });

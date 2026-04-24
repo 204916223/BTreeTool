@@ -21,12 +21,12 @@
       close: "Close",
       language: "Language",
       theme: "Theme",
-      simplifyView: "Simplify View",
+      simplifyView: "Node Details",
       configFile: "Config File",
       importPresets: "Import Presets",
       openConfig: "Open Config",
       settingsFileAutoHint: "The settings file will be created automatically.",
-      simplifyHint: "Choose which sections are hidden when Simplify is enabled.",
+      simplifyHint: "Choose which sections are visible on node cards.",
       simplifyOptions: {
         description: "Description",
         code: "Code",
@@ -49,12 +49,12 @@
         close: "关闭",
         language: "语言",
         theme: "主题",
-        simplifyView: "简化视图",
+        simplifyView: "节点详情",
         configFile: "配置文件",
         importPresets: "导入预设",
         openConfig: "打开配置",
         settingsFileAutoHint: "设置文件会在首次保存时自动创建。",
-        simplifyHint: "选择简化模式开启后要隐藏的内容块。",
+        simplifyHint: "选择节点卡片中要显示的内容块。",
         simplifyOptions: {
           description: "描述",
           code: "代码",
@@ -267,9 +267,13 @@
 
   function getOverlayCopy(language = getCurrentLanguage()) {
     const base = {
-      addBefore: "Add Before",
-      addAfter: "Add After",
-      addChild: "Add Child",
+      copyNode: "Copy Node",
+      addNewBefore: "Add New Before",
+      addNewAfter: "Add New After",
+      addNewChild: "Add New Child",
+      pasteCopyBefore: "Paste Copy Before",
+      pasteCopyAfter: "Paste Copy After",
+      pasteCopyAsChild: "Paste Copy As Child",
       deleteNode: "Delete Node",
       addNodeBeforeTitle: (nodeTitle) => `Add node before "${nodeTitle || "node"}"`,
       addNodeAfterTitle: (nodeTitle) => `Add node after "${nodeTitle || "node"}"`,
@@ -277,6 +281,8 @@
       cancel: "Cancel",
       delete: "Delete",
       deleteConfirm: (title) => `Delete "${title || "this node"}"? This only removes the current node instance.`,
+      hideAllNodeDetails: "Hide All Node Details",
+      showConfiguredNodeDetails: "Show Configured Node Details",
       nodePickerTitle: "Add node",
       close: "Close",
       nodePickerSearchPlaceholder: "Search nodes",
@@ -286,9 +292,13 @@
     return localize(
       base,
       {
-        addBefore: "前面插入",
-        addAfter: "后面插入",
-        addChild: "添加子节点",
+        copyNode: "复制节点",
+        addNewBefore: "前面新增节点",
+        addNewAfter: "后面新增节点",
+        addNewChild: "新增子节点",
+        pasteCopyBefore: "前面粘贴复制",
+        pasteCopyAfter: "后面粘贴复制",
+        pasteCopyAsChild: "作为子节点粘贴复制",
         deleteNode: "删除节点",
         addNodeBeforeTitle: (nodeTitle) => `在“${nodeTitle || "节点"}”前插入节点`,
         addNodeAfterTitle: (nodeTitle) => `在“${nodeTitle || "节点"}”后插入节点`,
@@ -296,6 +306,8 @@
         cancel: "取消",
         delete: "删除",
         deleteConfirm: (title) => `删除“${title || "当前节点"}”？这只会移除当前节点实例。`,
+        hideAllNodeDetails: "隐藏所有节点详情",
+        showConfiguredNodeDetails: "恢复配置的节点详情",
         nodePickerTitle: "添加节点",
         close: "关闭",
         nodePickerSearchPlaceholder: "搜索节点",
@@ -373,31 +385,65 @@
 
   function getChromeCopy(language = getCurrentLanguage()) {
     const base = {
-      editModeEnabledTitle: "Edit mode is enabled",
-      monitorModeTitle: "Monitor mode placeholder. Click to return to edit mode",
+      editModeTitle: "Edit mode",
+      playbackModeTitle: "Playback mode",
       saveXmlHealthyTitle: "Behavior tree is complete",
       saveXmlDirtyTitle: "Behavior tree changed and is ready to save",
       saveXmlErrorTitle: "Behavior tree has blocking issues. Fix them before saving",
       saveXmlConfirm: "Save the current XML file now?",
       toggleCatalogTitle: "Show or hide the node palette",
       toggleInspectorTitle: "Show or hide the node inspector",
-      toggleSimplifyTitle: "Show a simplified tree flow with only node names and descriptions",
       openSettingsTitle: "Open BTreeTool settings"
     };
 
     return localize(
       base,
       {
-        editModeEnabledTitle: "当前为编辑模式",
-        monitorModeTitle: "监控模式占位。点击切回编辑模式",
+        editModeTitle: "编辑模式",
+        playbackModeTitle: "回放模式",
         saveXmlHealthyTitle: "当前行为树完整",
         saveXmlDirtyTitle: "行为树已修改，等待保存",
         saveXmlErrorTitle: "行为树存在阻断性问题，修复后才能保存",
         saveXmlConfirm: "现在保存当前 XML 文件吗？",
         toggleCatalogTitle: "显示或隐藏节点面板",
         toggleInspectorTitle: "显示或隐藏节点检查器",
-        toggleSimplifyTitle: "切换简化树视图，只显示节点名称和描述",
         openSettingsTitle: "打开 BTreeTool 设置"
+      },
+      language
+    );
+  }
+
+  function getPlaybackCopy(language = getCurrentLanguage()) {
+    const base = {
+      blackboardTitle: "Blackboard",
+      nodeStatesTitle: "Node States",
+      importLog: "Import Log",
+      importHint: "Switch to playback mode and import a btlog/json/jsonl file.",
+      importFailed: "Failed to import playback log.",
+      noLog: "No playback log has been imported yet.",
+      noLogLoaded: "No log loaded",
+      notSeen: "not seen",
+      noBlackboardData: "This frame has no blackboard data.",
+      noNodeStates: "No node states are available at this frame.",
+      unknownNode: "Unknown node",
+      summary: (fileName, frameCount, duration) => `${fileName} · ${frameCount} frames · ${duration}`
+    };
+
+    return localize(
+      base,
+      {
+        blackboardTitle: "黑板值",
+        nodeStatesTitle: "节点状态",
+        importLog: "导入日志",
+        importHint: "切换到回放模式后导入 btlog/json/jsonl 文件。",
+        importFailed: "导入回放日志失败。",
+        noLog: "尚未导入回放日志。",
+        noLogLoaded: "未加载日志",
+        notSeen: "未出现",
+        noBlackboardData: "当前帧没有黑板数据。",
+        noNodeStates: "当前帧没有节点状态。",
+        unknownNode: "未知节点",
+        summary: (fileName, frameCount, duration) => `${fileName} · ${frameCount} 帧 · ${duration}`
       },
       language
     );
@@ -444,6 +490,7 @@
   runtime.i18n = {
     getCurrentLanguage,
     getChromeCopy,
+    getPlaybackCopy,
     getSearchCopy,
     getCatalogCopy,
     getInspectorCopy,

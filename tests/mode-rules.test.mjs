@@ -24,14 +24,15 @@ test("mode rules default to edit mode", () => {
   assert.equal(modeRules.can("openNodeEditor", { state: {} }), true);
 });
 
-test("mode rules block editing actions in monitor mode", () => {
+test("mode rules block editing actions in playback mode", () => {
   const modeRules = loadModeRules();
   const state = {
     editModeEnabled: false,
     isSpacePressed: false
   };
 
-  assert.equal(modeRules.getMode(state), "monitor");
+  assert.equal(modeRules.getMode(state), "playback");
+  assert.equal(modeRules.isPlaybackMode(state), true);
   assert.equal(modeRules.can("openNodeEditor", { state }), false);
   assert.equal(modeRules.can("saveNodeModel", { state }), false);
   assert.equal(modeRules.can("dragCanvasNode", { state, parentPath: "0", siblingIndex: 1 }), false);

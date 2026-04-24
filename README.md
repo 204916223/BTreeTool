@@ -2,13 +2,13 @@
 
 `BTreeTool` 是一个面向 `BehaviorTree.CPP / Groot2` XML 工作流的 VS Code 可视化编辑插件。
 
-它的目标不是复刻 Groot2，而是在 VS Code 内提供一套可用的 XML 预览、校验、规范化和可视化编辑闭环。
+它的目标不是复刻 Groot2，而是在 VS Code 内提供一套可用的 XML 预览、校验和可视化编辑闭环。
 
 当前版本已经不再是“插件骨架”，而是一个可以直接用于日常 XML 编辑和结构调整的原型工具。
 
 ## 当前能力
 
-### XML 解析与规范化
+### XML 解析与保存
 
 - 解析 `BehaviorTree.CPP` 风格 XML
 - 支持多棵 `<BehaviorTree ID="...">`
@@ -16,7 +16,7 @@
 - 支持 `TreeNodesModel`
 - 支持顶层 `<include ... />`
 - 保留 `BTCPP_format="4"`、XML 声明、常见模型附加属性
-- 提供 `BTreeTool: Normalize XML`，将文档统一回写为插件规范格式
+- 支持从预览直接保存 XML
 
 ### 容错与诊断
 
@@ -98,10 +98,9 @@
 
 ## 命令入口
 
-当前提供 2 个命令：
+当前提供 1 个命令：
 
 - `BTreeTool: Open Preview`
-- `BTreeTool: Normalize XML`
 
 入口位置：
 
@@ -110,8 +109,6 @@
 - 标签页右键菜单
 - 资源管理器右键菜单
 - 命令面板
-- 状态栏 `Visualize BT`
-
 ## 当前交互说明
 
 ### 顶部子树列表
@@ -217,6 +214,33 @@ BTreeTool/
 3. 执行 `Developer: Reload Window`
 
 如果扩展目录不是默认的 `~/.vscode/extensions/`，可以先设置：
+
+## 打包与分发
+
+当前插件是纯 TypeScript / JavaScript 实现，没有平台相关二进制依赖。
+
+这意味着：
+
+- 生成的 `.vsix` 可以同时给 macOS 和 Windows 用户安装
+- 不需要分别打两份包
+
+### 本地打包
+
+1. 执行 `npm install`
+2. 执行 `npm run package:vsix`
+
+执行完成后，仓库根目录会生成：
+
+- `btree-tool-v0.0.1.vsix`
+
+### 其他用户安装
+
+让其他用户拿到 `.vsix` 后，在 VS Code 中任选一种方式安装：
+
+1. 命令面板执行 `Extensions: Install from VSIX...`
+2. 选择生成的 `btree-tool-v0.0.1.vsix`
+
+安装完成后重新加载 VS Code 即可。
 
 ```bash
 VSCODE_EXTENSIONS_DIR="/your/extensions/path" npm run dev:link

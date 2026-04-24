@@ -98,7 +98,7 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
     settings || {
       language: "en-US",
       themePreset: "midnight",
-      simplifyHiddenSections: ["code", "inputs", "outputs", "params", "subtreeJump"],
+      simplifyHiddenSections: [],
       presetNodes: []
     }
   );

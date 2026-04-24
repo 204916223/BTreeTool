@@ -70,30 +70,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
-  const syncPreview = (editor: vscode.TextEditor | undefined): void => {
-    updatePreviewButton(editor);
-
-    if (!BehaviorTreePreviewPanel.isOpen()) {
-      return;
-    }
-
-    if (!editor?.document) {
-      return;
-    }
-
-    BehaviorTreePreviewPanel.updateForDocument(editor.document);
-  };
-
   const openDocumentForResource = async (
     resource: vscode.Uri | undefined
-  ): Promise<{ document: vscode.TextDocument; editor: vscode.TextEditor | undefined } | undefined> => {
+  ): Promise<vscode.TextDocument | undefined> => {
     if (resource) {
       const document = await vscode.workspace.openTextDocument(resource);
-      const editor = await vscode.window.showTextDocument(document, {
+      await vscode.window.showTextDocument(document, {
         preview: false,
         preserveFocus: false
       });
-      return { document, editor };
+      return document;
     }
 
     const editor = vscode.window.activeTextEditor;
@@ -101,19 +87,18 @@ export function activate(context: vscode.ExtensionContext): void {
       return undefined;
     }
 
-    return {
-      document: editor.document,
-      editor
-    };
+    return editor.document;
   };
 
   context.subscriptions.push(
     vscode.commands.registerCommand("btreeTool.openPreview", async (resource?: vscode.Uri) => {
-      const target = await openDocumentForResource(resource);
-      const editor = target?.editor;
+      const document = await openDocumentForResource(resource);
 
-      BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri);
-      syncPreview(editor);
+      if (!document || !isBehaviorTreeDocument(document)) {
+        return;
+      }
+
+      BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, document);
     })
   );
 
@@ -122,7 +107,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
-      syncPreview(editor);
+      updatePreviewButton(editor);
     })
   );
 
@@ -156,5 +141,5 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  BehaviorTreePreviewPanel.disposeCurrent();
+  BehaviorTreePreviewPanel.disposeAll();
 }

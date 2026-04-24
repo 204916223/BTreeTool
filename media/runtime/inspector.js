@@ -18,6 +18,15 @@
     const { state, app, refs } = runtime;
     const copy = runtime.i18n.getInspectorCopy();
 
+    if (runtime.modeRules.isPlaybackMode()) {
+      runtime.playback?.renderPlaybackInspector();
+      return;
+    }
+
+    if (refs.inspectorActions) {
+      refs.inspectorActions.hidden = false;
+    }
+
     if (!state.currentPreview) {
       renderInspectorEmpty(copy.emptyTitle, copy.emptySummary);
       return;
@@ -55,6 +64,9 @@
 
   function renderInspectorEmpty(title, summary) {
     const { refs } = runtime;
+    if (refs.inspectorActions) {
+      refs.inspectorActions.hidden = false;
+    }
     refs.inspectorTitle.textContent = title;
     refs.inspectorKind.textContent = "none";
     refs.inspectorSummary.textContent = summary;
@@ -115,8 +127,9 @@
     const editModeEnabled = runtime.app.canPerformAction("applyInspectorAttributes", {
       hasEditableFields: true
     });
+    const isMultilineValue = field.key === "code";
     const row = document.createElement("div");
-    row.className = "attribute-row";
+    row.className = isMultilineValue ? "attribute-row attribute-row-multiline" : "attribute-row";
     row.dataset.role = field.role || "param";
     row.dataset.required = field.required ? "true" : "false";
 
@@ -132,9 +145,17 @@
     keyInput.readOnly = !editModeEnabled || !field.editableKey;
     keyInput.disabled = !editModeEnabled || !field.editableKey;
 
-    const valueInput = document.createElement("input");
-    valueInput.className = "attribute-input attribute-value";
-    valueInput.type = "text";
+    const valueInput = isMultilineValue ? document.createElement("textarea") : document.createElement("input");
+    valueInput.className = isMultilineValue
+      ? "attribute-input attribute-value attribute-value-multiline"
+      : "attribute-input attribute-value";
+    if (valueInput instanceof HTMLInputElement) {
+      valueInput.type = "text";
+    } else {
+      valueInput.rows = 6;
+      valueInput.spellcheck = false;
+      valueInput.wrap = "soft";
+    }
     valueInput.placeholder = copy.valuePlaceholder;
     valueInput.value = field.value || "";
     valueInput.readOnly = !editModeEnabled || !field.editableValue;

@@ -9,7 +9,6 @@
     selectedNodePath: persistedState.selectedNodePath || "0",
     showCatalog: persistedState.showCatalog || false,
     showInspector: persistedState.showInspector || false,
-    simplifyTreeFlow: persistedState.simplifyTreeFlow || false,
     editModeEnabled: persistedState.editModeEnabled !== false,
     collapsedCatalogGroups: persistedState.collapsedCatalogGroups || {},
     collapsedNodePickerGroups: persistedState.collapsedNodePickerGroups || {},
@@ -47,9 +46,15 @@
     currentSettings: {
       language: "en-US",
       themePreset: "midnight",
-      simplifyHiddenSections: ["code", "inputs", "outputs", "params", "subtreeJump"],
+      simplifyHiddenSections: [],
       presetNodes: []
     },
+    copiedNodeTemplate: null,
+    forceHideNodeDetails: false,
+    playbackLog: null,
+    playbackFrameIndex: 0,
+    playbackError: "",
+    prePlaybackPanels: null,
     settingsFilePath: "",
     currentZoom: 1,
     suppressNodeClickUntil: 0,
@@ -61,12 +66,19 @@
 
   runtime.refs = {
     treeSwitcher: document.getElementById("tree-switcher"),
-    toggleEditModeButton: document.getElementById("toggle-edit-mode"),
+    editModeButton: document.getElementById("mode-edit"),
+    playbackModeButton: document.getElementById("mode-playback"),
     saveDocumentButton: document.getElementById("save-document"),
     fileLabel: document.getElementById("file-label"),
     treeWorkspace: document.querySelector(".tree-workspace"),
     treeRoot: document.getElementById("tree-root"),
     treeContent: document.getElementById("tree-content"),
+    playbackTimeline: document.getElementById("playback-timeline"),
+    playbackImportButton: document.getElementById("playback-import"),
+    playbackPrevFrameButton: document.getElementById("playback-prev-frame"),
+    playbackNextFrameButton: document.getElementById("playback-next-frame"),
+    playbackRange: document.getElementById("playback-range"),
+    playbackTime: document.getElementById("playback-time"),
     treeSearchPanel: document.getElementById("tree-search-panel"),
     treeSearchTitle: document.getElementById("tree-search-title"),
     treeSearchInput: document.getElementById("tree-search-input"),
@@ -91,9 +103,7 @@
     catalogResizer: document.getElementById("catalog-resizer"),
     toggleCatalogButton: document.getElementById("toggle-catalog"),
     toggleInspectorButton: document.getElementById("toggle-inspector"),
-    toggleSimplifyButton: document.getElementById("toggle-simplify"),
     openSettingsButton: document.getElementById("open-settings"),
-    zoomLevelLabel: document.getElementById("zoom-level"),
     inspectorPanel: document.getElementById("inspector-panel"),
     inspectorEyebrow: document.getElementById("inspector-eyebrow"),
     inspectorTitle: document.getElementById("inspector-title"),
@@ -102,6 +112,7 @@
     inspectorStatus: document.getElementById("inspector-status"),
     inspectorWarnings: document.getElementById("inspector-warnings"),
     attributeList: document.getElementById("attribute-list"),
+    inspectorActions: document.querySelector(".inspector-actions"),
     applyAttributesButton: document.getElementById("apply-attributes"),
     inspectorResizer: document.getElementById("inspector-resizer")
   };
@@ -152,6 +163,10 @@
       );
       runtime.overlays.handleEditResult?.(message.payload);
     }
+
+    if (message?.type === "playbackLogResult") {
+      runtime.playback?.handlePlaybackLogResult(message.payload);
+    }
   });
 
   window.addEventListener("keydown", (event) => {
@@ -200,11 +215,13 @@
 
   window.addEventListener("click", () => {
     runtime.overlays.hideNodeContextMenu();
+    runtime.overlays.hideCanvasContextMenu?.();
   });
 
   runtime.catalog.init();
   runtime.inspector.init();
   runtime.overlays.init();
+  runtime.playback?.init();
   runtime.viewport.init();
   enablePanelResize(runtime.refs.catalogResizer, "catalog");
   enablePanelResize(runtime.refs.inspectorResizer, "inspector");
@@ -221,17 +238,11 @@
     applyWorkspacePanels();
   });
 
-  runtime.refs.toggleSimplifyButton?.addEventListener("click", () => {
-    runtime.state.simplifyTreeFlow = !runtime.state.simplifyTreeFlow;
-    persistUiState();
-    if (runtime.state.currentPreview) {
-      renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
-    }
+  runtime.refs.editModeButton?.addEventListener("click", () => {
+    setPreviewMode("edit");
   });
-  runtime.refs.toggleEditModeButton?.addEventListener("click", () => {
-    runtime.state.editModeEnabled = !runtime.state.editModeEnabled;
-    persistUiState();
-    updateEditModeButton();
+  runtime.refs.playbackModeButton?.addEventListener("click", () => {
+    setPreviewMode("playback");
   });
   runtime.refs.openSettingsButton?.addEventListener("click", () => {
     runtime.overlays.showSettingsDialog();
@@ -399,6 +410,7 @@
     const chromeCopy = runtime.i18n.getChromeCopy();
     const catalogCopy = runtime.i18n.getCatalogCopy();
     const inspectorCopy = runtime.i18n.getInspectorCopy();
+    const playbackCopy = runtime.i18n.getPlaybackCopy();
     const themePreset = runtime.state.currentSettings?.themePreset || "midnight";
     document.documentElement.dataset.btreeTheme = themePreset;
     document.documentElement.lang = runtime.state.currentSettings?.language || "en-US";
@@ -406,8 +418,6 @@
     runtime.refs.toggleCatalogButton.setAttribute("aria-label", chromeCopy.toggleCatalogTitle);
     runtime.refs.toggleInspectorButton.title = chromeCopy.toggleInspectorTitle;
     runtime.refs.toggleInspectorButton.setAttribute("aria-label", chromeCopy.toggleInspectorTitle);
-    runtime.refs.toggleSimplifyButton.title = chromeCopy.toggleSimplifyTitle;
-    runtime.refs.toggleSimplifyButton.setAttribute("aria-label", chromeCopy.toggleSimplifyTitle);
     runtime.refs.openSettingsButton.title = chromeCopy.openSettingsTitle;
     runtime.refs.openSettingsButton.setAttribute("aria-label", chromeCopy.openSettingsTitle);
     updateEditModeButton();
@@ -420,6 +430,7 @@
     runtime.refs.addNodeModelButton.title = catalogCopy.addModelTitle;
     runtime.refs.addNodeModelButton.setAttribute("aria-label", catalogCopy.addModelTitle);
     runtime.refs.editNodeDefinitionsButton.textContent = catalogCopy.editXml;
+    runtime.refs.playbackImportButton.textContent = playbackCopy.importLog;
     runtime.refs.inspectorEyebrow.textContent = inspectorCopy.eyebrow;
     runtime.refs.applyAttributesButton.textContent = inspectorCopy.apply;
     const searchCopy = runtime.i18n.getSearchCopy();
@@ -456,23 +467,56 @@
   }
 
   function updateEditModeButton() {
-    const button = runtime.refs.toggleEditModeButton;
-    if (!button) {
+    const editButton = runtime.refs.editModeButton;
+    const playbackButton = runtime.refs.playbackModeButton;
+    if (!editButton || !playbackButton) {
       return;
     }
 
     const chromeCopy = runtime.i18n.getChromeCopy();
-    const title = runtime.modeRules.isEditingEnabled() ? chromeCopy.editModeEnabledTitle : chromeCopy.monitorModeTitle;
-    button.classList.toggle("is-active", runtime.modeRules.isEditingEnabled());
-    document.body.classList.toggle("is-monitor-mode", runtime.modeRules.isMonitorMode());
-    button.title = title;
-    button.setAttribute("aria-label", title);
+    const isEditingEnabled = runtime.modeRules.isEditingEnabled();
+    const isPlaybackMode = runtime.modeRules.isPlaybackMode();
+    editButton.classList.toggle("is-active", isEditingEnabled);
+    playbackButton.classList.toggle("is-active", isPlaybackMode);
+    document.body.classList.toggle("is-monitor-mode", isPlaybackMode);
+    document.body.classList.toggle("is-playback-mode", isPlaybackMode);
+    editButton.title = chromeCopy.editModeTitle;
+    editButton.setAttribute("aria-label", chromeCopy.editModeTitle);
+    playbackButton.title = chromeCopy.playbackModeTitle;
+    playbackButton.setAttribute("aria-label", chromeCopy.playbackModeTitle);
 
     runtime.catalog.renderCatalog(runtime.state.currentCatalogGroups);
     runtime.inspector.renderInspector();
     runtime.overlays.hideAll?.();
     runtime.overlays.hideNodeContextMenu?.();
+    runtime.overlays.hideCanvasContextMenu?.();
     runtime.canvas.clearDragState?.();
+    runtime.playback?.syncPlaybackUi();
+  }
+
+  function setPreviewMode(mode) {
+    const nextEditModeEnabled = mode !== "playback";
+    if (runtime.state.editModeEnabled === nextEditModeEnabled) {
+      return;
+    }
+
+    if (mode === "playback") {
+      runtime.state.prePlaybackPanels = {
+        showCatalog: runtime.state.showCatalog,
+        showInspector: runtime.state.showInspector
+      };
+      runtime.state.showCatalog = true;
+      runtime.state.showInspector = true;
+    } else if (runtime.state.prePlaybackPanels) {
+      runtime.state.showCatalog = runtime.state.prePlaybackPanels.showCatalog;
+      runtime.state.showInspector = runtime.state.prePlaybackPanels.showInspector;
+      runtime.state.prePlaybackPanels = null;
+    }
+
+    runtime.state.editModeEnabled = nextEditModeEnabled;
+    persistUiState();
+    applyWorkspacePanels();
+    updateEditModeButton();
   }
 
   function isEditModeEnabled() {
@@ -540,6 +584,7 @@
     runtime.refs.treeContent.replaceChildren(runtime.canvas.renderTree(selectedTree, result, viewportState));
     runtime.canvas.clearDragState();
     runtime.inspector.renderInspector();
+    runtime.playback?.syncPlaybackUi();
   }
 
   function renderTreeSwitcher(result, options = {}) {
@@ -559,7 +604,7 @@
         runtime.state.selectedTreeId = tree.id;
         runtime.state.selectedNodePath = "0";
         persistUiState();
-        renderCurrentTree(result, { preserveViewport: true, ensureActiveTreeVisible: true });
+        renderCurrentTree(result, { ensureActiveTreeVisible: true });
       });
       fragment.appendChild(button);
     });
@@ -602,7 +647,6 @@
       selectedNodePath: runtime.state.selectedNodePath,
       showCatalog: runtime.state.showCatalog,
       showInspector: runtime.state.showInspector,
-      simplifyTreeFlow: runtime.state.simplifyTreeFlow,
       editModeEnabled: runtime.state.editModeEnabled,
       collapsedCatalogGroups: runtime.state.collapsedCatalogGroups,
       collapsedNodePickerGroups: runtime.state.collapsedNodePickerGroups,
@@ -915,7 +959,6 @@
 
     runtime.refs.toggleCatalogButton.classList.toggle("is-active", runtime.state.showCatalog);
     runtime.refs.toggleInspectorButton.classList.toggle("is-active", runtime.state.showInspector);
-    runtime.refs.toggleSimplifyButton.classList.toggle("is-active", runtime.state.simplifyTreeFlow);
 
     if (runtime.state.currentCanvasState) {
       requestAnimationFrame(() => {

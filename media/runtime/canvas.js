@@ -40,9 +40,11 @@
     return "action";
   }
 
-  function shouldHideInSimplifiedView(section) {
-    if (!runtime.state.simplifyTreeFlow) {
-      return false;
+  const NODE_DETAIL_SECTIONS = ["description", "code", "inputs", "outputs", "params", "subtreeJump"];
+
+  function shouldHideNodeSection(section) {
+    if (runtime.state.forceHideNodeDetails && NODE_DETAIL_SECTIONS.includes(section)) {
+      return true;
     }
 
     const hiddenSections = runtime.state.currentSettings?.simplifyHiddenSections || [];
@@ -60,6 +62,14 @@
     const layout = runtime.viewport.buildTreeLayout(tree.node, result);
     const shell = document.createElement("div");
     shell.className = "canvas-shell";
+    shell.addEventListener("contextmenu", (event) => {
+      if (event.target instanceof Element && event.target.closest(".flow-card")) {
+        return;
+      }
+
+      event.preventDefault();
+      runtime.overlays.showCanvasContextMenu(event.clientX, event.clientY);
+    });
 
     const stage = document.createElement("div");
     stage.className = "canvas-stage";
@@ -123,6 +133,9 @@
     const role = getNodeRole(node.kind, node.children.length);
     const card = document.createElement("div");
     card.className = `flow-card flow-card-${role}`;
+    if (runtime.state.forceHideNodeDetails) {
+      card.classList.add("is-details-hidden");
+    }
     if (measuring) {
       card.classList.add("is-measuring");
     }
@@ -140,6 +153,12 @@
     if (options.selected) {
       card.classList.add("is-selected");
     }
+    const playbackStatus = runtime.playback?.getNodeStatus(node) || "";
+    const playbackStatusClass = runtime.playback?.getStatusClass(playbackStatus) || "";
+    if (playbackStatusClass) {
+      card.classList.add(playbackStatusClass);
+      card.dataset.playbackStatus = playbackStatus;
+    }
     const searchMatchKey = `${options.currentTreeId || ""}::${node.nodePath}`;
     if (runtime.state.searchMatchedNodePaths?.has(searchMatchKey)) {
       card.classList.add("is-search-match");
@@ -154,7 +173,7 @@
     if (node.hasError) {
       card.classList.add("has-error");
     }
-    if (!runtime.state.simplifyTreeFlow && acceptsAppendDrop) {
+    if (acceptsAppendDrop) {
       card.classList.add("has-append-slot");
     }
     if (node.warnings.length > 0) {
@@ -199,6 +218,10 @@
           parentPath,
           siblingIndex,
           nodeTitle: node.title,
+          nodeTemplate: {
+            tagName: node.kind,
+            attributes: { ...node.attributes }
+          },
           allowAppendChild: canAppendChildren(node),
           childCount: node.children.length,
           allowDelete: node.nodePath !== "0"
@@ -261,26 +284,26 @@
     }
 
     card.appendChild(heading);
-    if (!shouldHideInSimplifiedView("description")) {
+    if (!shouldHideNodeSection("description")) {
       renderDescriptionSection(card, node.description);
     }
 
-    if (!shouldHideInSimplifiedView("code") && node.code) {
+    if (!shouldHideNodeSection("code") && node.code) {
       renderTextSection(card, "Code", node.code, "code");
     }
 
-    if (!shouldHideInSimplifiedView("inputs")) {
+    if (!shouldHideNodeSection("inputs")) {
       renderIoSection(card, "Inputs", node.ioGroups.inputs, "input");
     }
-    if (!shouldHideInSimplifiedView("outputs")) {
+    if (!shouldHideNodeSection("outputs")) {
       renderIoSection(card, "Outputs", node.ioGroups.outputs, "output");
     }
-    if (!shouldHideInSimplifiedView("params")) {
+    if (!shouldHideNodeSection("params")) {
       renderIoSection(card, "Params", node.ioGroups.params, "param");
     }
 
     if (
-      !shouldHideInSimplifiedView("subtreeJump") &&
+      !shouldHideNodeSection("subtreeJump") &&
       node.kind === "SubTree" &&
       node.targetTreeId &&
       runtime.app.getTreeMap(result).has(node.targetTreeId)
@@ -295,7 +318,7 @@
           runtime.state.selectedTreeId = node.targetTreeId;
           runtime.state.selectedNodePath = "0";
           runtime.app.persistUiState();
-          runtime.app.renderCurrentTree(result, { preserveViewport: true });
+          runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true });
           document.querySelector(".tree-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       }
@@ -315,7 +338,7 @@
       slotOverlay.appendChild(beforeSlot);
       slotOverlay.appendChild(afterSlot);
 
-      if (!runtime.state.simplifyTreeFlow && acceptsAppendDrop) {
+      if (acceptsAppendDrop) {
         slotOverlay.classList.add("has-append");
         const appendSlot = createDropSlot("Append child here", "drop-slot-append", () =>
           getAppendDropTarget(node)

@@ -45,7 +45,7 @@ const SETTINGS_FILE_NAME = "user-settings.json";
 export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   language: "en-US",
   themePreset: "midnight",
-  simplifyHiddenSections: ["code", "inputs", "outputs", "params", "subtreeJump"],
+  simplifyHiddenSections: [],
   presetNodes: []
 };
 
