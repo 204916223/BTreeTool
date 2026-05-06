@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as zlib from "zlib";
 import { BtNodeModel } from "./core/btAst";
 import { deleteNode, insertNode, insertNodeCopy, moveNode, replaceNodeAttributes, replaceNodeModels } from "./core/edit";
 import { isBlockingWarning } from "./core/issueRules";
@@ -213,6 +214,8 @@ export class BehaviorTreePreviewPanel {
     settings: {
       language: "en-US",
       themePreset: "midnight",
+      showMainTreeLocator: true,
+      showBehaviorTreeRoot: true,
       simplifyHiddenSections: [],
       presetNodes: []
     },
@@ -790,7 +793,7 @@ export class BehaviorTreePreviewPanel {
         canSelectFolders: false,
         canSelectMany: false,
         filters: {
-          "BehaviorTree Logs": ["btlog", "json", "jsonl", "log", "txt"],
+          "BehaviorTree Logs": ["btlog", "json", "jsonl", "gz", "log", "txt"],
           "All Files": ["*"]
         }
       });
@@ -801,7 +804,10 @@ export class BehaviorTreePreviewPanel {
       }
 
       const bytes = await vscode.workspace.fs.readFile(file);
-      const source = Buffer.from(bytes).toString("utf8");
+      const buffer = Buffer.from(bytes);
+      const source = file.fsPath.endsWith(".gz")
+        ? zlib.gunzipSync(buffer).toString("utf8")
+        : buffer.toString("utf8");
       this.postPlaybackLogResult(true, parsePlaybackLogText(source, BehaviorTreePreviewPanel.toBaseName(file.fsPath)));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -882,15 +888,51 @@ export class BehaviorTreePreviewPanel {
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "main.css"));
+    const styleUris = [
+      "tokens.css",
+      "chrome.css",
+      "tree-surface.css",
+      "workspace.css",
+      "catalog.css",
+      "inspector.css",
+      "canvas.css",
+      "menus.css",
+      "settings.css",
+      "editors.css",
+      "responsive.css"
+    ].map((fileName) => webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "styles", fileName)));
     const i18nScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "i18n.js"));
     const modeRulesScriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "mode-rules.js")
     );
     const catalogScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "catalog.js"));
     const inspectorScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "inspector.js"));
+    const overlayPartScriptUris = [
+      "shared.js",
+      "context-menus.js",
+      "delete-confirm.js",
+      "node-picker.js",
+      "settings-dialog.js",
+      "tree-model-dialog.js",
+      "node-editor-dialog.js"
+    ].map((fileName) =>
+      webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "overlays", fileName))
+    );
     const overlaysScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "overlays.js"));
     const playbackScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "playback.js"));
+    const treeNavigationScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "tree-navigation.js")
+    );
+    const treeSwitcherScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "tree-switcher.js")
+    );
+    const mainTreeLocatorScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "main-tree-locator.js")
+    );
+    const searchScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "search.js"));
+    const workspacePanelsScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "workspace-panels.js")
+    );
     const canvasScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "canvas.js"));
     const viewportScriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "viewport-layout.js")
@@ -908,7 +950,7 @@ export class BehaviorTreePreviewPanel {
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BTreeTool Preview</title>
-    <link rel="stylesheet" href="${styleUri}" />
+${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n")}
   </head>
   <body>
     <main class="app-shell">
@@ -1032,6 +1074,7 @@ export class BehaviorTreePreviewPanel {
             <div id="tree-content" class="tree-content">
               <p class="empty-state">Open an XML file and run the preview command.</p>
             </div>
+            <aside id="main-tree-locator" class="main-tree-locator" hidden></aside>
             <div id="playback-timeline" class="playback-timeline" hidden>
               <div class="playback-timeline-main">
                 <button id="playback-import" class="canvas-btn subtle" type="button">Import Log</button>
@@ -1075,8 +1118,14 @@ export class BehaviorTreePreviewPanel {
     <script nonce="${nonce}" src="${modeRulesScriptUri}"></script>
     <script nonce="${nonce}" src="${catalogScriptUri}"></script>
     <script nonce="${nonce}" src="${inspectorScriptUri}"></script>
+${overlayPartScriptUris.map((uri) => `    <script nonce="${nonce}" src="${uri}"></script>`).join("\n")}
     <script nonce="${nonce}" src="${overlaysScriptUri}"></script>
     <script nonce="${nonce}" src="${playbackScriptUri}"></script>
+    <script nonce="${nonce}" src="${treeNavigationScriptUri}"></script>
+    <script nonce="${nonce}" src="${treeSwitcherScriptUri}"></script>
+    <script nonce="${nonce}" src="${mainTreeLocatorScriptUri}"></script>
+    <script nonce="${nonce}" src="${searchScriptUri}"></script>
+    <script nonce="${nonce}" src="${workspacePanelsScriptUri}"></script>
     <script nonce="${nonce}" src="${canvasScriptUri}"></script>
     <script nonce="${nonce}" src="${viewportScriptUri}"></script>
     <script nonce="${nonce}" src="${scriptUri}"></script>

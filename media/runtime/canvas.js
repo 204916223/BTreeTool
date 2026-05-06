@@ -29,6 +29,10 @@
       return "subtree";
     }
 
+    if (kind === "__BehaviorTreeRoot") {
+      return "root";
+    }
+
     if (controlKinds.has(kind) || childCount > 1) {
       return "control";
     }
@@ -59,7 +63,8 @@
   }
 
   function renderCanvasTree(tree, result, viewportState = null) {
-    const layout = runtime.viewport.buildTreeLayout(tree.node, result);
+    const canvasRootNode = getCanvasRootNode(tree);
+    const layout = runtime.viewport.buildTreeLayout(canvasRootNode, result);
     const shell = document.createElement("div");
     shell.className = "canvas-shell";
     shell.addEventListener("contextmenu", (event) => {
@@ -130,9 +135,14 @@
   function buildNodeCard(node, result, options = {}) {
     const interactive = options.interactive !== false;
     const measuring = Boolean(options.measuring);
-    const role = getNodeRole(node.kind, node.children.length);
+    const isVirtualRoot = node.isVirtualRoot === true;
+    const children = node.children || [];
+    const role = getNodeRole(node.kind, children.length);
     const card = document.createElement("div");
     card.className = `flow-card flow-card-${role}`;
+    if (isVirtualRoot) {
+      card.classList.add("is-virtual-root");
+    }
     if (runtime.state.forceHideNodeDetails) {
       card.classList.add("is-details-hidden");
     }
@@ -142,9 +152,9 @@
 
     const parentPath = getParentNodePath(node.nodePath);
     const siblingIndex = getNodeIndex(node.nodePath);
-    const acceptsAppendDrop = canAppendChildren(node);
+    const acceptsAppendDrop = isVirtualRoot ? false : canAppendChildren(node);
 
-    if (interactive && parentPath !== null) {
+    if (interactive && !isVirtualRoot && parentPath !== null) {
       card.draggable = runtime.app.canPerformAction("dragCanvasNode", {
         parentPath,
         siblingIndex
@@ -180,7 +190,16 @@
       card.title = node.warnings.map((warning) => warning.message).join("\n");
     }
 
-    if (interactive) {
+    if (interactive && isVirtualRoot) {
+      card.addEventListener("click", () => {
+        if (Date.now() < runtime.state.suppressNodeClickUntil) {
+          return;
+        }
+
+        runtime.overlays.hideNodeContextMenu();
+        runtime.app.navigateToParentTree(result, options.currentTreeId);
+      });
+    } else if (interactive) {
       card.addEventListener("click", () => {
         if (Date.now() < runtime.state.suppressNodeClickUntil) {
           return;
@@ -284,45 +303,50 @@
     }
 
     card.appendChild(heading);
-    if (!shouldHideNodeSection("description")) {
-      renderDescriptionSection(card, node.description);
-    }
-
-    if (!shouldHideNodeSection("code") && node.code) {
-      renderTextSection(card, "Code", node.code, "code");
-    }
-
-    if (!shouldHideNodeSection("inputs")) {
-      renderIoSection(card, "Inputs", node.ioGroups.inputs, "input");
-    }
-    if (!shouldHideNodeSection("outputs")) {
-      renderIoSection(card, "Outputs", node.ioGroups.outputs, "output");
-    }
-    if (!shouldHideNodeSection("params")) {
-      renderIoSection(card, "Params", node.ioGroups.params, "param");
-    }
-
-    if (
-      !shouldHideNodeSection("subtreeJump") &&
-      node.kind === "SubTree" &&
-      node.targetTreeId &&
-      runtime.app.getTreeMap(result).has(node.targetTreeId)
-    ) {
-      const jumpButton = document.createElement("button");
-      jumpButton.type = "button";
-      jumpButton.className = "subtree-jump";
-      jumpButton.textContent = `Open ${node.targetTreeId}`;
-      if (interactive) {
-        jumpButton.addEventListener("click", (event) => {
-          event.stopPropagation();
-          runtime.state.selectedTreeId = node.targetTreeId;
-          runtime.state.selectedNodePath = "0";
-          runtime.app.persistUiState();
-          runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true });
-          document.querySelector(".tree-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
+    let hasRenderedDetails = false;
+    if (!isVirtualRoot) {
+      if (!shouldHideNodeSection("description")) {
+        hasRenderedDetails = renderDescriptionSection(card, node.description) || hasRenderedDetails;
       }
-      card.appendChild(jumpButton);
+
+      if (!shouldHideNodeSection("code") && node.code) {
+        hasRenderedDetails = renderTextSection(card, "Code", node.code, "code") || hasRenderedDetails;
+      }
+
+      if (!shouldHideNodeSection("inputs")) {
+        hasRenderedDetails = renderIoSection(card, "Inputs", node.ioGroups.inputs, "input") || hasRenderedDetails;
+      }
+      if (!shouldHideNodeSection("outputs")) {
+        hasRenderedDetails = renderIoSection(card, "Outputs", node.ioGroups.outputs, "output") || hasRenderedDetails;
+      }
+      if (!shouldHideNodeSection("params")) {
+        hasRenderedDetails = renderIoSection(card, "Params", node.ioGroups.params, "param") || hasRenderedDetails;
+      }
+
+      if (
+        !shouldHideNodeSection("subtreeJump") &&
+        node.kind === "SubTree" &&
+        node.targetTreeId &&
+        runtime.app.getTreeMap(result).has(node.targetTreeId)
+      ) {
+        const jumpButton = document.createElement("button");
+        jumpButton.type = "button";
+        jumpButton.className = "subtree-jump";
+        jumpButton.textContent = `Open ${node.targetTreeId}`;
+        if (interactive) {
+          jumpButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            runtime.app.navigateToSubTree(result, options.currentTreeId, node.nodePath, node.targetTreeId);
+            document.querySelector(".tree-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        }
+        card.appendChild(jumpButton);
+        hasRenderedDetails = true;
+      }
+    }
+
+    if (!hasRenderedDetails) {
+      card.classList.add("is-details-hidden");
     }
 
     if (interactive) {
@@ -569,6 +593,9 @@
   }
 
   function getNodeBadge(node) {
+    if (node.isVirtualRoot === true) {
+      return "ROOT";
+    }
     if (node.title === node.kind) {
       return getNodeRole(node.kind, node.children.length).toUpperCase();
     }
@@ -578,9 +605,41 @@
     return node.kind;
   }
 
+  function getCanvasRootNode(tree) {
+    if (runtime.state.currentSettings?.showBehaviorTreeRoot === false || !tree?.node) {
+      return tree.node;
+    }
+
+    return {
+      nodePath: "__btree_root__",
+      title: "root",
+      instanceName: "",
+      kind: "__BehaviorTreeRoot",
+      category: "Control",
+      targetTreeId: "",
+      description: "",
+      code: "",
+      summary: tree.id,
+      attributes: {},
+      ioGroups: {
+        inputs: [],
+        outputs: [],
+        params: []
+      },
+      inspectorFields: [],
+      editorFields: [],
+      modelKind: "",
+      warningCount: 0,
+      hasError: false,
+      warnings: [],
+      children: [tree.node],
+      isVirtualRoot: true
+    };
+  }
+
   function renderIoSection(card, title, entries, tone) {
     if (!entries || entries.length === 0) {
-      return;
+      return false;
     }
 
     const section = document.createElement("div");
@@ -613,15 +672,16 @@
 
     section.appendChild(list);
     card.appendChild(section);
+    return true;
   }
 
   function renderDescriptionSection(card, text) {
-    renderTextSection(card, "Description", text, "description", true);
+    return renderTextSection(card, "Description", text, "description", true);
   }
 
   function renderTextSection(card, title, text, tone, alwaysVisible = false) {
     if (!alwaysVisible && !text) {
-      return;
+      return false;
     }
 
     const section = document.createElement("div");
@@ -640,6 +700,7 @@
     body.textContent = text || " ";
     section.appendChild(body);
     card.appendChild(section);
+    return true;
   }
 
   runtime.canvas = {
@@ -648,6 +709,7 @@
     renderCanvasTree,
     renderCanvasNode,
     buildNodeCard,
+    getCanvasRootNode,
     getParentNodePath,
     getNodeIndex,
     clearDragState,

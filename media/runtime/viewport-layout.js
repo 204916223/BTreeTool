@@ -495,6 +495,16 @@
   function getFittedPan(shell, layout, zoom) {
     const contentWidth = layout.width * zoom;
     const contentHeight = layout.height * zoom;
+    const rootNode = layout.nodes?.[0];
+
+    if (rootNode?.node?.isVirtualRoot === true) {
+      const topMargin = Math.min(42, Math.max(24, shell.clientHeight * 0.08));
+      return {
+        panX: shell.clientWidth / 2 - rootNode.centerX * zoom,
+        panY: topMargin - rootNode.y * zoom
+      };
+    }
+
     return {
       panX: (shell.clientWidth - contentWidth) / 2,
       panY: (shell.clientHeight - contentHeight) / 2

@@ -16,16 +16,34 @@ export interface PlaybackLogPayload {
   durationMs: number;
   frames: PlaybackFrame[];
   warnings: string[];
+  treeName?: string;
+  treeXml?: string;
+  xmlHash?: string;
 }
 
-const BASE_FIELDS = new Set(["timestamp", "node_uid", "nodeUid", "node_name", "nodeName", "status"]);
+const BASE_FIELDS = new Set([
+  "timestamp",
+  "t",
+  "duration",
+  "node_uid",
+  "nodeUid",
+  "uid",
+  "node_name",
+  "nodeName",
+  "name",
+  "status",
+  "type"
+]);
 
 export function parsePlaybackLogText(source: string, fileName = "btlog"): PlaybackLogPayload {
   const rawRecords = extractJsonRecords(source);
   const warnings: string[] = [];
-  const frames = rawRecords
+  const eventPayload = rawRecords.some((record) => isObject(record) && typeof record.type === "string")
+    ? normalizeEventRecords(rawRecords, warnings)
+    : null;
+  const frames = (eventPayload?.frames || rawRecords
     .map((record, index) => normalizeFrame(record, index, warnings))
-    .filter((frame): frame is PlaybackFrame => frame !== null)
+    .filter((frame): frame is PlaybackFrame => frame !== null))
     .sort((left, right) => left.timestampMs - right.timestampMs);
 
   if (frames.length === 0) {
@@ -42,7 +60,10 @@ export function parsePlaybackLogText(source: string, fileName = "btlog"): Playba
     frameCount: frames.length,
     durationMs: frames[frames.length - 1].offsetMs,
     frames,
-    warnings
+    warnings,
+    treeName: eventPayload?.treeName,
+    treeXml: eventPayload?.treeXml,
+    xmlHash: eventPayload?.xmlHash
   };
 }
 
@@ -78,6 +99,12 @@ function extractJsonRecords(source: string): unknown[] {
       continue;
     }
 
+    const pipeRecord = parsePipeRecord(trimmed);
+    if (pipeRecord) {
+      records.push(pipeRecord);
+      continue;
+    }
+
     const objectText = extractObjectText(trimmed);
     if (objectText) {
       const parsedObject = tryParseJson(objectText);
@@ -88,6 +115,68 @@ function extractJsonRecords(source: string): unknown[] {
   }
 
   return records;
+}
+
+function normalizeEventRecords(
+  records: unknown[],
+  warnings: string[]
+): Pick<PlaybackLogPayload, "frames" | "treeName" | "treeXml" | "xmlHash"> {
+  const frames: PlaybackFrame[] = [];
+  let currentBlackboard: Record<string, unknown> = {};
+  let treeName: string | undefined;
+  let treeXml: string | undefined;
+  let xmlHash: string | undefined;
+
+  records.forEach((record, index) => {
+    if (!isObject(record)) {
+      warnings.push(`Skipped record ${index + 1}: expected a JSON object.`);
+      return;
+    }
+
+    const type = typeof record.type === "string" ? record.type : "";
+    if (type === "tree_snapshot") {
+      treeName = stringifyValue(record.tree_name ?? record.treeName) || treeName;
+      treeXml = typeof record.xml === "string" ? record.xml : treeXml;
+      xmlHash = stringifyValue(record.xml_hash ?? record.xmlHash) || xmlHash;
+      return;
+    }
+
+    if (type === "blackboard_snapshot") {
+      currentBlackboard = cloneRecord(record.values);
+      return;
+    }
+
+    if (type === "blackboard_patch") {
+      currentBlackboard = applyJsonPatch(currentBlackboard, Array.isArray(record.patch) ? record.patch : []);
+      return;
+    }
+
+    if (type !== "node_status") {
+      return;
+    }
+
+    const frame = normalizeFrame(
+      {
+        timestamp: record.timestamp ?? record.t,
+        node_uid: record.node_uid ?? record.uid,
+        node_name: record.node_name ?? record.name,
+        status: record.status,
+        blackboard_data: currentBlackboard
+      },
+      index,
+      warnings
+    );
+    if (frame) {
+      frames.push(frame);
+    }
+  });
+
+  return {
+    frames,
+    treeName,
+    treeXml,
+    xmlHash
+  };
 }
 
 function normalizeFrame(record: unknown, index: number, warnings: string[]): PlaybackFrame | null {
@@ -124,6 +213,29 @@ function normalizeFrame(record: unknown, index: number, warnings: string[]): Pla
     nodeName,
     status,
     blackboardData: normalizeBlackboardData(source)
+  };
+}
+
+function parsePipeRecord(line: string): Record<string, unknown> | null {
+  const parts = line.split("|");
+  if (parts.length < 5) {
+    return null;
+  }
+
+  const [timestamp, nodeUid, nodeName, duration, status] = parts;
+  if (!timestamp || !nodeUid || !nodeName || !status || !Number.isFinite(Number(timestamp))) {
+    return null;
+  }
+
+  const blackboardText = parts.slice(5).join("|");
+  const blackboard = blackboardText.trim() ? tryParseJson(blackboardText) : {};
+  return {
+    timestamp,
+    node_uid: nodeUid,
+    node_name: nodeName,
+    duration,
+    status,
+    blackboard_data: isObject(blackboard) ? blackboard : {}
   };
 }
 
@@ -194,6 +306,83 @@ function normalizeStatus(value: string): string {
     .replace(/\u001b\[[0-9;]*m/g, "")
     .trim()
     .toUpperCase();
+}
+
+function applyJsonPatch(source: Record<string, unknown>, patch: unknown[]): Record<string, unknown> {
+  const next = cloneRecord(source);
+  for (const operation of patch) {
+    if (!isObject(operation) || typeof operation.path !== "string") {
+      continue;
+    }
+
+    const op = typeof operation.op === "string" ? operation.op : "";
+    if (op !== "add" && op !== "replace" && op !== "remove") {
+      continue;
+    }
+
+    applyJsonPatchOperation(next, op, operation.path, operation.value);
+  }
+  return next;
+}
+
+function applyJsonPatchOperation(target: unknown, op: string, path: string, value: unknown): void {
+  const tokens = decodeJsonPointer(path);
+  if (tokens.length === 0) {
+    return;
+  }
+
+  let parent = target as Record<string, unknown> | unknown[];
+  for (const token of tokens.slice(0, -1)) {
+    if (Array.isArray(parent)) {
+      parent = parent[Number(token)] as Record<string, unknown> | unknown[];
+    } else {
+      parent = parent[token] as Record<string, unknown> | unknown[];
+    }
+    if (parent === null || typeof parent !== "object") {
+      return;
+    }
+  }
+
+  const key = tokens[tokens.length - 1];
+  if (Array.isArray(parent)) {
+    const index = key === "-" ? parent.length : Number(key);
+    if (!Number.isInteger(index)) {
+      return;
+    }
+    if (op === "remove") {
+      parent.splice(index, 1);
+    } else if (op === "add") {
+      parent.splice(index, 0, cloneValue(value));
+    } else {
+      parent[index] = cloneValue(value);
+    }
+    return;
+  }
+
+  if (op === "remove") {
+    delete parent[key];
+  } else {
+    parent[key] = cloneValue(value);
+  }
+}
+
+function decodeJsonPointer(path: string): string[] {
+  if (!path || path === "/") {
+    return path === "/" ? [""] : [];
+  }
+  return path
+    .replace(/^\//, "")
+    .split("/")
+    .map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"));
+}
+
+function cloneRecord(value: unknown): Record<string, unknown> {
+  const cloned = cloneValue(value);
+  return isObject(cloned) ? cloned : {};
+}
+
+function cloneValue<T>(value: T): T {
+  return value === undefined ? value : JSON.parse(JSON.stringify(value));
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

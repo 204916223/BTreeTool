@@ -69,3 +69,49 @@ test("parsePlaybackLogText strips ANSI color codes from status values", () => {
 
   assert.equal(result.frames[0].status, "RUNNING");
 });
+
+test("parsePlaybackLogText accepts async replay jsonl events with blackboard patches", () => {
+  const result = parsePlaybackLogText(
+    [
+      '{"type":"tree_snapshot","tree_name":"bt-chsf","xml_hash":"fnv1a64:abc","xml":"<root/>"}',
+      '{"type":"blackboard_snapshot","t":1000,"values":{"MainTree":{"dist_to_target":10,"errorMsg":null}}}',
+      '{"type":"node_status","t":1000,"uid":1,"name":"Sequence","status":"RUNNING","duration":0}',
+      '{"type":"blackboard_patch","t":1100,"patch":[{"op":"replace","path":"/MainTree/dist_to_target","value":9.5},{"op":"remove","path":"/MainTree/errorMsg"}]}',
+      '{"type":"node_status","t":1100,"uid":2,"name":"GetGoalDist","status":"SUCCESS","duration":100}'
+    ].join("\n")
+  );
+
+  assert.equal(result.treeName, "bt-chsf");
+  assert.equal(result.treeXml, "<root/>");
+  assert.equal(result.xmlHash, "fnv1a64:abc");
+  assert.equal(result.frameCount, 2);
+  assert.deepEqual(result.frames[0].blackboardData, {
+    MainTree: {
+      dist_to_target: 10,
+      errorMsg: null
+    }
+  });
+  assert.deepEqual(result.frames[1].blackboardData, {
+    MainTree: {
+      dist_to_target: 9.5
+    }
+  });
+});
+
+test("parsePlaybackLogText accepts legacy pipe btree logs", () => {
+  const result = parsePlaybackLogText(
+    [
+      '1776667848330902|1|Sequence|0|RUNNING|',
+      '1776667848475371|5|GetGoalDist|144469|SUCCESS|{"MainTree":{"dist_to_target":8}}'
+    ].join("\n")
+  );
+
+  assert.equal(result.frameCount, 2);
+  assert.equal(result.frames[0].nodeName, "Sequence");
+  assert.equal(result.frames[1].nodeUid, "5");
+  assert.deepEqual(result.frames[1].blackboardData, {
+    MainTree: {
+      dist_to_target: 8
+    }
+  });
+});

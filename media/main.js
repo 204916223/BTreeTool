@@ -2,7 +2,6 @@
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
   const vscode = acquireVsCodeApi();
   const persistedState = vscode.getState() || {};
-
   runtime.vscode = vscode;
   runtime.state = {
     selectedTreeId: persistedState.selectedTreeId || null,
@@ -46,6 +45,8 @@
     currentSettings: {
       language: "en-US",
       themePreset: "midnight",
+      showMainTreeLocator: true,
+      showBehaviorTreeRoot: true,
       simplifyHiddenSections: [],
       presetNodes: []
     },
@@ -57,6 +58,7 @@
     prePlaybackPanels: null,
     settingsFilePath: "",
     currentZoom: 1,
+    treeNavigationParents: persistedState.treeNavigationParents || {},
     suppressNodeClickUntil: 0,
     isSpacePressed: false,
     currentDragState: null,
@@ -73,6 +75,7 @@
     treeWorkspace: document.querySelector(".tree-workspace"),
     treeRoot: document.getElementById("tree-root"),
     treeContent: document.getElementById("tree-content"),
+    mainTreeLocator: document.getElementById("main-tree-locator"),
     playbackTimeline: document.getElementById("playback-timeline"),
     playbackImportButton: document.getElementById("playback-import"),
     playbackPrevFrameButton: document.getElementById("playback-prev-frame"),
@@ -128,17 +131,19 @@
     findNodeByPath,
     pickNodePath,
     persistUiState,
-    applyWorkspacePanels,
+    applyWorkspacePanels: runtime.workspacePanels.apply,
     applyUserSettings,
     isEditModeEnabled,
     canPerformAction,
+    navigateToSubTree: runtime.treeNavigation.navigateToSubTree,
+    navigateToParentTree: runtime.treeNavigation.navigateToParentTree,
     updateEditModeButton,
     updateSaveIndicator,
-    openSearchPanel,
-    closeSearchPanel,
-    refreshSearchResults,
-    navigateSearchResults,
-    activateSearchResult
+    openSearchPanel: runtime.search.openPanel,
+    closeSearchPanel: runtime.search.closePanel,
+    refreshSearchResults: runtime.search.refreshResults,
+    navigateSearchResults: runtime.search.navigateResults,
+    activateSearchResult: runtime.search.activateResult
   };
 
   window.addEventListener("message", (event) => {
@@ -186,13 +191,13 @@
         return;
       }
       event.preventDefault();
-      openSearchPanel();
+      runtime.search.openPanel();
       return;
     }
 
     if (event.code === "Escape") {
       if (runtime.state.searchVisible) {
-        closeSearchPanel();
+        runtime.search.closePanel();
         return;
       }
       runtime.overlays.hideAll();
@@ -223,19 +228,19 @@
   runtime.overlays.init();
   runtime.playback?.init();
   runtime.viewport.init();
-  enablePanelResize(runtime.refs.catalogResizer, "catalog");
-  enablePanelResize(runtime.refs.inspectorResizer, "inspector");
+  runtime.workspacePanels.enableResize(runtime.refs.catalogResizer, "catalog");
+  runtime.workspacePanels.enableResize(runtime.refs.inspectorResizer, "inspector");
 
   runtime.refs.toggleCatalogButton?.addEventListener("click", () => {
     runtime.state.showCatalog = !runtime.state.showCatalog;
     persistUiState();
-    applyWorkspacePanels();
+    runtime.workspacePanels.apply();
   });
 
   runtime.refs.toggleInspectorButton?.addEventListener("click", () => {
     runtime.state.showInspector = !runtime.state.showInspector;
     persistUiState();
-    applyWorkspacePanels();
+    runtime.workspacePanels.apply();
   });
 
   runtime.refs.editModeButton?.addEventListener("click", () => {
@@ -256,35 +261,35 @@
     vscode.postMessage({ type: "saveCurrentDocument" });
   });
   runtime.refs.treeSearchCloseButton?.addEventListener("click", () => {
-    closeSearchPanel();
+    runtime.search.closePanel();
   });
   runtime.refs.treeSearchAdvancedToggle?.addEventListener("click", () => {
     runtime.state.searchAdvancedVisible = !runtime.state.searchAdvancedVisible;
-    updateSearchUi();
+    runtime.search.updateUi();
   });
   runtime.refs.treeSearchDescriptionCheckbox?.addEventListener("change", () => {
     runtime.state.searchIncludeDescription = Boolean(runtime.refs.treeSearchDescriptionCheckbox.checked);
-    refreshSearchResults({ renderTree: true, focusActive: false });
+    runtime.search.refreshResults({ renderTree: true, focusActive: false });
   });
   runtime.refs.treeSearchAttributesCheckbox?.addEventListener("change", () => {
     runtime.state.searchIncludeAttributes = Boolean(runtime.refs.treeSearchAttributesCheckbox.checked);
-    refreshSearchResults({ renderTree: true, focusActive: false });
+    runtime.search.refreshResults({ renderTree: true, focusActive: false });
   });
   runtime.refs.treeSearchInput?.addEventListener("input", () => {
     runtime.state.searchQuery = runtime.refs.treeSearchInput.value || "";
-    refreshSearchResults({ renderTree: true, focusActive: true });
+    runtime.search.refreshResults({ renderTree: true, focusActive: true });
   });
   runtime.refs.treeSearchInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      navigateSearchResults(event.shiftKey ? -1 : 1);
+      runtime.search.navigateResults(event.shiftKey ? -1 : 1);
     }
   });
   runtime.refs.treeSearchPrevButton?.addEventListener("click", () => {
-    navigateSearchResults(-1);
+    runtime.search.navigateResults(-1);
   });
   runtime.refs.treeSearchNextButton?.addEventListener("click", () => {
-    navigateSearchResults(1);
+    runtime.search.navigateResults(1);
   });
   runtime.refs.treeSwitcher?.addEventListener("scroll", () => {
     runtime.state.treeSwitcherScrollLeft = runtime.refs.treeSwitcher.scrollLeft || 0;
@@ -292,15 +297,18 @@
 
   vscode.postMessage({ type: "ready" });
   runtime.viewport.updateZoomLabel();
-  applyWorkspacePanels();
+  runtime.workspacePanels.apply();
   updateEditModeButton();
   updateSaveIndicator();
-  updateSearchUi();
+  runtime.search.updateUi();
 
   function render(payload) {
     const appCopy = runtime.i18n.getAppCopy();
     const inspectorCopy = runtime.i18n.getInspectorCopy();
     const incomingDocumentPath = payload.hasDocument ? payload.fileName || "" : "";
+    if (incomingDocumentPath !== runtime.state.currentDocumentPath) {
+      runtime.state.treeNavigationParents = {};
+    }
     runtime.state.currentDocumentPath = incomingDocumentPath;
     runtime.state.currentHasDocument = Boolean(payload.hasDocument);
     runtime.state.hasUnsavedXmlChanges = Boolean(payload.isDirty);
@@ -321,11 +329,12 @@
       runtime.refs.treeSwitcher.replaceChildren();
       runtime.refs.catalogList.replaceChildren();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
-      clearSearchResults();
+      runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.openBehaviorTreeFile));
+      runtime.mainTreeLocator.clear();
       runtime.inspector.renderInspectorEmpty(inspectorCopy.emptyTitle, inspectorCopy.emptySummary);
       updateSaveIndicator();
-      updateSearchUi();
+      runtime.search.updateUi();
       return;
     }
 
@@ -337,11 +346,12 @@
       renderWarnings([{ severity: "error", message: payload.parseError }]);
       runtime.refs.catalogList.replaceChildren();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
-      clearSearchResults();
+      runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.parseFailed(payload.parseError)));
+      runtime.mainTreeLocator.clear();
       runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.parseErrorSummary);
       updateSaveIndicator();
-      updateSearchUi();
+      runtime.search.updateUi();
       return;
     }
 
@@ -354,11 +364,12 @@
       runtime.refs.treeSwitcher.replaceChildren();
       runtime.refs.catalogList.replaceChildren();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
-      clearSearchResults();
+      runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.noPreview));
+      runtime.mainTreeLocator.clear();
       runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.noPreviewSummary);
       updateSaveIndicator();
-      updateSearchUi();
+      runtime.search.updateUi();
       return;
     }
 
@@ -377,11 +388,12 @@
       runtime.viewport.updateZoomLabel();
       runtime.refs.treeSwitcher.replaceChildren();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
-      clearSearchResults();
+      runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.emptyFileOutline));
+      runtime.mainTreeLocator.clear();
       runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.emptyFileSummary);
       updateSaveIndicator();
-      updateSearchUi();
+      runtime.search.updateUi();
       return;
     }
 
@@ -391,19 +403,20 @@
       runtime.viewport.updateZoomLabel();
       runtime.refs.treeSwitcher.replaceChildren();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
-      clearSearchResults();
+      runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.noBehaviorTreeOutline));
+      runtime.mainTreeLocator.clear();
       runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.noBehaviorTreeSummary);
       updateSaveIndicator();
-      updateSearchUi();
+      runtime.search.updateUi();
       return;
     }
 
     runtime.state.selectedTreeId = pickTreeId(result);
-    refreshSearchResults({ renderTree: false, focusActive: false });
+    runtime.search.refreshResults({ renderTree: false, focusActive: false });
     renderCurrentTree(result, { preserveViewport: hadViewport });
     updateSaveIndicator();
-    updateSearchUi();
+    runtime.search.updateUi();
   }
 
   function applyUserSettings() {
@@ -445,7 +458,7 @@
     runtime.refs.treeSearchNextButton.title = searchCopy.next;
     runtime.refs.treeSearchNextButton.setAttribute("aria-label", searchCopy.next);
     updateSaveIndicator();
-    updateSearchUi();
+    runtime.search.updateUi();
   }
 
   function updateSaveIndicator() {
@@ -515,7 +528,7 @@
 
     runtime.state.editModeEnabled = nextEditModeEnabled;
     persistUiState();
-    applyWorkspacePanels();
+    runtime.workspacePanels.apply();
     updateEditModeButton();
   }
 
@@ -564,17 +577,18 @@
         }
       : null;
 
-    renderTreeSwitcher(result, { ensureActiveVisible: options.ensureActiveTreeVisible === true });
+    runtime.treeSwitcher.render(result, { ensureActiveVisible: options.ensureActiveTreeVisible === true });
 
     const selectedTree = getSelectedTree(result);
     if (!selectedTree) {
       const appCopy = runtime.i18n.getAppCopy();
       const inspectorCopy = runtime.i18n.getInspectorCopy();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
-      clearSearchResults();
+      runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.selectedTreeNotFound));
+      runtime.mainTreeLocator.clear();
       runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.missingTreeSummary);
-      updateSearchUi();
+      runtime.search.updateUi();
       return;
     }
 
@@ -582,46 +596,10 @@
     persistUiState();
     runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
     runtime.refs.treeContent.replaceChildren(runtime.canvas.renderTree(selectedTree, result, viewportState));
+    runtime.mainTreeLocator.render(result, selectedTree);
     runtime.canvas.clearDragState();
     runtime.inspector.renderInspector();
     runtime.playback?.syncPlaybackUi();
-  }
-
-  function renderTreeSwitcher(result, options = {}) {
-    const ensureActiveVisible = options.ensureActiveVisible === true;
-    const previousScrollLeft = runtime.refs.treeSwitcher?.scrollLeft || runtime.state.treeSwitcherScrollLeft || 0;
-    const fragment = document.createDocumentFragment();
-    let activeButton = null;
-    result.behaviorTrees.forEach((tree) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = tree.id === runtime.state.selectedTreeId ? "tree-tab is-active" : "tree-tab";
-      button.textContent = tree.id;
-      if (tree.id === runtime.state.selectedTreeId) {
-        activeButton = button;
-      }
-      button.addEventListener("click", () => {
-        runtime.state.selectedTreeId = tree.id;
-        runtime.state.selectedNodePath = "0";
-        persistUiState();
-        renderCurrentTree(result, { ensureActiveTreeVisible: true });
-      });
-      fragment.appendChild(button);
-    });
-    runtime.refs.treeSwitcher.replaceChildren(fragment);
-    requestAnimationFrame(() => {
-      if (!runtime.refs.treeSwitcher) {
-        return;
-      }
-
-      if (ensureActiveVisible && activeButton) {
-        activeButton.scrollIntoView({ block: "nearest", inline: "nearest" });
-      } else {
-        runtime.refs.treeSwitcher.scrollLeft = previousScrollLeft;
-      }
-
-      runtime.state.treeSwitcherScrollLeft = runtime.refs.treeSwitcher.scrollLeft || 0;
-    });
   }
 
   function toBaseName(fileName) {
@@ -652,373 +630,8 @@
       collapsedNodePickerGroups: runtime.state.collapsedNodePickerGroups,
       catalogWidth: runtime.state.catalogWidth,
       inspectorWidth: runtime.state.inspectorWidth,
-      treeSwitcherScrollLeft: runtime.state.treeSwitcherScrollLeft
-    });
-  }
-
-  function openSearchPanel() {
-    runtime.state.searchVisible = true;
-    updateSearchUi();
-    requestAnimationFrame(() => {
-      runtime.refs.treeSearchInput?.focus();
-      runtime.refs.treeSearchInput?.select();
-    });
-  }
-
-  function closeSearchPanel() {
-    runtime.state.searchVisible = false;
-    runtime.state.searchQuery = "";
-    runtime.state.searchResults = [];
-    runtime.state.searchMatchedNodePaths = new Set();
-    runtime.state.activeSearchResultIndex = -1;
-    if (runtime.refs.treeSearchInput) {
-      runtime.refs.treeSearchInput.value = "";
-    }
-    updateSearchUi();
-    if (runtime.state.currentPreview) {
-      renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
-    }
-  }
-
-  function clearSearchResults() {
-    runtime.state.searchResults = [];
-    runtime.state.searchMatchedNodePaths = new Set();
-    runtime.state.activeSearchResultIndex = -1;
-  }
-
-  function refreshSearchResults(options = {}) {
-    const renderTree = options.renderTree === true;
-    const focusActive = options.focusActive !== false;
-    const query = String(runtime.state.searchQuery || "").trim();
-    const result = runtime.state.currentPreview;
-    const previousActiveMatchKey =
-      runtime.state.activeSearchResultIndex >= 0
-        ? runtime.state.searchResults[runtime.state.activeSearchResultIndex]?.matchKey
-        : getSearchMatchKey(runtime.state.selectedTreeId, runtime.state.selectedNodePath);
-
-    if (!query || !result) {
-      clearSearchResults();
-      updateSearchUi();
-      if (renderTree && result) {
-        renderCurrentTree(result, { preserveViewport: true });
-      }
-      return;
-    }
-
-    const searchResults = buildSearchResults(result, query);
-    runtime.state.searchResults = searchResults;
-    runtime.state.searchMatchedNodePaths = new Set(searchResults.map((item) => item.matchKey));
-    runtime.state.activeSearchResultIndex =
-      searchResults.length > 0
-        ? Math.max(
-            0,
-            searchResults.findIndex((item) => item.matchKey === previousActiveMatchKey)
-          )
-        : -1;
-
-    if (focusActive && runtime.state.activeSearchResultIndex >= 0) {
-      const activeResult = runtime.state.searchResults[runtime.state.activeSearchResultIndex];
-      runtime.state.selectedTreeId = activeResult.treeId;
-      runtime.state.selectedNodePath = activeResult.nodePath;
-    }
-
-    updateSearchUi();
-    if (renderTree && result) {
-      renderCurrentTree(result, { preserveViewport: true });
-      if (focusActive && runtime.state.activeSearchResultIndex >= 0) {
-        requestAnimationFrame(() => {
-          runtime.viewport.focusNodePath(runtime.state.searchResults[runtime.state.activeSearchResultIndex].nodePath);
-        });
-      }
-    }
-  }
-
-  function navigateSearchResults(direction) {
-    if (!runtime.state.searchResults.length) {
-      return;
-    }
-
-    const count = runtime.state.searchResults.length;
-    const currentIndex = runtime.state.activeSearchResultIndex >= 0 ? runtime.state.activeSearchResultIndex : 0;
-    const nextIndex = (currentIndex + direction + count) % count;
-    activateSearchResult(nextIndex);
-  }
-
-  function activateSearchResult(index) {
-    if (!runtime.state.searchResults.length || !runtime.state.currentPreview) {
-      return;
-    }
-
-    const nextIndex = Math.max(0, Math.min(index, runtime.state.searchResults.length - 1));
-    const nextResult = runtime.state.searchResults[nextIndex];
-    runtime.state.activeSearchResultIndex = nextIndex;
-    runtime.state.selectedTreeId = nextResult.treeId;
-    runtime.state.selectedNodePath = nextResult.nodePath;
-    updateSearchUi();
-    renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
-    requestAnimationFrame(() => {
-      runtime.viewport.focusNodePath(nextResult.nodePath);
-    });
-  }
-
-  function updateSearchUi() {
-    const refs = runtime.refs;
-    const searchCopy = runtime.i18n.getSearchCopy();
-    refs.treeSearchPanel.hidden = !runtime.state.searchVisible;
-    refs.treeSearchOptions.hidden = !runtime.state.searchAdvancedVisible;
-    refs.treeSearchDescriptionCheckbox.checked = runtime.state.searchIncludeDescription;
-    refs.treeSearchAttributesCheckbox.checked = runtime.state.searchIncludeAttributes;
-
-    const total = runtime.state.searchResults.length;
-    const active = total > 0 && runtime.state.activeSearchResultIndex >= 0 ? runtime.state.activeSearchResultIndex + 1 : 0;
-    refs.treeSearchCount.textContent = `${active} / ${total}`;
-    refs.treeSearchPrevButton.disabled = total === 0;
-    refs.treeSearchNextButton.disabled = total === 0;
-
-    refs.treeSearchResults.replaceChildren();
-    if (!runtime.state.searchVisible) {
-      return;
-    }
-
-    if (!String(runtime.state.searchQuery || "").trim()) {
-      refs.treeSearchResults.replaceChildren(createSearchEmptyState(searchCopy.noQuery));
-      return;
-    }
-
-    if (!runtime.state.searchResults.length) {
-      refs.treeSearchResults.replaceChildren(createSearchEmptyState(searchCopy.noResults));
-      return;
-    }
-
-    const fragment = document.createDocumentFragment();
-    runtime.state.searchResults.forEach((result, index) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = index === runtime.state.activeSearchResultIndex ? "tree-search-result is-active" : "tree-search-result";
-
-      const title = document.createElement("span");
-      title.className = "tree-search-result-title";
-      title.textContent = result.title;
-
-      const meta = document.createElement("span");
-      meta.className = "tree-search-result-meta";
-      meta.textContent = [result.treeId, result.kind, result.matchScopes.join(" • "), result.preview]
-        .filter(Boolean)
-        .join(" • ");
-
-      button.appendChild(title);
-      button.appendChild(meta);
-      button.addEventListener("click", () => {
-        activateSearchResult(index);
-      });
-      fragment.appendChild(button);
-    });
-    refs.treeSearchResults.replaceChildren(fragment);
-  }
-
-  function createSearchEmptyState(message) {
-    const item = document.createElement("div");
-    item.className = "tree-search-empty";
-    item.textContent = message;
-    return item;
-  }
-
-  function buildSearchResults(preview, query) {
-    const searchCopy = runtime.i18n.getSearchCopy();
-    const tokens = String(query || "")
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean);
-    if (!tokens.length) {
-      return [];
-    }
-
-    const results = [];
-    (preview.behaviorTrees || []).forEach((tree) => {
-      walkTree(tree.node, (node) => {
-        const matchScopes = [];
-        const defaultSearchText = buildDefaultSearchText(node);
-        let previewText = "";
-
-        if (matchesTokens(defaultSearchText, tokens)) {
-          matchScopes.push(searchCopy.matchName);
-          previewText = buildNamePreview(node);
-        }
-        if (runtime.state.searchIncludeDescription && matchesTokens(node.description, tokens)) {
-          matchScopes.push(searchCopy.matchDescription);
-          previewText ||= node.description;
-        }
-        if (runtime.state.searchIncludeAttributes && matchesTokens(buildAttributeSearchText(node), tokens)) {
-          matchScopes.push(searchCopy.matchAttributes);
-          previewText ||= buildAttributePreview(node, tokens);
-        }
-
-        if (matchScopes.length > 0) {
-          results.push({
-            treeId: tree.id,
-            nodePath: node.nodePath,
-            matchKey: getSearchMatchKey(tree.id, node.nodePath),
-            title: node.title,
-            kind: node.kind,
-            matchScopes,
-            preview: previewText
-          });
-        }
-      });
-    });
-
-    return results;
-  }
-
-  function getSearchMatchKey(treeId, nodePath) {
-    return `${treeId || ""}::${nodePath || ""}`;
-  }
-
-  function buildDefaultSearchText(node) {
-    return [node.title, node.instanceName, node.kind, node.targetTreeId, node.summary].filter(Boolean).join(" ");
-  }
-
-  function buildNamePreview(node) {
-    if (node.instanceName && node.instanceName !== node.title) {
-      return node.instanceName;
-    }
-    if (node.targetTreeId && node.targetTreeId !== node.title) {
-      return node.targetTreeId;
-    }
-    return node.summary || "";
-  }
-
-  function buildAttributeSearchText(node) {
-    return buildAttributeEntries(node).join(" ");
-  }
-
-  function buildAttributePreview(node, tokens) {
-    const matchingEntries = buildAttributeEntries(node).filter((entry) =>
-      tokens.some((token) => String(entry || "").toLowerCase().includes(token))
-    );
-    return matchingEntries.slice(0, 2).join(" • ");
-  }
-
-  function buildAttributeEntries(node) {
-    const entries = new Set();
-
-    Object.entries(node.attributes || {}).forEach(([key, value]) => {
-      entries.add(key);
-      if (value) {
-        entries.add(value);
-        entries.add(`${key}: ${value}`);
-      }
-    });
-
-    ["inputs", "outputs", "params"].forEach((groupKey) => {
-      (node.ioGroups?.[groupKey] || []).forEach((entry) => {
-        entries.add(entry.key);
-        if (entry.value) {
-          entries.add(entry.value);
-          entries.add(`${entry.key}: ${entry.value}`);
-        }
-      });
-    });
-
-    if (node.code) {
-      entries.add(node.code);
-      entries.add(`code: ${node.code}`);
-    }
-
-    if (node.summary) {
-      entries.add(node.summary);
-    }
-
-    return Array.from(entries).filter(Boolean);
-  }
-
-  function matchesTokens(text, tokens) {
-    const haystack = String(text || "").toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
-  }
-
-  function walkTree(node, visitor) {
-    if (!node) {
-      return;
-    }
-    visitor(node);
-    (node.children || []).forEach((child) => walkTree(child, visitor));
-  }
-
-  function applyWorkspacePanels() {
-    runtime.refs.catalogPanel.hidden = !runtime.state.showCatalog;
-    runtime.refs.catalogResizer.hidden = !runtime.state.showCatalog;
-    runtime.refs.inspectorPanel.hidden = !runtime.state.showInspector;
-    runtime.refs.inspectorResizer.hidden = !runtime.state.showInspector;
-
-    runtime.refs.treeWorkspace.style.setProperty("--catalog-width", `${runtime.state.catalogWidth}px`);
-    runtime.refs.treeWorkspace.style.setProperty("--inspector-width", `${runtime.state.inspectorWidth}px`);
-    runtime.refs.treeWorkspace.classList.toggle("show-catalog", runtime.state.showCatalog);
-    runtime.refs.treeWorkspace.classList.toggle("show-inspector", runtime.state.showInspector);
-
-    runtime.refs.toggleCatalogButton.classList.toggle("is-active", runtime.state.showCatalog);
-    runtime.refs.toggleInspectorButton.classList.toggle("is-active", runtime.state.showInspector);
-
-    if (runtime.state.currentCanvasState) {
-      requestAnimationFrame(() => {
-        runtime.viewport.refreshViewport();
-      });
-    }
-  }
-
-  function enablePanelResize(handle, side) {
-    if (!handle || !runtime.refs.treeWorkspace) {
-      return;
-    }
-
-    handle.addEventListener("pointerdown", (event) => {
-      if ((side === "catalog" && !runtime.state.showCatalog) || (side === "inspector" && !runtime.state.showInspector)) {
-        return;
-      }
-
-      const pointerId = event.pointerId;
-      const startX = event.clientX;
-      const startCatalogWidth = runtime.state.catalogWidth;
-      const startInspectorWidth = runtime.state.inspectorWidth;
-
-      handle.setPointerCapture(pointerId);
-      document.body.classList.add("is-resizing-panels");
-
-      const onPointerMove = (moveEvent) => {
-        const deltaX = moveEvent.clientX - startX;
-        if (side === "catalog") {
-          runtime.state.catalogWidth = runtime.viewport.clampNumber(startCatalogWidth + deltaX, 220, 460, startCatalogWidth);
-        } else {
-          runtime.state.inspectorWidth = runtime.viewport.clampNumber(
-            startInspectorWidth - deltaX,
-            260,
-            520,
-            startInspectorWidth
-          );
-        }
-        persistUiState();
-        applyWorkspacePanels();
-      };
-
-      const finishResize = () => {
-        document.body.classList.remove("is-resizing-panels");
-        handle.removeEventListener("pointermove", onPointerMove);
-        handle.removeEventListener("pointerup", onPointerUp);
-        handle.removeEventListener("pointercancel", onPointerCancel);
-        try {
-          handle.releasePointerCapture(pointerId);
-        } catch (_error) {
-          // Ignore stale pointer capture state.
-        }
-      };
-
-      const onPointerUp = () => finishResize();
-      const onPointerCancel = () => finishResize();
-
-      handle.addEventListener("pointermove", onPointerMove);
-      handle.addEventListener("pointerup", onPointerUp);
-      handle.addEventListener("pointercancel", onPointerCancel);
+      treeSwitcherScrollLeft: runtime.state.treeSwitcherScrollLeft,
+      treeNavigationParents: runtime.state.treeNavigationParents
     });
   }
 

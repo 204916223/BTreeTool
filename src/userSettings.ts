@@ -36,6 +36,8 @@ export interface BtPresetNodeSettings {
 export interface BtUserSettings {
   language: BtSettingsLanguage;
   themePreset: BtThemePreset;
+  showMainTreeLocator: boolean;
+  showBehaviorTreeRoot: boolean;
   simplifyHiddenSections: BtSimplifySection[];
   presetNodes: BtPresetNodeSettings[];
 }
@@ -45,6 +47,8 @@ const SETTINGS_FILE_NAME = "user-settings.json";
 export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   language: "en-US",
   themePreset: "midnight",
+  showMainTreeLocator: true,
+  showBehaviorTreeRoot: true,
   simplifyHiddenSections: [],
   presetNodes: []
 };
@@ -156,6 +160,8 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
   return {
     language: settings.language,
     themePreset: settings.themePreset,
+    showMainTreeLocator: settings.showMainTreeLocator !== false,
+    showBehaviorTreeRoot: settings.showBehaviorTreeRoot !== false,
     simplifyHiddenSections: [...settings.simplifyHiddenSections],
     presetNodes: settings.presetNodes.map(clonePresetNodeSettings)
   };
@@ -176,6 +182,8 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const input = isRecord(value) ? value : {};
   const language = input.language === "zh-CN" ? "zh-CN" : "en-US";
   const themePreset = toThemePreset(input.themePreset, input.treeBackgroundColor);
+  const showMainTreeLocator = input.showMainTreeLocator !== false;
+  const showBehaviorTreeRoot = input.showBehaviorTreeRoot !== false;
   const simplifyHiddenSections = Array.isArray(input.simplifyHiddenSections)
     ? input.simplifyHiddenSections.map(normalizeSimplifySection).filter((value): value is BtSimplifySection => Boolean(value))
     : [...DEFAULT_USER_SETTINGS.simplifyHiddenSections];
@@ -187,6 +195,8 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   return {
     language,
     themePreset,
+    showMainTreeLocator,
+    showBehaviorTreeRoot,
     simplifyHiddenSections: Array.from(new Set(simplifyHiddenSections)),
     presetNodes
   };

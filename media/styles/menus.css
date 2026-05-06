@@ -1,0 +1,114 @@
+.node-context-menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 160px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--color-dialog-bg);
+  box-shadow: var(--shadow);
+}
+
+.node-context-menu-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.node-context-menu-item:hover {
+  background: var(--color-surface-subtle-hover);
+  border-color: var(--line);
+}
+
+.node-context-menu-item:disabled,
+.node-context-menu-item.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.node-context-menu-item:disabled:hover,
+.node-context-menu-item.is-disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.node-context-menu-item.danger {
+  color: var(--color-node-context-danger-text);
+}
+
+.delete-confirm {
+  position: fixed;
+  left: 50%;
+  top: 54px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(680px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--color-danger-border-strong);
+  background: var(--color-dialog-danger-bg);
+  box-shadow: var(--shadow);
+  z-index: 30;
+}
+
+.delete-confirm[hidden] {
+  display: none;
+}
+
+.delete-confirm-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.node-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 31;
+}
+
+.node-picker[hidden] {
+  display: none;
+}
+
+.node-picker-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--color-backdrop);
+  backdrop-filter: blur(2px);
+}
+
+.node-picker-dialog {
+  position: absolute;
+  left: 50%;
+  top: 86px;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 48px));
+  max-height: min(72vh, 820px);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--color-dialog-bg);
+  box-shadow: var(--shadow);
+}

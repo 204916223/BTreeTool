@@ -1,0 +1,527 @@
+.tree-section {
+  display: block;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.canvas-shell {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  border-radius: 4px;
+  border: 1px solid var(--color-canvas-border);
+  background:
+    radial-gradient(circle at top center, var(--color-canvas-glow), transparent 26%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 1.5%, transparent), transparent),
+    color-mix(in srgb, var(--user-tree-bg) 78%, var(--color-canvas-overlay));
+  cursor: grab;
+  touch-action: none;
+}
+
+body.has-blocking-overlay .app-shell {
+  pointer-events: none;
+}
+
+body.has-blocking-overlay .delete-confirm,
+body.has-blocking-overlay .node-picker,
+body.has-blocking-overlay .settings-dialog {
+  pointer-events: auto;
+}
+
+.canvas-shell.is-hand-mode {
+  cursor: grab;
+}
+
+.canvas-shell.is-dragging {
+  cursor: grabbing;
+}
+
+.canvas-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.canvas-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.canvas-edge-path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 28%, var(--line));
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+.canvas-nodes {
+  position: absolute;
+  inset: 0;
+}
+
+.canvas-node {
+  position: absolute;
+}
+
+.flow-card {
+  --slot-accent: var(--accent);
+  --slot-bg: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --slot-border: color-mix(in srgb, var(--color-accent) 46%, transparent);
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 10px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--color-surface-subtle-hover), transparent), var(--card-strong);
+  box-shadow: var(--color-card-shadow-soft);
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.flow-card.has-append-slot {
+  min-height: 178px;
+}
+
+.flow-card.is-details-hidden.has-append-slot {
+  min-height: 0;
+}
+
+.flow-card.is-measuring {
+  width: auto;
+  height: auto;
+  min-width: 240px;
+  max-width: 400px;
+  display: inline-grid;
+}
+
+.flow-card[draggable="true"] {
+  cursor: grab;
+}
+
+.flow-card:hover {
+  transform: translateY(-1px);
+}
+
+.flow-card.is-dragging-node {
+  opacity: 0.58;
+}
+
+.drop-slot-overlay {
+  position: absolute;
+  inset: 54px 10px 10px 10px;
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(52px, 1fr);
+  gap: 10px;
+  z-index: 3;
+}
+
+.drop-slot-overlay.has-append {
+  grid-template-rows: minmax(52px, 1fr) minmax(52px, auto);
+}
+
+body.is-reordering-nodes .drop-slot-overlay {
+  display: grid;
+}
+
+.drop-slot {
+  min-height: 52px;
+  border-radius: 8px;
+  background: var(--slot-bg);
+  border: 1px dashed var(--slot-border);
+  color: var(--slot-accent);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.94;
+  transition: opacity 120ms ease, filter 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  text-align: center;
+  padding: 8px 10px;
+  backdrop-filter: blur(2px);
+}
+
+.drop-slot.is-active {
+  opacity: 1;
+  filter: brightness(1.12);
+  background: var(--color-slot-active-overlay);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--slot-border) 85%, transparent),
+    0 8px 24px color-mix(in srgb, var(--slot-bg) 55%, transparent);
+}
+
+.drop-slot-before {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.drop-slot-after {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.drop-slot-append {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+}
+
+.flow-card.is-dragging-node .drop-slot-overlay {
+  display: none;
+}
+
+.flow-card.is-dragging-node {
+  opacity: 0.58;
+}
+
+.flow-card > :not(.drop-slot-overlay) {
+  position: relative;
+  z-index: 1;
+}
+
+.drop-slot {
+  pointer-events: auto;
+}
+
+.drop-slot-overlay {
+  pointer-events: none;
+}
+
+body.is-reordering-nodes .drop-slot-overlay {
+  pointer-events: auto;
+}
+
+.append-drop-target {
+  display: none;
+}
+
+.flow-card.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line-strong));
+  box-shadow: var(--color-card-shadow-strong), 0 0 0 2px color-mix(in srgb, var(--accent-soft) 75%, transparent);
+}
+
+.flow-card.is-search-match {
+  box-shadow: var(--color-card-shadow-soft), 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.flow-card.is-search-active {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line-strong));
+  box-shadow: var(--color-card-shadow-strong), 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.flow-card.has-warning {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--line));
+  box-shadow: var(--color-card-shadow-strong), 0 0 0 1px color-mix(in srgb, var(--color-status-warning) 22%, transparent);
+}
+
+.flow-card.has-error {
+  border-color: color-mix(in srgb, var(--color-status-danger) 52%, transparent);
+  box-shadow: var(--color-card-shadow-strong), 0 0 0 1px color-mix(in srgb, var(--color-status-danger) 24%, transparent);
+}
+
+.flow-card-action {
+  --slot-accent: var(--color-node-action-accent);
+  --slot-bg: color-mix(in srgb, var(--color-node-action-accent) 24%, transparent);
+  --slot-border: color-mix(in srgb, var(--color-node-action-accent) 72%, transparent);
+  background: linear-gradient(180deg, var(--color-surface-ghost), transparent), var(--color-node-action-bg);
+}
+
+.flow-card-control {
+  --slot-accent: var(--color-node-control-accent);
+  --slot-bg: color-mix(in srgb, var(--color-node-control-accent) 24%, transparent);
+  --slot-border: color-mix(in srgb, var(--color-node-control-accent) 74%, transparent);
+  background: linear-gradient(180deg, var(--color-surface-ghost), transparent), var(--color-node-control-bg);
+}
+
+.flow-card-decorator {
+  --slot-accent: var(--color-node-decorator-accent);
+  --slot-bg: color-mix(in srgb, var(--color-node-decorator-accent) 24%, transparent);
+  --slot-border: color-mix(in srgb, var(--color-node-decorator-accent) 74%, transparent);
+  background: linear-gradient(180deg, var(--color-surface-ghost), transparent), var(--color-node-decorator-bg);
+}
+
+.flow-card-subtree {
+  --slot-accent: var(--color-node-subtree-accent);
+  --slot-bg: color-mix(in srgb, var(--color-node-subtree-accent) 22%, transparent);
+  --slot-border: color-mix(in srgb, var(--color-node-subtree-accent) 72%, transparent);
+  background: linear-gradient(180deg, var(--color-surface-ghost), transparent), var(--color-node-subtree-bg);
+}
+
+.flow-card-root {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent),
+    color-mix(in srgb, var(--color-bg-card-strong) 88%, var(--accent) 12%);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line-strong));
+}
+
+.flow-card.is-virtual-root {
+  align-content: center;
+  gap: 0;
+  padding: 9px 12px;
+}
+
+.flow-card.is-measuring.is-virtual-root {
+  min-width: 128px;
+  max-width: 160px;
+}
+
+.flow-card.is-virtual-root .flow-card-heading {
+  justify-content: center;
+}
+
+.flow-card.is-virtual-root .flow-node-kind {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.flow-card.is-virtual-root .flow-node-name {
+  font-size: 14px;
+  text-transform: lowercase;
+}
+
+.flow-card-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-warning-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--color-warning-soft);
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.flow-warning-badge.is-error {
+  background: var(--color-danger-soft-strong);
+  color: var(--danger);
+}
+
+.flow-node-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--color-kind-badge-bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.flow-node-name {
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.flow-io {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.flow-text {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.flow-text-body {
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--color-surface-ghost);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.flow-text-body.is-empty {
+  opacity: 0.5;
+}
+
+.flow-text-code .flow-text-body {
+  font-family: "SF Mono", "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 11px;
+  background: var(--color-code-bg);
+  border-color: var(--color-code-border);
+}
+
+.flow-text-description .flow-text-body {
+  background: var(--color-description-bg);
+  border-color: var(--color-description-border);
+}
+
+.flow-io-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.flow-node-attributes {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.flow-attribute-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  gap: 4px;
+}
+
+.flow-attribute-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.flow-attribute-chip-key {
+  font-weight: 600;
+}
+
+.flow-attribute-chip-value {
+  color: var(--text);
+}
+
+.flow-attribute-pair.tone-input .flow-attribute-chip {
+  border-color: var(--color-role-input-border-strong);
+  background: var(--color-role-input-bg);
+  color: var(--color-role-input-text);
+}
+
+.flow-attribute-pair.tone-output .flow-attribute-chip {
+  border-color: var(--color-role-output-border-strong);
+  background: var(--color-role-output-bg);
+  color: var(--color-role-output-text);
+}
+
+.flow-attribute-pair.tone-param .flow-attribute-chip {
+  border-color: var(--color-role-param-border);
+  background: var(--color-role-param-bg);
+}
+
+.subtree-jump {
+  justify-self: start;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.subtree-jump:hover {
+  filter: brightness(1.04);
+}
+
+.empty-state {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 12px;
+}
+
+.tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+}
+
+.canvas-btn {
+  border: 1px solid var(--line);
+  background: var(--color-surface-subtle);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.canvas-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--color-surface-subtle-hover);
+}
+
+.canvas-btn.is-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
+  background: var(--accent-soft-strong);
+  color: var(--accent);
+}
+
+.canvas-btn.accent {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--accent-soft-strong);
+  color: var(--accent);
+}
+
+.canvas-btn.danger {
+  border-color: color-mix(in srgb, var(--color-status-danger) 32%, transparent);
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+
+.canvas-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

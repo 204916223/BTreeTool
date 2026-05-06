@@ -98,6 +98,8 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
     settings || {
       language: "en-US",
       themePreset: "midnight",
+      showMainTreeLocator: true,
+      showBehaviorTreeRoot: true,
       simplifyHiddenSections: [],
       presetNodes: []
     }

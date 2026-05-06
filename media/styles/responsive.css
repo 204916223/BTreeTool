@@ -1,0 +1,118 @@
+@media (max-width: 900px) {
+  .tree-model-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.node-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.node-picker-title {
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.node-picker-list {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.node-picker-list::-webkit-scrollbar {
+  display: none;
+}
+
+.node-picker-item {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .topbar-stats {
+    justify-content: flex-start;
+  }
+
+  .flow-card {
+    min-width: 0;
+  }
+
+  .main-tree-locator {
+    width: min(250px, calc(100% - 18px));
+    height: min(170px, calc(100% - 18px));
+    left: 9px;
+    top: 9px;
+  }
+
+  .main-tree-locator-current {
+    display: none;
+  }
+
+  .settings-dialog-panel {
+    width: min(560px, calc(100vw - 24px));
+    max-height: calc(100vh - 32px);
+  }
+
+  .settings-form,
+  .settings-checkbox-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-form > .settings-field:nth-child(5),
+  .settings-form > .settings-field:nth-child(6) {
+    grid-column: auto;
+  }
+
+  .tree-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .tree-workspace.show-catalog,
+  .tree-workspace.show-inspector,
+  .tree-workspace.show-catalog.show-inspector {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-edge-toggle-left {
+    left: 4px;
+  }
+
+  .panel-edge-toggle-right {
+    right: 4px;
+  }
+
+  .tree-workspace.show-catalog .panel-edge-toggle-left,
+  .tree-workspace.show-inspector .panel-edge-toggle-right {
+    top: 72px;
+    transform: none;
+  }
+
+  .panel-edge-toggle:active {
+    transform: scale(0.97);
+  }
+
+  .attribute-row {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "role"
+      "key"
+      "value";
+  }
+}

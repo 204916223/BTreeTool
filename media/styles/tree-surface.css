@@ -1,0 +1,264 @@
+.tree-root {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.tree-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.playback-timeline {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 2px 0;
+  border-top: 1px solid var(--line);
+}
+
+.playback-timeline[hidden] {
+  display: none;
+}
+
+.playback-timeline-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.playback-range {
+  flex: 1 1 auto;
+  min-width: 80px;
+  accent-color: var(--accent);
+}
+
+.playback-time {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tree-search-panel {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 12;
+  width: min(320px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 1.5%, transparent), transparent),
+    var(--color-dialog-bg);
+  box-shadow: var(--shadow);
+}
+
+.tree-search-header,
+.tree-search-input-row,
+.tree-search-toolbar,
+.tree-search-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tree-search-header,
+.tree-search-toolbar {
+  justify-content: space-between;
+}
+
+.tree-search-title {
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+.tree-search-input {
+  flex: 1 1 auto;
+}
+
+.tree-search-options {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.tree-search-count {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tree-search-results {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  scrollbar-width: none;
+}
+
+.tree-search-results::-webkit-scrollbar {
+  display: none;
+}
+
+.tree-search-result,
+.tree-search-empty {
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--color-surface-subtle);
+}
+
+.tree-search-result {
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tree-search-result:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line-strong));
+  background: var(--color-surface-subtle-hover);
+}
+
+.tree-search-result.is-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
+  background: var(--accent-soft);
+}
+
+.tree-search-result-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tree-search-result-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tree-search-empty {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.main-tree-locator {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 7;
+  width: min(330px, calc(100% - 24px));
+  height: min(230px, calc(100% - 24px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 2%, transparent), transparent),
+    color-mix(in srgb, var(--color-bg-card-strong) 82%, transparent);
+  box-shadow: var(--color-card-shadow-strong);
+  backdrop-filter: blur(8px);
+}
+
+.main-tree-locator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.main-tree-locator-title,
+.main-tree-locator-current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-tree-locator-title {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.main-tree-locator-current {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.main-tree-locator-map {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.main-tree-locator-edge {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 30%, var(--line-strong));
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  opacity: 0.72;
+  vector-effect: non-scaling-stroke;
+}
+
+.main-tree-locator-node {
+  cursor: pointer;
+}
+
+.main-tree-locator-node-box {
+  fill: color-mix(in srgb, var(--color-accent) 58%, var(--color-bg-card-strong) 42%);
+  stroke: color-mix(in srgb, var(--color-accent) 68%, var(--line-strong));
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.main-tree-locator-node.is-current .main-tree-locator-node-box {
+  fill: color-mix(in srgb, var(--color-status-warning) 84%, white 16%);
+  stroke: color-mix(in srgb, var(--color-status-warning) 78%, var(--text) 22%);
+  stroke-width: 1.5;
+}
+
+.main-tree-locator-node-label {
+  fill: var(--text);
+  font-size: 8px;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  user-select: none;
+}
+
+.main-tree-locator-node.is-current .main-tree-locator-node-label {
+  fill: #17202b;
+}
+
+.main-tree-locator-node:focus-visible .main-tree-locator-node-box {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+body.is-reordering-nodes .main-tree-locator {
+  opacity: 0.52;
+  pointer-events: none;
+}

@@ -1,0 +1,341 @@
+:root {
+  color-scheme: dark;
+  --color-bg-page: #0c1117;
+  --color-bg-canvas: #0c1117;
+  --color-bg-panel: rgba(18, 24, 33, 0.94);
+  --color-bg-card: rgba(17, 23, 32, 0.9);
+  --color-bg-card-strong: rgba(23, 31, 43, 0.96);
+  --color-border: rgba(144, 171, 203, 0.16);
+  --color-border-strong: rgba(144, 171, 203, 0.26);
+  --color-text-primary: #e6edf6;
+  --color-text-secondary: #93a4b8;
+  --color-accent: #5ea1ff;
+  --color-accent-soft: rgba(94, 161, 255, 0.16);
+  --color-accent-soft-strong: rgba(94, 161, 255, 0.24);
+  --color-tab-bg: rgba(255, 255, 255, 0.04);
+  --color-tab-bg-hover: rgba(255, 255, 255, 0.07);
+  --color-tab-text: var(--color-text-primary);
+  --color-tab-active-bg: var(--color-accent-soft-strong);
+  --color-tab-active-text: var(--color-accent);
+  --shadow-elevated: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --color-status-warning: #ffb454;
+  --color-status-danger: #ff7b72;
+  --color-status-success: #7ee787;
+  --color-role-input-accent: #5da3ff;
+  --color-role-output-accent: #6ccc8c;
+  --color-role-inout-accent: #97b5ff;
+  --color-role-param-accent: #ffd06e;
+  --color-node-action-accent: #ffb454;
+  --color-node-control-accent: #ff9e64;
+  --color-node-decorator-accent: #7dcfff;
+  --color-node-subtree-accent: #c3e88d;
+
+  /* Legacy aliases retained while components migrate to semantic tokens. */
+  --bg: var(--color-bg-page);
+  --user-tree-bg: var(--color-bg-canvas);
+  --panel: var(--color-bg-panel);
+  --card: var(--color-bg-card);
+  --card-strong: var(--color-bg-card-strong);
+  --line: var(--color-border);
+  --line-strong: var(--color-border-strong);
+  --text: var(--color-text-primary);
+  --muted: var(--color-text-secondary);
+  --accent: var(--color-accent);
+  --accent-soft: var(--color-accent-soft);
+  --accent-soft-strong: var(--color-accent-soft-strong);
+  --tree-tab-bg: var(--color-tab-bg);
+  --tree-tab-bg-hover: var(--color-tab-bg-hover);
+  --tree-tab-text: var(--color-tab-text);
+  --tree-tab-active-bg: var(--color-tab-active-bg);
+  --tree-tab-active-text: var(--color-tab-active-text);
+  --shadow: var(--shadow-elevated);
+  --warning: var(--color-status-warning);
+  --danger: var(--color-status-danger);
+  --success: var(--color-status-success);
+
+  /* Derived semantic surfaces and states. */
+  --color-surface-subtle: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  --color-surface-subtle-hover: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  --color-surface-ghost: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+  --color-panel-border-soft: color-mix(in srgb, var(--color-border-strong) 42%, transparent);
+  --color-warning-soft: color-mix(in srgb, var(--color-status-warning) 12%, transparent);
+  --color-warning-border: color-mix(in srgb, var(--color-status-warning) 24%, transparent);
+  --color-warning-text: var(--color-status-warning);
+  --color-danger-soft: color-mix(in srgb, var(--color-status-danger) 14%, transparent);
+  --color-danger-soft-strong: color-mix(in srgb, var(--color-status-danger) 16%, transparent);
+  --color-danger-border: color-mix(in srgb, var(--color-status-danger) 28%, transparent);
+  --color-danger-border-strong: color-mix(in srgb, var(--color-status-danger) 34%, transparent);
+  --color-danger-outline: color-mix(in srgb, var(--color-status-danger) 22%, transparent);
+  --color-danger-text: color-mix(in srgb, var(--color-status-danger) 78%, white 22%);
+  --color-success-soft: color-mix(in srgb, var(--color-status-success) 12%, transparent);
+  --color-success-border: color-mix(in srgb, var(--color-status-success) 24%, transparent);
+  --color-success-text: color-mix(in srgb, var(--color-text-primary) 88%, var(--color-status-success) 12%);
+  --color-role-input-bg: color-mix(in srgb, var(--color-role-input-accent) 12%, transparent);
+  --color-role-input-border: color-mix(in srgb, var(--color-role-input-accent) 28%, transparent);
+  --color-role-input-border-strong: color-mix(in srgb, var(--color-role-input-accent) 32%, transparent);
+  --color-role-input-text: color-mix(in srgb, var(--color-text-primary) 82%, var(--color-role-input-accent) 18%);
+  --color-role-output-bg: color-mix(in srgb, var(--color-role-output-accent) 12%, transparent);
+  --color-role-output-border: color-mix(in srgb, var(--color-role-output-accent) 28%, transparent);
+  --color-role-output-border-strong: color-mix(in srgb, var(--color-role-output-accent) 32%, transparent);
+  --color-role-output-text: color-mix(in srgb, var(--color-text-primary) 82%, var(--color-role-output-accent) 18%);
+  --color-role-inout-bg: color-mix(in srgb, var(--color-role-inout-accent) 12%, transparent);
+  --color-role-inout-border: color-mix(in srgb, var(--color-role-inout-accent) 28%, transparent);
+  --color-role-inout-text: color-mix(in srgb, var(--color-text-primary) 82%, var(--color-role-inout-accent) 18%);
+  --color-role-param-bg: color-mix(in srgb, var(--color-role-param-accent) 10%, transparent);
+  --color-role-param-border: color-mix(in srgb, var(--color-role-param-accent) 24%, transparent);
+  --color-code-bg: color-mix(in srgb, var(--color-role-input-accent) 8%, transparent);
+  --color-code-border: color-mix(in srgb, var(--color-role-input-accent) 20%, transparent);
+  --color-description-bg: color-mix(in srgb, var(--color-role-param-accent) 8%, transparent);
+  --color-description-border: color-mix(in srgb, var(--color-role-param-accent) 18%, transparent);
+  --color-canvas-border: color-mix(in srgb, var(--color-border-strong) 54%, transparent);
+  --color-canvas-glow: color-mix(in srgb, var(--color-accent) 5%, transparent);
+  --color-canvas-overlay: color-mix(in srgb, var(--color-bg-page) 48%, transparent);
+  --color-card-shadow-soft: 0 6px 14px rgba(0, 0, 0, 0.14);
+  --color-card-shadow-strong: 0 10px 24px rgba(0, 0, 0, 0.18);
+  --color-kind-badge-bg: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  --color-dialog-bg: color-mix(in srgb, var(--color-bg-card-strong) 96%, var(--color-bg-page) 4%);
+  --color-dialog-danger-bg: color-mix(in srgb, var(--color-bg-card-strong) 90%, var(--color-status-danger) 10%);
+  --color-backdrop: color-mix(in srgb, var(--color-bg-page) 52%, transparent);
+  --color-panel-tint-info: color-mix(in srgb, var(--color-bg-card-strong) 98%, var(--color-bg-page) 2%);
+  --color-panel-tint-accent: color-mix(in srgb, var(--color-bg-card-strong) 97%, var(--color-accent) 3%);
+  --color-panel-tint-danger: color-mix(in srgb, var(--color-bg-card-strong) 92%, var(--color-status-danger) 8%);
+  --color-node-action-bg: color-mix(in srgb, var(--color-bg-card-strong) 93%, #24415f 7%);
+  --color-node-control-bg: color-mix(in srgb, var(--color-bg-card-strong) 88%, #23384f 12%);
+  --color-node-decorator-bg: color-mix(in srgb, var(--color-bg-card-strong) 90%, #4b3f25 10%);
+  --color-node-subtree-bg: color-mix(in srgb, var(--color-bg-card-strong) 89%, #3d3258 11%);
+  --color-slot-active-overlay: color-mix(in srgb, var(--slot-bg) 140%, var(--color-surface-subtle-hover));
+  --color-node-context-danger-text: color-mix(in srgb, var(--color-status-danger) 68%, white 32%);
+}
+
+:root[data-btree-theme="graphite"] {
+  --color-bg-page: #111317;
+  --color-bg-canvas: #15181d;
+  --color-bg-panel: rgba(24, 27, 33, 0.96);
+  --color-bg-card: rgba(28, 31, 38, 0.92);
+  --color-bg-card-strong: rgba(33, 37, 45, 0.97);
+  --color-border: rgba(179, 186, 198, 0.14);
+  --color-border-strong: rgba(179, 186, 198, 0.24);
+  --color-text-primary: #e8ebf0;
+  --color-text-secondary: #9ba6b5;
+  --color-accent: #8db2ff;
+  --color-accent-soft: rgba(141, 178, 255, 0.16);
+  --color-accent-soft-strong: rgba(141, 178, 255, 0.24);
+}
+
+:root[data-btree-theme="ocean"] {
+  --color-bg-page: #09121c;
+  --color-bg-canvas: #0b1824;
+  --color-bg-panel: rgba(14, 27, 40, 0.95);
+  --color-bg-card: rgba(16, 32, 48, 0.9);
+  --color-bg-card-strong: rgba(20, 40, 58, 0.96);
+  --color-border: rgba(121, 171, 214, 0.16);
+  --color-border-strong: rgba(121, 171, 214, 0.28);
+  --color-text-primary: #e4f0fb;
+  --color-text-secondary: #8faecc;
+  --color-accent: #62b0ff;
+  --color-accent-soft: rgba(98, 176, 255, 0.18);
+  --color-accent-soft-strong: rgba(98, 176, 255, 0.26);
+}
+
+:root[data-btree-theme="forest"] {
+  --color-bg-page: #0d1511;
+  --color-bg-canvas: #122015;
+  --color-bg-panel: rgba(18, 32, 24, 0.95);
+  --color-bg-card: rgba(21, 38, 28, 0.9);
+  --color-bg-card-strong: rgba(26, 45, 33, 0.96);
+  --color-border: rgba(153, 190, 154, 0.14);
+  --color-border-strong: rgba(153, 190, 154, 0.25);
+  --color-text-primary: #e7f2e8;
+  --color-text-secondary: #9bb39c;
+  --color-accent: #88d498;
+  --color-accent-soft: rgba(136, 212, 152, 0.16);
+  --color-accent-soft-strong: rgba(136, 212, 152, 0.24);
+}
+
+:root[data-btree-theme="paper"] {
+  color-scheme: light;
+  --color-bg-page: #eef2f7;
+  --color-bg-canvas: #f6f8fb;
+  --color-bg-panel: rgba(255, 255, 255, 0.96);
+  --color-bg-card: rgba(255, 255, 255, 0.94);
+  --color-bg-card-strong: rgba(248, 250, 253, 0.98);
+  --color-border: rgba(82, 102, 126, 0.14);
+  --color-border-strong: rgba(82, 102, 126, 0.24);
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #66758a;
+  --color-accent: #2d6cdf;
+  --color-accent-soft: rgba(45, 108, 223, 0.12);
+  --color-accent-soft-strong: rgba(45, 108, 223, 0.18);
+  --color-tab-bg: rgba(82, 102, 126, 0.08);
+  --color-tab-bg-hover: rgba(82, 102, 126, 0.14);
+  --color-tab-active-bg: rgba(45, 108, 223, 0.18);
+  --color-tab-active-text: #1e4fa8;
+  --shadow-elevated: 0 16px 32px rgba(31, 41, 55, 0.08);
+  --color-status-warning: #b7791f;
+  --color-status-danger: #cf3f43;
+  --color-status-success: #2f855a;
+  --color-role-input-accent: #2f6fe4;
+  --color-role-output-accent: #2f9a55;
+  --color-role-inout-accent: #617bff;
+  --color-role-param-accent: #c68a18;
+  --color-role-input-bg: color-mix(in srgb, var(--color-role-input-accent) 16%, white 84%);
+  --color-role-input-border: color-mix(in srgb, var(--color-role-input-accent) 38%, white 62%);
+  --color-role-input-border-strong: color-mix(in srgb, var(--color-role-input-accent) 48%, white 52%);
+  --color-role-input-text: color-mix(in srgb, var(--color-role-input-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-output-bg: color-mix(in srgb, var(--color-role-output-accent) 16%, white 84%);
+  --color-role-output-border: color-mix(in srgb, var(--color-role-output-accent) 38%, white 62%);
+  --color-role-output-border-strong: color-mix(in srgb, var(--color-role-output-accent) 48%, white 52%);
+  --color-role-output-text: color-mix(in srgb, var(--color-role-output-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-inout-bg: color-mix(in srgb, var(--color-role-inout-accent) 16%, white 84%);
+  --color-role-inout-border: color-mix(in srgb, var(--color-role-inout-accent) 38%, white 62%);
+  --color-role-inout-text: color-mix(in srgb, var(--color-role-inout-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-param-bg: color-mix(in srgb, var(--color-role-param-accent) 15%, white 85%);
+  --color-role-param-border: color-mix(in srgb, var(--color-role-param-accent) 34%, white 66%);
+}
+
+:root[data-btree-theme="sand"] {
+  color-scheme: light;
+  --color-bg-page: #f3ede2;
+  --color-bg-canvas: #f7f1e7;
+  --color-bg-panel: rgba(255, 251, 245, 0.96);
+  --color-bg-card: rgba(255, 250, 242, 0.94);
+  --color-bg-card-strong: rgba(248, 240, 228, 0.98);
+  --color-border: rgba(120, 100, 76, 0.14);
+  --color-border-strong: rgba(120, 100, 76, 0.24);
+  --color-text-primary: #33271f;
+  --color-text-secondary: #7e6755;
+  --color-accent: #c06a2c;
+  --color-accent-soft: rgba(192, 106, 44, 0.12);
+  --color-accent-soft-strong: rgba(192, 106, 44, 0.18);
+  --color-tab-bg: rgba(120, 100, 76, 0.08);
+  --color-tab-bg-hover: rgba(120, 100, 76, 0.14);
+  --color-tab-active-bg: rgba(192, 106, 44, 0.18);
+  --color-tab-active-text: #99511f;
+  --shadow-elevated: 0 16px 32px rgba(80, 53, 28, 0.08);
+  --color-status-warning: #ad7b2b;
+  --color-status-danger: #be4c35;
+  --color-status-success: #3f7a52;
+  --color-role-input-accent: #346bcf;
+  --color-role-output-accent: #3d8a4f;
+  --color-role-inout-accent: #6b70d6;
+  --color-role-param-accent: #b17612;
+  --color-role-input-bg: color-mix(in srgb, var(--color-role-input-accent) 16%, white 84%);
+  --color-role-input-border: color-mix(in srgb, var(--color-role-input-accent) 38%, white 62%);
+  --color-role-input-border-strong: color-mix(in srgb, var(--color-role-input-accent) 48%, white 52%);
+  --color-role-input-text: color-mix(in srgb, var(--color-role-input-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-output-bg: color-mix(in srgb, var(--color-role-output-accent) 16%, white 84%);
+  --color-role-output-border: color-mix(in srgb, var(--color-role-output-accent) 38%, white 62%);
+  --color-role-output-border-strong: color-mix(in srgb, var(--color-role-output-accent) 48%, white 52%);
+  --color-role-output-text: color-mix(in srgb, var(--color-role-output-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-inout-bg: color-mix(in srgb, var(--color-role-inout-accent) 16%, white 84%);
+  --color-role-inout-border: color-mix(in srgb, var(--color-role-inout-accent) 38%, white 62%);
+  --color-role-inout-text: color-mix(in srgb, var(--color-role-inout-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-param-bg: color-mix(in srgb, var(--color-role-param-accent) 15%, white 85%);
+  --color-role-param-border: color-mix(in srgb, var(--color-role-param-accent) 34%, white 66%);
+}
+
+:root[data-btree-theme="mist"] {
+  color-scheme: light;
+  --color-bg-page: #e8edf2;
+  --color-bg-canvas: #eef3f7;
+  --color-bg-panel: rgba(250, 252, 254, 0.96);
+  --color-bg-card: rgba(247, 250, 252, 0.94);
+  --color-bg-card-strong: rgba(238, 244, 249, 0.98);
+  --color-border: rgba(86, 108, 128, 0.14);
+  --color-border-strong: rgba(86, 108, 128, 0.24);
+  --color-text-primary: #253341;
+  --color-text-secondary: #6d8093;
+  --color-accent: #3f7ac8;
+  --color-accent-soft: rgba(63, 122, 200, 0.12);
+  --color-accent-soft-strong: rgba(63, 122, 200, 0.18);
+  --color-tab-bg: rgba(86, 108, 128, 0.08);
+  --color-tab-bg-hover: rgba(86, 108, 128, 0.14);
+  --color-tab-active-bg: rgba(63, 122, 200, 0.18);
+  --color-tab-active-text: #2d619f;
+  --shadow-elevated: 0 16px 32px rgba(37, 51, 65, 0.08);
+  --color-status-warning: #9d7a1c;
+  --color-status-danger: #c54557;
+  --color-status-success: #2f7d67;
+  --color-role-input-accent: #2f71cb;
+  --color-role-output-accent: #2f8a63;
+  --color-role-inout-accent: #576fdf;
+  --color-role-param-accent: #b78416;
+  --color-role-input-bg: color-mix(in srgb, var(--color-role-input-accent) 16%, white 84%);
+  --color-role-input-border: color-mix(in srgb, var(--color-role-input-accent) 38%, white 62%);
+  --color-role-input-border-strong: color-mix(in srgb, var(--color-role-input-accent) 48%, white 52%);
+  --color-role-input-text: color-mix(in srgb, var(--color-role-input-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-output-bg: color-mix(in srgb, var(--color-role-output-accent) 16%, white 84%);
+  --color-role-output-border: color-mix(in srgb, var(--color-role-output-accent) 38%, white 62%);
+  --color-role-output-border-strong: color-mix(in srgb, var(--color-role-output-accent) 48%, white 52%);
+  --color-role-output-text: color-mix(in srgb, var(--color-role-output-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-inout-bg: color-mix(in srgb, var(--color-role-inout-accent) 16%, white 84%);
+  --color-role-inout-border: color-mix(in srgb, var(--color-role-inout-accent) 38%, white 62%);
+  --color-role-inout-text: color-mix(in srgb, var(--color-role-inout-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-param-bg: color-mix(in srgb, var(--color-role-param-accent) 15%, white 85%);
+  --color-role-param-border: color-mix(in srgb, var(--color-role-param-accent) 34%, white 66%);
+}
+
+:root[data-btree-theme="rose"] {
+  color-scheme: light;
+  --color-bg-page: #f5ecef;
+  --color-bg-canvas: #fbf5f7;
+  --color-bg-panel: rgba(255, 250, 252, 0.96);
+  --color-bg-card: rgba(255, 248, 250, 0.94);
+  --color-bg-card-strong: rgba(249, 238, 242, 0.98);
+  --color-border: rgba(125, 94, 108, 0.14);
+  --color-border-strong: rgba(125, 94, 108, 0.24);
+  --color-text-primary: #382830;
+  --color-text-secondary: #886c79;
+  --color-accent: #b85c7b;
+  --color-accent-soft: rgba(184, 92, 123, 0.12);
+  --color-accent-soft-strong: rgba(184, 92, 123, 0.18);
+  --color-tab-bg: rgba(125, 94, 108, 0.08);
+  --color-tab-bg-hover: rgba(125, 94, 108, 0.14);
+  --color-tab-active-bg: rgba(184, 92, 123, 0.18);
+  --color-tab-active-text: #964866;
+  --shadow-elevated: 0 16px 32px rgba(80, 48, 61, 0.08);
+  --color-status-warning: #a56d1e;
+  --color-status-danger: #c54e5a;
+  --color-status-success: #4a8a61;
+  --color-role-input-accent: #4a6fd9;
+  --color-role-output-accent: #4b8a58;
+  --color-role-inout-accent: #8066d9;
+  --color-role-param-accent: #bd7a1e;
+  --color-role-input-bg: color-mix(in srgb, var(--color-role-input-accent) 16%, white 84%);
+  --color-role-input-border: color-mix(in srgb, var(--color-role-input-accent) 38%, white 62%);
+  --color-role-input-border-strong: color-mix(in srgb, var(--color-role-input-accent) 48%, white 52%);
+  --color-role-input-text: color-mix(in srgb, var(--color-role-input-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-output-bg: color-mix(in srgb, var(--color-role-output-accent) 16%, white 84%);
+  --color-role-output-border: color-mix(in srgb, var(--color-role-output-accent) 38%, white 62%);
+  --color-role-output-border-strong: color-mix(in srgb, var(--color-role-output-accent) 48%, white 52%);
+  --color-role-output-text: color-mix(in srgb, var(--color-role-output-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-inout-bg: color-mix(in srgb, var(--color-role-inout-accent) 16%, white 84%);
+  --color-role-inout-border: color-mix(in srgb, var(--color-role-inout-accent) 38%, white 62%);
+  --color-role-inout-text: color-mix(in srgb, var(--color-role-inout-accent) 78%, var(--color-text-primary) 22%);
+  --color-role-param-bg: color-mix(in srgb, var(--color-role-param-accent) 15%, white 85%);
+  --color-role-param-border: color-mix(in srgb, var(--color-role-param-accent) 34%, white 66%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "SF Pro Text", "Segoe UI", Inter, "Noto Sans SC", sans-serif;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 26%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--color-border-strong) 72%, transparent), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-panel) 90%, var(--color-bg-page) 10%), var(--color-bg-page));
+}

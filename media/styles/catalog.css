@@ -1,0 +1,279 @@
+.catalog-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-panel-border-soft);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 1.5%, transparent), transparent),
+    var(--color-panel-tint-info);
+}
+
+.catalog-card.is-delete-target {
+  border-color: color-mix(in srgb, var(--danger) 52%, var(--line-strong));
+  box-shadow: inset 0 0 0 1px var(--color-danger-outline);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-status-danger) 8%, transparent), transparent),
+    var(--color-panel-tint-danger);
+}
+
+.catalog-card.is-delete-target .catalog-header::after {
+  content: "Drop Here To Delete";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px dashed color-mix(in srgb, var(--color-status-danger) 55%, transparent);
+  background: var(--color-danger-soft);
+  color: var(--color-node-context-danger-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.catalog-header {
+  display: grid;
+  gap: 8px;
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.catalog-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.panel-search {
+  width: 100%;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--color-surface-subtle);
+  color: var(--text);
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.panel-search:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-soft) 70%, transparent);
+}
+
+.catalog-list {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.catalog-list::-webkit-scrollbar {
+  display: none;
+}
+
+.playback-section {
+  display: grid;
+  gap: 7px;
+}
+
+.playback-section-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.playback-kv-row,
+.playback-status-row {
+  display: grid;
+  gap: 6px;
+  padding: 8px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--color-surface-subtle);
+}
+
+.playback-kv-row {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+}
+
+.playback-kv-key,
+.playback-status-content strong {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playback-kv-value,
+.playback-status-content small {
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.playback-status-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.playback-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.playback-status-content {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.playback-status-running .playback-status-badge,
+.flow-card.is-playback-running {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--line-strong));
+  box-shadow: var(--color-card-shadow-strong), 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.playback-status-success .playback-status-badge,
+.flow-card.is-playback-success {
+  border-color: color-mix(in srgb, var(--color-status-success) 58%, var(--line-strong));
+  box-shadow: var(--color-card-shadow-strong), 0 0 0 2px color-mix(in srgb, var(--color-status-success) 24%, transparent);
+}
+
+.playback-status-failure .playback-status-badge,
+.flow-card.is-playback-failure {
+  border-color: color-mix(in srgb, var(--color-status-danger) 58%, var(--line-strong));
+  box-shadow: var(--color-card-shadow-strong), 0 0 0 2px color-mix(in srgb, var(--color-status-danger) 26%, transparent);
+}
+
+.playback-status-idle .playback-status-badge,
+.flow-card.is-playback-idle {
+  border-color: color-mix(in srgb, var(--muted) 42%, var(--line-strong));
+}
+
+.catalog-group {
+  display: grid;
+  gap: 8px;
+}
+
+.catalog-group-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.catalog-group-arrow {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+
+.catalog-group-arrow.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.catalog-group-title {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.catalog-items {
+  display: grid;
+  gap: 6px;
+}
+
+.catalog-items.is-collapsed {
+  display: none;
+}
+
+.catalog-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--color-surface-subtle);
+  color: var(--text);
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: grab;
+}
+
+.catalog-item-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-item.is-editable {
+  padding-right: 6px;
+}
+
+.catalog-item-edit {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--color-surface-ghost);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.catalog-item-edit svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.catalog-item-edit:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.catalog-item.is-dragging-palette {
+  opacity: 0.58;
+}

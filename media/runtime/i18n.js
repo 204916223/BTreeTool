@@ -21,6 +21,10 @@
       close: "Close",
       language: "Language",
       theme: "Theme",
+      mainTreeLocator: "MainTree Locator",
+      showMainTreeLocator: "Show locator",
+      behaviorTreeRoot: "BehaviorTree Root",
+      showBehaviorTreeRoot: "Show virtual root",
       simplifyView: "Node Details",
       configFile: "Config File",
       importPresets: "Import Presets",
@@ -49,6 +53,10 @@
         close: "关闭",
         language: "语言",
         theme: "主题",
+        mainTreeLocator: "MainTree 定位图",
+        showMainTreeLocator: "显示定位图",
+        behaviorTreeRoot: "行为树 root",
+        showBehaviorTreeRoot: "显示虚拟 root",
         simplifyView: "节点详情",
         configFile: "配置文件",
         importPresets: "导入预设",
@@ -383,6 +391,26 @@
     );
   }
 
+  function getMainTreeLocatorCopy(language = getCurrentLanguage()) {
+    const base = {
+      ariaLabel: "MainTree locator",
+      currentTree: (treeId) => `Current: ${treeId}`,
+      openSubTree: (treeId) => `Open ${treeId}`,
+      focusNode: (treeId, nodeTitle) => `Show ${nodeTitle} in ${treeId}`
+    };
+
+    return localize(
+      base,
+      {
+        ariaLabel: "MainTree 定位图",
+        currentTree: (treeId) => `当前：${treeId}`,
+        openSubTree: (treeId) => `打开 ${treeId}`,
+        focusNode: (treeId, nodeTitle) => `在 ${treeId} 中定位 ${nodeTitle}`
+      },
+      language
+    );
+  }
+
   function getChromeCopy(language = getCurrentLanguage()) {
     const base = {
       editModeTitle: "Edit mode",
@@ -496,6 +524,7 @@
     getInspectorCopy,
     getOverlayCopy,
     getNodeEditorCopy,
+    getMainTreeLocatorCopy,
     getAppCopy,
     getSettingsCopy,
     getThemeOptions,

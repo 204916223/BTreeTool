@@ -149,13 +149,31 @@
 ```text
 BTreeTool/
   media/
-    main.css
     main.js
+    styles/
+      tokens.css
+      chrome.css
+      tree-surface.css
+      ...
     runtime/
       canvas.js
       catalog.js
       inspector.js
       overlays.js
+      overlays/
+        shared.js
+        context-menus.js
+        delete-confirm.js
+        node-picker.js
+        settings-dialog.js
+        tree-model-dialog.js
+        node-editor-dialog.js
+      tree-navigation.js
+      tree-switcher.js
+      main-tree-locator.js
+      search.js
+      workspace-panels.js
+      playback.js
       viewport-layout.js
   src/
     core/
