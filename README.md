@@ -1,298 +1,161 @@
 # BTreeTool
 
-`BTreeTool` 是一个面向 `BehaviorTree.CPP / Groot2` XML 工作流的 VS Code 可视化编辑插件。
+BTreeTool 是一个在 VS Code 里查看、定位和轻量编辑 `BehaviorTree.CPP / Groot2` XML 的可视化工具。
 
-它的目标不是复刻 Groot2，而是在 VS Code 内提供一套可用的 XML 预览、校验和可视化编辑闭环。
+它适合在不切换到 Groot2 的情况下快速检查行为树结构、调整节点、编辑属性、定位 SubTree 关系，并把修改保存回 XML。
 
-当前版本已经不再是“插件骨架”，而是一个可以直接用于日常 XML 编辑和结构调整的原型工具。
+## 适合做什么
 
-## 当前能力
+- 预览 `BehaviorTree.CPP` / Groot2 XML 的行为树结构
+- 在多个 `<BehaviorTree ID="...">` 之间快速切换
+- 通过 MainTree 定位图确认当前子树在主树里的位置
+- 编辑节点属性、描述、脚本代码和常见端口字段
+- 拖拽调整同一棵树里的节点顺序和层级
+- 从节点目录新增内建节点、模型节点和 SubTree 引用
+- 编辑 `TreeNodesModel` 节点定义
+- 导入回放日志，查看节点运行状态
 
-### XML 解析与保存
+## 安装
 
-- 解析 `BehaviorTree.CPP` 风格 XML
-- 支持多棵 `<BehaviorTree ID="...">`
-- 识别 `main_tree_to_execute`
-- 支持 `TreeNodesModel`
-- 支持顶层 `<include ... />`
-- 保留 `BTCPP_format="4"`、XML 声明、常见模型附加属性
-- 支持从预览直接保存 XML
+如果你拿到的是 `.vsix` 文件：
 
-### 容错与诊断
+1. 在 VS Code 中打开命令面板
+2. 执行 `Extensions: Install from VSIX...`
+3. 选择 `btree-tool-v*.vsix`
+4. 安装完成后重新加载 VS Code
 
-- 语法错误会在预览中直接报出
-- 解析 warning 会同步进 VS Code `Problems`
-- 支持“宽读严写”思路：
-  - 轻微人工改动后尽量仍可打开
-  - 未知属性尽量保留
-  - 未知节点/结构问题会给 warning，而不是直接拒绝加载
-- 当前会检查的典型问题包括：
-  - 缺 `main_tree_to_execute`
-  - 缺 `BehaviorTree ID`
-  - 未知节点类型
-  - `SubTree` 目标缺失
-  - 子节点数量与节点类型不匹配
-  - `TreeNodesModel` 未声明属性
+如果你需要从源码打包一个 `.vsix`：
 
-### 预览与导航
+```bash
+npm install
+npm run package:vsix
+```
 
-- Webview 里展示行为树结构图
-- 顶部可切换当前 XML 中的不同子树
-- 支持缩放、平移、居中适配
-- 支持简化视图：
-  - 只显示节点名和描述
-  - 隐藏输入/输出/参数，便于梳理整体逻辑
-- 左侧 `Node Palette` 可显示/隐藏
-- 右侧 `Node Inspector` 可显示/隐藏
-- 右上角提供设置入口，可管理用户配置文件
+生成的 `.vsix` 会出现在仓库根目录。
 
-### 节点可视化编辑
+## 打开预览
 
-- 选中节点后在右侧直接编辑属性值
-- Inspector 现在只负责改值，不负责删字段
-- `_description` 会被收成统一的描述区显示
-- `Script` / `ScriptCondition` 的 `code` 单独显示
-- 内建节点和 `TreeNodesModel` 节点会按 schema 展示输入、输出、参数
+打开一个行为树 XML 后，可以通过这些入口打开预览：
 
-### 结构编辑
-
-- 支持同树内拖拽移动节点
-- 支持前插、后插、追加为子节点
-- `Simplify` 模式下仍可调整左右顺序，但不会追加为子节点
-- 支持从 `Node Palette` 拖新节点进树
-- 支持右键节点：
-  - `Add Before`
-  - `Add After`
-  - `Add Child`
-  - `Delete Node`
-- 支持把节点拖到左侧 `Node Palette` 删除
-- 删除带轻确认，避免误删
-
-### 节点目录与新增
-
-- 左侧 `Node Palette` 来源于统一 `nodeCatalog`
-- 当前目录包含三类节点：
-  - 内建节点
-  - `TreeNodesModel` 导出的自定义节点
-  - 当前 XML 中的 `SubTree`
-- 支持搜索节点
-- 右键新增时会弹出节点选择面板，也支持搜索
-- 新增节点的初始值来自节点定义默认值，但每次新增都是独立实例，不会互相污染
-
-### 用户设置与预设
-
-- 每个用户都有独立的 `user-settings.json`
-- 当前已接入的设置项包括：
-  - 界面语言偏好
-  - 主题预设
-  - 节点预设目录 `presetNodes`
-- 设置面板支持：
-  - 保存当前设置
-  - 打开配置文件
-  - 导入推荐节点预设
-- 用户预设节点会参与：
-  - `Node Palette`
-  - 右键新增节点
-  - Inspector 固定字段约束
-  - 新建节点默认值初始化
-
-## 命令入口
-
-当前提供 1 个命令：
-
-- `BTreeTool: Open Preview`
-
-入口位置：
-
-- 编辑器右上角
+- 编辑器右上角的 BTreeTool 图标
 - 编辑器右键菜单
-- 标签页右键菜单
+- 文件标签右键菜单
 - 资源管理器右键菜单
-- 命令面板
-## 当前交互说明
+- 命令面板：`BTreeTool: Open Preview`
 
-### 顶部子树列表
+预览窗口会绑定当前 XML 文件。XML 有改动时，预览会自动刷新。
 
-- 点击切换子树
-- 支持左右滚动按钮
-- 支持按住子树标题左右拖动列表
+## 界面说明
+
+### 顶部工具栏
+
+- `Edit`：编辑模式，可修改 XML
+- `Playback`：回放模式，可导入日志查看节点状态
+- 保存按钮：把预览里的修改保存回当前 XML
+- 子树列表：切换当前 XML 中的不同 `BehaviorTree`
+- 设置按钮：打开 BTreeTool 设置
 
 ### 画布
 
 - 滚轮缩放
 - 拖动画布平移
 - 点击节点选中
-- 拖节点到槽位可调整结构
+- 双击节点打开节点编辑窗口
+- 右键节点打开新增、复制、粘贴、删除菜单
+- 拖动节点到插槽可调整结构
 
-### 删除
+如果开启了虚拟 root，画布顶部会显示一个 `root` 节点。当前树是从某个 SubTree 打开的情况下，点击这个 root 会回到它的上一级行为树。
 
-- 右键节点删除
-- 或拖到左侧 `Node Palette` 删除
-- 删除前会出现确认
+### MainTree 定位图
 
-## XML 兼容边界
+当你打开的不是 MainTree 时，右侧小窗口会显示 MainTree 的缩略结构，并高亮当前所在的子树关系。
 
-当前版本已经针对 `servo-behavior-tree` 中的多份真实 Groot2 / BT4 XML 做过 round-trip 检查，并确认：
+- 点击定位图里的 SubTree 节点，会跳转到对应目标子树
+- 当前打开的是更深层子树时，也会高亮它在 MainTree 链路上的上级 SubTree
+- 可以在设置里关闭这个小窗口
 
-- 可被 Groot2 打开
-- 可在 Groot2 中再次编辑并保存
-- Groot2 保存后会恢复成 Groot2 自己的排版风格
+### Node Palette
 
-但仍有这些边界：
+左侧节点目录包含：
+
+- 内建节点
+- `TreeNodesModel` 导出的自定义节点
+- 当前 XML 中已有的 SubTree
+- 用户配置里的预设节点
+
+你可以搜索节点，也可以把节点拖到画布插槽中创建新节点。
+
+### Node Inspector
+
+右侧 Inspector 用于查看和编辑当前选中节点的 XML 属性。
+
+- 常见端口会按输入、输出、参数分类展示
+- `_description` 会作为描述单独显示
+- `Script` / `ScriptCondition` 的 `code` 会单独显示
+- SubTree 引用节点本身是跳转引用，内部内容需要打开目标子树后编辑
+
+### 搜索
+
+在预览窗口内按 `Cmd/Ctrl + F` 可以搜索节点。
+
+搜索默认匹配节点名、类型、实例名和摘要。展开筛选后，也可以搜索描述和属性。
+
+### 回放模式
+
+切换到 `Playback` 后，可以导入行为树运行日志。当前支持常见的 `btlog`、`json`、`jsonl`、`gz`、`log`、`txt` 文件。
+
+导入后，画布会用状态颜色标记节点执行结果。
+
+## 设置
+
+点击右上角设置按钮可以修改用户配置。配置会保存到当前用户的 `user-settings.json`。
+
+常用设置：
+
+- `Language`：切换界面语言
+- `Theme`：切换主题
+- `MainTree Locator`：显示或隐藏 MainTree 定位图，默认开启
+- `BehaviorTree Root`：显示或隐藏虚拟 root，默认开启
+- `Node Details`：控制简化视图里隐藏哪些节点详情
+- `Import Presets`：导入推荐节点预设
+- `Open Config`：直接打开配置文件
+
+用户预设节点会参与 Node Palette、右键新增、Inspector 字段约束和新建节点默认值。
+
+## XML 兼容性
+
+BTreeTool 面向 `BehaviorTree.CPP` / Groot2 风格 XML，当前支持：
+
+- 多棵 `<BehaviorTree ID="...">`
+- `main_tree_to_execute`
+- `TreeNodesModel`
+- 顶层 `<include ... />`
+- `BTCPP_format="4"`
+- 常见模型附加属性
+
+预览会尽量宽松读取 XML。轻微人工改动、未知属性和部分未知节点通常会保留下来，并以 warning 的形式显示在 VS Code `Problems` 里。
+
+## 保存时需要注意
+
+BTreeTool 保存 XML 时会使用自己的规范化格式，因此：
 
 - 不保留 XML 注释
-- 不保留原始缩进/换行风格
-- 插件保存后使用的是插件的规范化格式，不保证字节级接近 Groot2 输出
+- 不保留原始缩进和换行风格
+- 不保证字节级接近 Groot2 输出
+- Groot2 再次打开和保存后，可能会恢复成 Groot2 自己的排版风格
 
-## 当前结构
+建议在重要文件上使用 Git 或其他版本管理，方便对比和回退。
 
-```text
-BTreeTool/
-  media/
-    main.js
-    styles/
-      tokens.css
-      chrome.css
-      tree-surface.css
-      ...
-    runtime/
-      canvas.js
-      catalog.js
-      inspector.js
-      overlays.js
-      overlays/
-        shared.js
-        context-menus.js
-        delete-confirm.js
-        node-picker.js
-        settings-dialog.js
-        tree-model-dialog.js
-        node-editor-dialog.js
-      tree-navigation.js
-      tree-switcher.js
-      main-tree-locator.js
-      search.js
-      workspace-panels.js
-      playback.js
-      viewport-layout.js
-  src/
-    core/
-      btAst.ts
-      edit.ts
-      nodeCatalog.ts
-      parse.ts
-      serialize.ts
-      validate.ts
-      viewModel.ts
-    extension.ts
-    panel.ts
-  scripts/
-  package.json
-  tsconfig.json
-```
+## 常见问题
 
-### 代码职责
+### 预览打不开或显示解析失败
 
-- `src/core/parse.ts`
-  `XML -> AST + warnings`
-- `src/core/serialize.ts`
-  `AST -> 规范化 XML`
-- `src/core/edit.ts`
-  结构编辑操作，如移动/新增/删除/属性替换
-- `src/core/nodeCatalog.ts`
-  统一节点定义目录
-- `src/core/viewModel.ts`
-  `AST -> Webview preview model`
-- `src/panel.ts`
-  Webview 宿主、消息处理、统一 XML mutation pipeline
-- `media/runtime/*.js`
-  Webview 运行时拆分模块：
-  - `canvas`
-  - `catalog`
-  - `inspector`
-  - `overlays`
-  - `viewport-layout`
+先看预览里的错误信息和 VS Code `Problems`。常见原因包括 XML 不完整、缺少 `<root>`、缺少 `<BehaviorTree>`、`SubTree` 目标不存在，或节点子节点数量不符合类型约束。
 
-## 开发方式
+### 为什么 SubTree 节点不能直接编辑内部内容？
 
-### 方案 A：本机 VS Code 直装源码目录
+SubTree 节点只是一个引用。要编辑它指向的内容，请点击 SubTree 跳转到目标行为树后再编辑。
 
-这是当前推荐方式。适合高频开发，不需要反复打开 `F5` 调试宿主窗口。
+### 为什么保存后 XML 格式变了？
 
-1. 安装 Node.js 18+
-2. 在仓库根目录执行 `npm install`
-3. 执行 `npm run dev:link`
-4. 执行 `npm run compile`
-5. 回到你日常使用的 VS Code，执行 `Developer: Reload Window`
-
-后续开发时：
-
-1. 修改 `src/` 或 `media/`
-2. 执行 `npm run dev:refresh`
-3. 执行 `Developer: Reload Window`
-
-如果扩展目录不是默认的 `~/.vscode/extensions/`，可以先设置：
-
-## 打包与分发
-
-当前插件是纯 TypeScript / JavaScript 实现，没有平台相关二进制依赖。
-
-这意味着：
-
-- 生成的 `.vsix` 可以同时给 macOS 和 Windows 用户安装
-- 不需要分别打两份包
-
-### 本地打包
-
-1. 执行 `npm install`
-2. 执行 `npm run package:vsix`
-
-执行完成后，仓库根目录会生成：
-
-- `btree-tool-v0.0.1.vsix`
-
-### 其他用户安装
-
-让其他用户拿到 `.vsix` 后，在 VS Code 中任选一种方式安装：
-
-1. 命令面板执行 `Extensions: Install from VSIX...`
-2. 选择生成的 `btree-tool-v0.0.1.vsix`
-
-安装完成后重新加载 VS Code 即可。
-
-```bash
-VSCODE_EXTENSIONS_DIR="/your/extensions/path" npm run dev:link
-```
-
-### 方案 B：F5 调试宿主
-
-适合隔离测试，但日常迭代不如方案 A 顺手。
-
-1. 安装 Node.js 18+
-2. 在仓库根目录执行 `npm install`
-3. 执行 `npm run compile`
-4. 在 VS Code 中按 `F5`
-
-## 当前更适合做什么
-
-当前版本更适合：
-
-- 编辑和整理现有 BT XML
-- 调整节点顺序和层级
-- 规范化 XML
-- 做 Groot2 不方便在 macOS 上完成的轻量 XML 编辑
-
-还没做的更大块内容包括：
-
-- `TreeNodesModel` 的可视化编辑器
-- 更完整的端口/模型定义管理
-- 自动化 UI 回归测试
-- 更细粒度的撤销/重做体验
-
-## 现阶段建议
-
-如果继续迭代，下一阶段最值得做的是：
-
-1. 把 `TreeNodesModel` 本身做成可视化编辑窗口
-2. 补一层 UI 行为回归测试或最小手测清单
-3. 继续收敛节点布局与交互细节，而不是继续堆更多表层功能
+这是预期行为。BTreeTool 会把 XML 序列化成统一格式，以便稳定编辑和保存。
