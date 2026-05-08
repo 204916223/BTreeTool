@@ -16,7 +16,8 @@ export function serializeBehaviorTreeDocument(document: BtDocumentAst): string {
   lines.push(...renderOpenTag("root", rootAttributes, 0));
 
   const includeQueue = [...document.includes];
-  const treeQueue = [...document.behaviorTrees];
+  const treeQueue = [...document.behaviorTrees].sort(compareById);
+  const nodeModelQueue = [...document.nodeModels].sort(compareById);
   let treeNodesModelWritten = false;
 
   for (const item of document.topLevelOrder) {
@@ -28,11 +29,11 @@ export function serializeBehaviorTreeDocument(document: BtDocumentAst): string {
     } else if (item === "behaviorTree") {
       const tree = treeQueue.shift();
       if (tree) {
-        lines.push(...serializeBehaviorTree(tree, 1));
+        appendBehaviorTree(lines, tree, 1);
       }
     } else if (item === "treeNodesModel" && !treeNodesModelWritten) {
-      if (document.nodeModels.length > 0) {
-        lines.push(...serializeTreeNodesModel(document.nodeModels, 1));
+      if (nodeModelQueue.length > 0) {
+        lines.push(...serializeTreeNodesModel(nodeModelQueue, 1));
       }
       treeNodesModelWritten = true;
     }
@@ -43,15 +44,22 @@ export function serializeBehaviorTreeDocument(document: BtDocumentAst): string {
   }
 
   for (const tree of treeQueue) {
-    lines.push(...serializeBehaviorTree(tree, 1));
+    appendBehaviorTree(lines, tree, 1);
   }
 
-  if (!treeNodesModelWritten && document.nodeModels.length > 0) {
-    lines.push(...serializeTreeNodesModel(document.nodeModels, 1));
+  if (!treeNodesModelWritten && nodeModelQueue.length > 0) {
+    lines.push(...serializeTreeNodesModel(nodeModelQueue, 1));
   }
 
   lines.push(`</root>`);
   return `${lines.join("\n")}\n`;
+}
+
+function appendBehaviorTree(lines: string[], tree: BtDocumentAst["behaviorTrees"][number], depth: number): void {
+  if (lines.length > 0 && lines[lines.length - 1] !== "") {
+    lines.push("");
+  }
+  lines.push(...serializeBehaviorTree(tree, depth));
 }
 
 function serializeXmlDeclaration(attributes: Record<string, string>): string {
@@ -179,4 +187,27 @@ function escapeXml(value: string): string {
 
 function indent(depth: number): string {
   return "  ".repeat(depth);
+}
+
+function compareById<T extends { id: string }>(left: T, right: T): number {
+  const leftKey = left.id.toLowerCase();
+  const rightKey = right.id.toLowerCase();
+
+  if (leftKey < rightKey) {
+    return -1;
+  }
+
+  if (leftKey > rightKey) {
+    return 1;
+  }
+
+  if (left.id < right.id) {
+    return -1;
+  }
+
+  if (left.id > right.id) {
+    return 1;
+  }
+
+  return 0;
 }

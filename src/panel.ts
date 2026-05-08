@@ -1,7 +1,16 @@
 import * as vscode from "vscode";
 import * as zlib from "zlib";
 import { BtNodeModel } from "./core/btAst";
-import { deleteNode, insertNode, insertNodeCopy, moveNode, replaceNodeAttributes, replaceNodeModels } from "./core/edit";
+import {
+  createBehaviorTree,
+  deleteBehaviorTree,
+  deleteNode,
+  insertNode,
+  insertNodeCopy,
+  moveNode,
+  replaceNodeAttributes,
+  replaceNodeModels
+} from "./core/edit";
 import { isBlockingWarning } from "./core/issueRules";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { parsePlaybackLogText } from "./core/playbackLog";
@@ -42,6 +51,18 @@ type WebviewMessage =
   | {
       type: "saveTreeNodeModels";
       payload?: BtNodeModel[];
+    }
+  | {
+      type: "createBehaviorTree";
+      payload?: {
+        treeId?: string;
+      };
+    }
+  | {
+      type: "deleteBehaviorTree";
+      payload?: {
+        treeId?: string;
+      };
     }
   | {
       type: "moveNode";
@@ -118,6 +139,16 @@ function getPanelCopy(language: string) {
     treeNodesModelUnchanged: "TreeNodesModel already matches the current XML.",
     treeNodesModelUpdated: "TreeNodesModel updated.",
     treeNodesModelFailed: "Failed to update TreeNodesModel.",
+    incompleteBehaviorTreeCreate: "The webview sent an incomplete BehaviorTree create request.",
+    createBehaviorTreeEmptyName: "BehaviorTree ID cannot be empty.",
+    createBehaviorTreeDuplicateName: (treeId: string) => `BehaviorTree "${treeId}" already exists.`,
+    behaviorTreeCreateUnchanged: "BehaviorTree already exists.",
+    behaviorTreeCreated: "BehaviorTree created.",
+    behaviorTreeCreateFailed: "Failed to create BehaviorTree.",
+    incompleteBehaviorTreeDelete: "The webview sent an incomplete BehaviorTree delete request.",
+    behaviorTreeDeleteUnchanged: "BehaviorTree was already removed.",
+    behaviorTreeDeleted: "BehaviorTree removed.",
+    behaviorTreeDeleteFailed: "Failed to remove BehaviorTree.",
     incompleteNodeMove: "The webview sent an incomplete node move request.",
     nodeOrderUnchanged: "Node order already matches the current XML.",
     nodeOrderUpdated: "Node order updated.",
@@ -167,6 +198,16 @@ function getPanelCopy(language: string) {
     treeNodesModelUnchanged: "TreeNodesModel 与当前 XML 已一致。",
     treeNodesModelUpdated: "TreeNodesModel 已更新。",
     treeNodesModelFailed: "更新 TreeNodesModel 失败。",
+    incompleteBehaviorTreeCreate: "Webview 发送的 BehaviorTree 创建请求不完整。",
+    createBehaviorTreeEmptyName: "BehaviorTree ID 不能为空。",
+    createBehaviorTreeDuplicateName: (treeId: string) => `BehaviorTree“${treeId}”已经存在。`,
+    behaviorTreeCreateUnchanged: "BehaviorTree 已存在。",
+    behaviorTreeCreated: "BehaviorTree 已创建。",
+    behaviorTreeCreateFailed: "创建 BehaviorTree 失败。",
+    incompleteBehaviorTreeDelete: "Webview 发送的 BehaviorTree 删除请求不完整。",
+    behaviorTreeDeleteUnchanged: "BehaviorTree 此前已被移除。",
+    behaviorTreeDeleted: "BehaviorTree 已移除。",
+    behaviorTreeDeleteFailed: "移除 BehaviorTree 失败。",
     incompleteNodeMove: "Webview 发送的节点移动请求不完整。",
     nodeOrderUnchanged: "节点顺序与当前 XML 已一致。",
     nodeOrderUpdated: "节点顺序已更新。",
@@ -320,6 +361,16 @@ export class BehaviorTreePreviewPanel {
 
         if (message.type === "saveTreeNodeModels" && "payload" in message) {
           void this.handleSaveTreeNodeModels(message.payload);
+          return;
+        }
+
+        if (message.type === "createBehaviorTree" && "payload" in message) {
+          void this.handleCreateBehaviorTree(message.payload);
+          return;
+        }
+
+        if (message.type === "deleteBehaviorTree" && "payload" in message) {
+          void this.handleDeleteBehaviorTree(message.payload);
           return;
         }
 
@@ -533,6 +584,62 @@ export class BehaviorTreePreviewPanel {
       mutate: (documentText) => {
         const parsed = parseBehaviorTreeDocument(documentText);
         replaceNodeModels(parsed, payload);
+        return serializeBehaviorTreeDocument(parsed);
+      }
+    });
+  }
+
+  private async handleCreateBehaviorTree(payload: { treeId?: string } | undefined): Promise<void> {
+    const copy = this.getCopy();
+    if (!this.latestDocumentUri) {
+      this.postEditResult(false, copy.noAttachedDocument);
+      return;
+    }
+
+    const normalizedTreeId = payload?.treeId?.trim() || "";
+    if (!normalizedTreeId) {
+      this.postEditResult(false, copy.incompleteBehaviorTreeCreate);
+      return;
+    }
+
+    const existingTreeIds = new Set(this.latestPayload.preview?.behaviorTrees.map((tree) => tree.id) || []);
+    if (existingTreeIds.has(normalizedTreeId)) {
+      this.postEditResult(false, copy.createBehaviorTreeDuplicateName(normalizedTreeId));
+      return;
+    }
+
+    await this.applyXmlMutation({
+      unchangedMessage: copy.behaviorTreeCreateUnchanged,
+      successMessage: copy.behaviorTreeCreated,
+      failurePrefix: copy.behaviorTreeCreateFailed,
+      mutate: (documentText) => {
+        const parsed = parseBehaviorTreeDocument(documentText);
+        createBehaviorTree(parsed, normalizedTreeId);
+        return serializeBehaviorTreeDocument(parsed);
+      }
+    });
+  }
+
+  private async handleDeleteBehaviorTree(payload: { treeId?: string } | undefined): Promise<void> {
+    const copy = this.getCopy();
+    if (!this.latestDocumentUri) {
+      this.postEditResult(false, copy.noAttachedDocument);
+      return;
+    }
+
+    const normalizedTreeId = payload?.treeId?.trim() || "";
+    if (!normalizedTreeId) {
+      this.postEditResult(false, copy.incompleteBehaviorTreeDelete);
+      return;
+    }
+
+    await this.applyXmlMutation({
+      unchangedMessage: copy.behaviorTreeDeleteUnchanged,
+      successMessage: copy.behaviorTreeDeleted,
+      failurePrefix: copy.behaviorTreeDeleteFailed,
+      mutate: (documentText) => {
+        const parsed = parseBehaviorTreeDocument(documentText);
+        deleteBehaviorTree(parsed, normalizedTreeId);
         return serializeBehaviorTreeDocument(parsed);
       }
     });
@@ -754,12 +861,13 @@ export class BehaviorTreePreviewPanel {
     }
 
     try {
-      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
+      let document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
       if (this.isSaveBlocked(document.getText())) {
         this.postEditResult(false, copy.documentSaveBlocked);
         return;
       }
 
+      document = await this.normalizeDocumentBeforeSave(document);
       const saved = await document.save();
 
       if (!saved) {
@@ -773,6 +881,27 @@ export class BehaviorTreePreviewPanel {
       const message = error instanceof Error ? error.message : String(error);
       this.postEditResult(false, `${copy.documentSaveFailed} ${message}`);
     }
+  }
+
+  private async normalizeDocumentBeforeSave(document: vscode.TextDocument): Promise<vscode.TextDocument> {
+    const currentText = document.getText();
+    const parsed = parseBehaviorTreeDocument(currentText);
+    const nextXml = serializeBehaviorTreeDocument(parsed);
+
+    if (nextXml === currentText) {
+      return document;
+    }
+
+    const edit = new vscode.WorkspaceEdit();
+    const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(currentText.length));
+    edit.replace(document.uri, fullRange, nextXml);
+    const applied = await vscode.workspace.applyEdit(edit);
+
+    if (!applied) {
+      throw new Error(this.getCopy().xmlUpdateRejected);
+    }
+
+    return vscode.workspace.openTextDocument(document.uri);
   }
 
   private isSaveBlocked(source: string): boolean {
@@ -913,6 +1042,7 @@ export class BehaviorTreePreviewPanel {
       "delete-confirm.js",
       "node-picker.js",
       "settings-dialog.js",
+      "behavior-tree-dialog.js",
       "tree-model-dialog.js",
       "node-editor-dialog.js"
     ].map((fileName) =>
@@ -990,6 +1120,9 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
             <div id="tree-switcher" class="tree-switcher"></div>
           </div>
           <div class="tree-actions">
+            <button id="add-behavior-tree" class="canvas-btn icon-btn" type="button" title="Add BehaviorTree" aria-label="Add BehaviorTree">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+            </button>
             <button id="open-settings" class="canvas-btn icon-btn" type="button" title="Open BTreeTool settings" aria-label="Open BTreeTool settings">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94a7.96 7.96 0 0 0 .06-.94 7.96 7.96 0 0 0-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.28 7.28 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 1h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 7.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.62-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .49.42h3.8a.5.5 0 0 0 .49-.42l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4Z"/></svg>
             </button>

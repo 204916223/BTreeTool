@@ -25,6 +25,16 @@ test("isBlockingWarning treats semantic blocking codes as blocking", () => {
   assert.equal(isBlockingWarning(warning), true);
 });
 
+test("isBlockingWarning treats unknown nodes as non-blocking", () => {
+  const warning: BtWarning = {
+    code: "unknown_node_type",
+    message: "unknown",
+    severity: "warning"
+  };
+
+  assert.equal(isBlockingWarning(warning), false);
+});
+
 test("validateNodeSemantics flags parallel thresholds above child count", () => {
   const warnings: BtWarning[] = [];
   const node = createNode(

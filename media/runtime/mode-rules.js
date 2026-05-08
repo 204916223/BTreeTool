@@ -14,6 +14,8 @@
     requestNodeDelete: isEditingEnabled,
     applyInspectorAttributes: (state, context) =>
       isEditingEnabled(state) && Boolean(context.hasEditableFields),
+    createBehaviorTree: (state, context) => isEditingEnabled(state) && Boolean(context.hasPreview),
+    deleteBehaviorTree: (state, context) => isEditingEnabled(state) && Boolean(context.treeId),
     createNodeModel: isEditingEnabled,
     openNodeModelEditor: isEditingEnabled,
     revealNodeModelSource: isEditingEnabled,

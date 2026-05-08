@@ -4,7 +4,6 @@ export const BLOCKING_WARNING_CODES = new Set([
   "empty_document",
   "unexpected_root_tag",
   "empty_behavior_tree",
-  "unknown_node_type",
   "missing_subtree_target",
   "missing_subtree_definition",
   "missing_explicit_node_id",

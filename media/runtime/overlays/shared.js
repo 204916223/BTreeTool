@@ -14,6 +14,7 @@
       overlayState.deleteConfirmBar?.element,
       overlayState.nodePicker?.element,
       overlayState.settingsDialog?.element,
+      overlayState.behaviorTreeDialog?.element,
       overlayState.treeNodesModelDialog?.element,
       overlayState.nodeEditorDialog?.element
     ].some((element) => element && !element.hidden);

@@ -160,7 +160,9 @@
             return;
           }
 
-          runtime.state.selectedNodePath = `${state.targetParentPath}.${state.targetIndex}`;
+          runtime.state.selectedNodePath = state.targetParentPath === "__btree_root__"
+            ? "0"
+            : `${state.targetParentPath}.${state.targetIndex}`;
           runtime.app.persistUiState();
           runtime.vscode.postMessage({
             type: "createNode",

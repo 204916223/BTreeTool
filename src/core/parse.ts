@@ -7,6 +7,7 @@ import {
   BtXmlDeclaration,
   BtWarning
 } from "./btAst";
+import { ensureInferredNodeModels } from "./modelInference";
 import { validateBehaviorTreeDocument } from "./validate";
 
 type XmlElement = {
@@ -75,6 +76,7 @@ export function parseBehaviorTreeDocument(source: string): BtDocumentAst {
     warnings
   };
 
+  ensureInferredNodeModels(document);
   document.warnings.push(...validateBehaviorTreeDocument(document));
 
   return document;

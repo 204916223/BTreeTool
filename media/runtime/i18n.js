@@ -189,6 +189,54 @@
     );
   }
 
+  function getBehaviorTreeDialogCopy(language = getCurrentLanguage()) {
+    const base = {
+      title: "Add BehaviorTree",
+      close: "Close",
+      name: "BehaviorTree ID",
+      placeholder: "SubTreeName",
+      cancel: "Cancel",
+      create: "Create",
+      creating: "Creating BehaviorTree...",
+      deleteTitle: "Remove BehaviorTree",
+      delete: "Remove",
+      deleting: "Removing BehaviorTree...",
+      deleteConfirm: (treeId) => `Remove BehaviorTree "${treeId}"?`,
+      deleteBlockedTitle: "Cannot remove BehaviorTree",
+      deleteBlockedMessage: (treeId) =>
+        `BehaviorTree "${treeId}" is still referenced by other trees. Remove those SubTree nodes before deleting it.`,
+      relatedTrees: "Related BehaviorTrees",
+      saveFinished: "BehaviorTree edit finished.",
+      emptyName: "BehaviorTree ID cannot be empty.",
+      duplicateName: (treeId) => `BehaviorTree "${treeId}" already exists.`
+    };
+
+    return localize(
+      base,
+      {
+        title: "新增子树",
+        close: "关闭",
+        name: "子树名称",
+        placeholder: "子树名称",
+        cancel: "取消",
+        create: "确定",
+        creating: "正在创建 BehaviorTree...",
+        deleteTitle: "移除子树",
+        delete: "移除",
+        deleting: "正在移除 BehaviorTree...",
+        deleteConfirm: (treeId) => `确定移除子树“${treeId}”？`,
+        deleteBlockedTitle: "无法移除子树",
+        deleteBlockedMessage: (treeId) =>
+          `子树“${treeId}”仍被其他行为树引用。请先删除这些 SubTree 节点，再移除该子树。`,
+        relatedTrees: "关联的子树",
+        saveFinished: "BehaviorTree 编辑完成。",
+        emptyName: "子树名称不能为空。",
+        duplicateName: (treeId) => `子树“${treeId}”已经存在。`
+      },
+      language
+    );
+  }
+
   function getCatalogCopy(language = getCurrentLanguage()) {
     const base = {
       eyebrow: "Node Palette",
@@ -198,7 +246,8 @@
       editXml: "Edit XML",
       emptyCatalog: "No node definitions are available for this XML file yet.",
       emptySearch: (query) => `No nodes matched "${query}".`,
-      editModelTitle: (title) => `Edit node model ${title}`
+      editModelTitle: (title) => `Edit node model ${title}`,
+      removeSubTreeTitle: (title) => `Remove SubTree ${title}`
     };
 
     return localize(
@@ -211,7 +260,8 @@
         editXml: "编辑 XML",
         emptyCatalog: "当前 XML 里还没有可用的节点定义。",
         emptySearch: (query) => `没有匹配“${query}”的节点。`,
-        editModelTitle: (title) => `编辑节点模型 ${title}`
+        editModelTitle: (title) => `编辑节点模型 ${title}`,
+        removeSubTreeTitle: (title) => `移除子树 ${title}`
       },
       language
     );
@@ -421,6 +471,7 @@
       saveXmlConfirm: "Save the current XML file now?",
       toggleCatalogTitle: "Show or hide the node palette",
       toggleInspectorTitle: "Show or hide the node inspector",
+      addBehaviorTreeTitle: "Add BehaviorTree",
       openSettingsTitle: "Open BTreeTool settings"
     };
 
@@ -435,6 +486,7 @@
         saveXmlConfirm: "现在保存当前 XML 文件吗？",
         toggleCatalogTitle: "显示或隐藏节点面板",
         toggleInspectorTitle: "显示或隐藏节点检查器",
+        addBehaviorTreeTitle: "新增子树",
         openSettingsTitle: "打开 BTreeTool 设置"
       },
       language
@@ -528,6 +580,7 @@
     getAppCopy,
     getSettingsCopy,
     getThemeOptions,
-    getTreeNodesModelCopy
+    getTreeNodesModelCopy,
+    getBehaviorTreeDialogCopy
   };
 })();

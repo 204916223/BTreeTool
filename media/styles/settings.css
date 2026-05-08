@@ -5,6 +5,76 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+.behavior-tree-dialog-panel {
+  width: min(480px, calc(100vw - 48px));
+  max-height: min(52vh, 360px);
+}
+
+.behavior-tree-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.behavior-tree-form > .settings-field {
+  grid-column: 1 / -1;
+}
+
+.behavior-tree-form .attribute-input {
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: 8px;
+}
+
+.behavior-tree-message {
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.behavior-tree-related {
+  display: grid;
+  gap: 6px;
+  padding: 10px 11px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: 8px;
+  background: var(--color-danger-soft);
+}
+
+.behavior-tree-related-title {
+  color: var(--color-danger-text);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.behavior-tree-related-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.behavior-tree-related-list li {
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: 7px;
+  background: var(--color-surface-subtle);
+  color: var(--color-danger-text);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .settings-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

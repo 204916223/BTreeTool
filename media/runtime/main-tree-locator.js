@@ -181,11 +181,7 @@
 
     layout.edges.forEach((edge) => {
       const path = document.createElementNS(SVG_NS, "path");
-      const midY = edge.startY + (edge.endY - edge.startY) / 2;
-      path.setAttribute(
-        "d",
-        `M ${edge.startX} ${edge.startY} C ${edge.startX} ${midY}, ${edge.endX} ${midY}, ${edge.endX} ${edge.endY}`
-      );
+      path.setAttribute("d", renderZEdgePath(edge));
       path.setAttribute(
         "class",
         "main-tree-locator-edge"
@@ -262,6 +258,16 @@
     });
 
     return svg;
+  }
+
+  function renderZEdgePath(edge) {
+    const midY = edge.startY + (edge.endY - edge.startY) / 2;
+    return [
+      `M ${edge.startX} ${edge.startY}`,
+      `L ${edge.startX} ${midY}`,
+      `L ${edge.endX} ${midY}`,
+      `L ${edge.endX} ${edge.endY}`
+    ].join(" ");
   }
 
   function getMainTreeLocatorMarker(node, focusTreeId) {

@@ -75,6 +75,7 @@
     treeWorkspace: document.querySelector(".tree-workspace"),
     treeRoot: document.getElementById("tree-root"),
     treeContent: document.getElementById("tree-content"),
+    addBehaviorTreeButton: document.getElementById("add-behavior-tree"),
     mainTreeLocator: document.getElementById("main-tree-locator"),
     playbackTimeline: document.getElementById("playback-timeline"),
     playbackImportButton: document.getElementById("playback-import"),
@@ -251,6 +252,12 @@
   });
   runtime.refs.openSettingsButton?.addEventListener("click", () => {
     runtime.overlays.showSettingsDialog();
+  });
+  runtime.refs.addBehaviorTreeButton?.addEventListener("click", () => {
+    if (!runtime.app.canPerformAction("createBehaviorTree", { hasPreview: Boolean(runtime.state.currentPreview) })) {
+      return;
+    }
+    runtime.overlays.showBehaviorTreeDialog();
   });
   runtime.refs.saveDocumentButton?.addEventListener("click", () => {
     if (!runtime.state.currentHasDocument) {
@@ -433,6 +440,9 @@
     runtime.refs.toggleInspectorButton.setAttribute("aria-label", chromeCopy.toggleInspectorTitle);
     runtime.refs.openSettingsButton.title = chromeCopy.openSettingsTitle;
     runtime.refs.openSettingsButton.setAttribute("aria-label", chromeCopy.openSettingsTitle);
+    runtime.refs.addBehaviorTreeButton.title = chromeCopy.addBehaviorTreeTitle;
+    runtime.refs.addBehaviorTreeButton.setAttribute("aria-label", chromeCopy.addBehaviorTreeTitle);
+    updateBehaviorTreeCreateButton();
     updateEditModeButton();
     const indicatorTitle = getSaveIndicatorTitle(chromeCopy);
     runtime.refs.saveDocumentButton.title = indicatorTitle;
@@ -461,7 +471,20 @@
     runtime.search.updateUi();
   }
 
+  function updateBehaviorTreeCreateButton() {
+    const button = runtime.refs.addBehaviorTreeButton;
+    if (!button) {
+      return;
+    }
+
+    button.hidden = !runtime.state.currentHasDocument;
+    button.disabled = !runtime.app.canPerformAction("createBehaviorTree", {
+      hasPreview: Boolean(runtime.state.currentPreview)
+    });
+  }
+
   function updateSaveIndicator() {
+    updateBehaviorTreeCreateButton();
     const button = runtime.refs.saveDocumentButton;
     if (!button) {
       return;
@@ -500,6 +523,7 @@
 
     runtime.catalog.renderCatalog(runtime.state.currentCatalogGroups);
     runtime.inspector.renderInspector();
+    updateBehaviorTreeCreateButton();
     runtime.overlays.hideAll?.();
     runtime.overlays.hideNodeContextMenu?.();
     runtime.overlays.hideCanvasContextMenu?.();
@@ -641,7 +665,7 @@
 
   function pickNodePath(tree) {
     if (!tree?.node) {
-      return "0";
+      return runtime.state.currentSettings?.showBehaviorTreeRoot === false ? "0" : "__btree_root__";
     }
     if (runtime.state.selectedNodePath && findNodeByPath(tree.node, runtime.state.selectedNodePath)) {
       return runtime.state.selectedNodePath;

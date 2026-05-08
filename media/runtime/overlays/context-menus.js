@@ -151,7 +151,9 @@
       return;
     }
 
-    runtime.state.selectedNodePath = `${target.targetParentPath}.${target.targetIndex}`;
+    runtime.state.selectedNodePath = target.targetParentPath === "__btree_root__"
+      ? "0"
+      : `${target.targetParentPath}.${target.targetIndex}`;
     runtime.app.persistUiState();
     runtime.vscode.postMessage({
       type: "createNodeCopy",
@@ -202,6 +204,7 @@
     overlayState.nodeContextMenu.pasteAfterButton.textContent = overlayCopy.pasteCopyAfter;
     overlayState.nodeContextMenu.pasteChildButton.textContent = overlayCopy.pasteCopyAsChild;
     overlayState.nodeContextMenu.deleteButton.textContent = overlayCopy.deleteNode;
+    overlayState.nodeContextMenu.copyNodeButton.hidden = !state?.nodeTemplate;
     overlayState.nodeContextMenu.addBeforeButton.hidden = !state?.parentPath || !Number.isInteger(state?.siblingIndex);
     overlayState.nodeContextMenu.addAfterButton.hidden = !state?.parentPath || !Number.isInteger(state?.siblingIndex);
     overlayState.nodeContextMenu.addChildButton.hidden = !state?.allowAppendChild;

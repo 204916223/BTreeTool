@@ -1,5 +1,6 @@
 (function () {
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
+  const VIRTUAL_ROOT_PATH = "__btree_root__";
 
   function getNodeRole(kind, childCount) {
     const controlKinds = new Set([
@@ -63,7 +64,17 @@
   }
 
   function renderCanvasTree(tree, result, viewportState = null) {
-    const canvasRootNode = getCanvasRootNode(tree);
+    const canvasRootNode = getCanvasRootNode(tree, result);
+    if (!canvasRootNode) {
+      const shell = document.createElement("div");
+      shell.className = "canvas-shell";
+      runtime.state.currentCanvasState = null;
+      runtime.state.currentZoom = 1;
+      runtime.viewport.updateZoomLabel();
+      shell.appendChild(runtime.app.emptyState(runtime.i18n.getAppCopy().selectedTreeNotFound));
+      return shell;
+    }
+
     const layout = runtime.viewport.buildTreeLayout(canvasRootNode, result);
     const shell = document.createElement("div");
     shell.className = "canvas-shell";
@@ -91,11 +102,7 @@
 
     layout.edges.forEach((edge) => {
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      const midY = edge.startY + (edge.endY - edge.startY) / 2;
-      path.setAttribute(
-        "d",
-        `M ${edge.startX} ${edge.startY} C ${edge.startX} ${midY}, ${edge.endX} ${midY}, ${edge.endX} ${edge.endY}`
-      );
+      path.setAttribute("d", renderZEdgePath(edge));
       path.setAttribute("class", "canvas-edge-path");
       svg.appendChild(path);
     });
@@ -112,6 +119,16 @@
 
     runtime.viewport.setupCanvas(shell, stage, layout, viewportState);
     return shell;
+  }
+
+  function renderZEdgePath(edge) {
+    const midY = edge.startY + (edge.endY - edge.startY) / 2;
+    return [
+      `M ${edge.startX} ${edge.startY}`,
+      `L ${edge.startX} ${midY}`,
+      `L ${edge.endX} ${midY}`,
+      `L ${edge.endX} ${edge.endY}`
+    ].join(" ");
   }
 
   function renderCanvasNode(entry, result, currentTreeId) {
@@ -152,12 +169,14 @@
 
     const parentPath = getParentNodePath(node.nodePath);
     const siblingIndex = getNodeIndex(node.nodePath);
-    const acceptsAppendDrop = isVirtualRoot ? false : canAppendChildren(node);
+    const dragParentPath = getDragParentNodePath(node, parentPath);
+    const dragSiblingIndex = getDragSiblingIndex(node, siblingIndex);
+    const acceptsAppendDrop = isVirtualRoot ? children.length === 0 : canAppendChildren(node);
 
-    if (interactive && !isVirtualRoot && parentPath !== null) {
+    if (interactive && !isVirtualRoot && dragParentPath !== null) {
       card.draggable = runtime.app.canPerformAction("dragCanvasNode", {
-        parentPath,
-        siblingIndex
+        parentPath: dragParentPath,
+        siblingIndex: dragSiblingIndex
       });
     }
     if (options.selected) {
@@ -198,6 +217,24 @@
 
         runtime.overlays.hideNodeContextMenu();
         runtime.app.navigateToParentTree(result, options.currentTreeId);
+      });
+
+      card.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        if (!runtime.app.canPerformAction("openNodeContextMenu", { node })) {
+          return;
+        }
+        runtime.overlays.showNodeContextMenu(event.clientX, event.clientY, {
+          treeId: runtime.state.selectedTreeId,
+          nodePath: node.nodePath,
+          parentPath: null,
+          siblingIndex: null,
+          nodeTitle: node.title,
+          nodeTemplate: null,
+          allowAppendChild: acceptsAppendDrop,
+          childCount: node.children.length,
+          allowDelete: false
+        });
       });
     } else if (interactive) {
       card.addEventListener("click", () => {
@@ -243,7 +280,7 @@
           },
           allowAppendChild: canAppendChildren(node),
           childCount: node.children.length,
-          allowDelete: node.nodePath !== "0"
+          allowDelete: canDeleteNode(node)
         });
       });
 
@@ -251,8 +288,8 @@
         if (
           !runtime.app.canPerformAction("dragCanvasNode", {
             node,
-            parentPath,
-            siblingIndex
+            parentPath: dragParentPath,
+            siblingIndex: dragSiblingIndex
           })
         ) {
           event.preventDefault();
@@ -263,8 +300,8 @@
           kind: "move",
           treeId: runtime.state.selectedTreeId,
           sourceNodePath: node.nodePath,
-          sourceParentPath: parentPath,
-          sourceIndex: siblingIndex,
+          sourceParentPath: dragParentPath,
+          sourceIndex: dragSiblingIndex,
           nodeTitle: node.title,
           targetNodePath: null,
           targetParentPath: null,
@@ -353,24 +390,32 @@
       const slotOverlay = document.createElement("div");
       slotOverlay.className = "drop-slot-overlay";
 
-      const beforeSlot = createDropSlot("Insert before", "drop-slot-before", () =>
-        getSideDropTarget(node.nodePath, "before")
-      );
-      const afterSlot = createDropSlot("Insert after", "drop-slot-after", () =>
-        getSideDropTarget(node.nodePath, "after")
-      );
-      slotOverlay.appendChild(beforeSlot);
-      slotOverlay.appendChild(afterSlot);
+      const hasSideSlots = !isVirtualRoot;
+      if (hasSideSlots) {
+        const beforeSlot = createDropSlot("Insert before", "drop-slot-before", () =>
+          getSideDropTarget(node.nodePath, "before")
+        );
+        const afterSlot = createDropSlot("Insert after", "drop-slot-after", () =>
+          getSideDropTarget(node.nodePath, "after")
+        );
+        slotOverlay.appendChild(beforeSlot);
+        slotOverlay.appendChild(afterSlot);
+      }
 
       if (acceptsAppendDrop) {
         slotOverlay.classList.add("has-append");
+        if (!hasSideSlots) {
+          slotOverlay.classList.add("has-append-only");
+        }
         const appendSlot = createDropSlot("Append child here", "drop-slot-append", () =>
           getAppendDropTarget(node)
         );
         slotOverlay.appendChild(appendSlot);
       }
 
-      card.appendChild(slotOverlay);
+      if (slotOverlay.children.length > 0) {
+        card.appendChild(slotOverlay);
+      }
     }
 
     return card;
@@ -393,6 +438,26 @@
 
     const index = Number(parts[parts.length - 1]);
     return Number.isInteger(index) ? index : null;
+  }
+
+  function getDragParentNodePath(node, parentPath) {
+    if (isRealRootUnderVirtualRoot(node)) {
+      return VIRTUAL_ROOT_PATH;
+    }
+
+    return parentPath;
+  }
+
+  function getDragSiblingIndex(node, siblingIndex) {
+    if (isRealRootUnderVirtualRoot(node)) {
+      return 0;
+    }
+
+    return siblingIndex;
+  }
+
+  function isRealRootUnderVirtualRoot(node) {
+    return node?.nodePath === "0" && runtime.state.currentSettings?.showBehaviorTreeRoot !== false;
   }
 
   function getSideDropTarget(nodePath, position) {
@@ -501,6 +566,18 @@
     return false;
   }
 
+  function canDeleteNode(node) {
+    if (node.isVirtualRoot === true) {
+      return false;
+    }
+
+    if (node.nodePath !== "0") {
+      return true;
+    }
+
+    return runtime.state.currentSettings?.showBehaviorTreeRoot !== false;
+  }
+
   function createDropSlot(label, className, resolveDropTarget) {
     const slot = document.createElement("div");
     slot.className = `drop-slot ${className}`;
@@ -560,7 +637,7 @@
         return;
       }
 
-      runtime.state.selectedNodePath = `${dropTarget.targetParentPath}.${nextIndex}`;
+      runtime.state.selectedNodePath = toInsertedNodePath(dropTarget.targetParentPath, nextIndex);
       runtime.app.persistUiState();
 
       if (dragState.kind === "create") {
@@ -605,13 +682,28 @@
     return node.kind;
   }
 
-  function getCanvasRootNode(tree) {
-    if (runtime.state.currentSettings?.showBehaviorTreeRoot === false || !tree?.node) {
+  function toInsertedNodePath(targetParentPath, targetIndex) {
+    if (targetParentPath === VIRTUAL_ROOT_PATH) {
+      return "0";
+    }
+    return `${targetParentPath}.${targetIndex}`;
+  }
+
+  function getCanvasRootNode(tree, result) {
+    if (runtime.state.currentSettings?.showBehaviorTreeRoot === false) {
       return tree.node;
     }
 
+    const children = tree?.node ? [tree.node] : [];
+    const warnings = (result?.warnings || []).filter(
+      (warning) => warning.treeId === tree?.id && warning.nodePath === VIRTUAL_ROOT_PATH
+    );
+    const hasBlockingWarning = warnings.some(
+      (warning) => warning.severity === "error" || warning.code === "empty_behavior_tree"
+    );
+
     return {
-      nodePath: "__btree_root__",
+      nodePath: VIRTUAL_ROOT_PATH,
       title: "root",
       instanceName: "",
       kind: "__BehaviorTreeRoot",
@@ -629,10 +721,10 @@
       inspectorFields: [],
       editorFields: [],
       modelKind: "",
-      warningCount: 0,
-      hasError: false,
-      warnings: [],
-      children: [tree.node],
+      warningCount: warnings.length,
+      hasError: hasBlockingWarning,
+      warnings,
+      children,
       isVirtualRoot: true
     };
   }

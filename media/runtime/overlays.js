@@ -20,6 +20,7 @@
     overlayState.deleteConfirmBar = getPart("deleteConfirm").createDeleteConfirmBar();
     overlayState.nodePicker = getPart("nodePicker").createNodePicker();
     overlayState.settingsDialog = getPart("settingsDialog").createSettingsDialog();
+    overlayState.behaviorTreeDialog = getPart("behaviorTreeDialog").createBehaviorTreeDialog();
     overlayState.treeNodesModelDialog = getPart("treeModelDialog").createTreeNodesModelDialog();
     overlayState.nodeEditorDialog = getPart("nodeEditorDialog").createNodeEditorDialog();
 
@@ -28,6 +29,7 @@
     document.body.appendChild(overlayState.deleteConfirmBar.element);
     document.body.appendChild(overlayState.nodePicker.element);
     document.body.appendChild(overlayState.settingsDialog.element);
+    document.body.appendChild(overlayState.behaviorTreeDialog.element);
     document.body.appendChild(overlayState.treeNodesModelDialog.element);
     document.body.appendChild(overlayState.nodeEditorDialog.element);
   }
@@ -38,11 +40,30 @@
     api.hideDeleteConfirm();
     api.hideNodePicker();
     api.hideSettingsDialog();
+    api.hideBehaviorTreeDialog();
     api.hideTreeNodesModelDialog();
     api.hideNodeEditorDialog();
   }
 
   function handleEditResult(payload) {
+    const behaviorTreeDialog = overlayState.behaviorTreeDialog;
+    if (behaviorTreeDialog && !behaviorTreeDialog.element.hidden) {
+      if (payload?.ok && behaviorTreeDialog.state.pendingAction) {
+        api.hideBehaviorTreeDialog();
+        return;
+      }
+
+      if (behaviorTreeDialog.state.pendingAction) {
+        behaviorTreeDialog.state.pendingAction = null;
+        behaviorTreeDialog.createButton.disabled = false;
+      }
+      getPart("behaviorTreeDialog").renderStatus(
+        payload?.message || runtime.i18n.getBehaviorTreeDialogCopy().saveFinished,
+        payload?.ok ? "success" : "error"
+      );
+      return;
+    }
+
     const nodeEditor = overlayState.nodeEditorDialog;
     if (nodeEditor && !nodeEditor.element.hidden) {
       if (payload?.ok && nodeEditor.state.pendingAction) {
@@ -89,6 +110,9 @@
     hideNodePicker: (...args) => getPart("nodePicker").hideNodePicker(...args),
     showSettingsDialog: (...args) => getPart("settingsDialog").showSettingsDialog(...args),
     hideSettingsDialog: (...args) => getPart("settingsDialog").hideSettingsDialog(...args),
+    showBehaviorTreeDialog: (...args) => getPart("behaviorTreeDialog").showBehaviorTreeDialog(...args),
+    showBehaviorTreeDeleteDialog: (...args) => getPart("behaviorTreeDialog").showBehaviorTreeDeleteDialog(...args),
+    hideBehaviorTreeDialog: (...args) => getPart("behaviorTreeDialog").hideBehaviorTreeDialog(...args),
     showTreeNodesModelDialog: (...args) => getPart("treeModelDialog").showTreeNodesModelDialog(...args),
     hideTreeNodesModelDialog: (...args) => getPart("treeModelDialog").hideTreeNodesModelDialog(...args),
     showNodeEditorDialog: (...args) => getPart("nodeEditorDialog").showNodeEditorDialog(...args),

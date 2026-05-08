@@ -1,6 +1,79 @@
 import { BtDocumentAst, BtNodeAst, BtNodeModel, BtPortModel } from "./btAst";
 import { BtUserSettings } from "../userSettings";
 
+const VIRTUAL_ROOT_PATH = "__btree_root__";
+
+export function createBehaviorTree(document: BtDocumentAst, treeId: string): void {
+  const normalizedTreeId = treeId.trim();
+  if (!normalizedTreeId) {
+    throw new Error("BehaviorTree ID cannot be empty.");
+  }
+
+  if (document.behaviorTrees.some((tree) => tree.id === normalizedTreeId)) {
+    throw new Error(`BehaviorTree "${normalizedTreeId}" already exists.`);
+  }
+
+  document.behaviorTrees.push({
+    id: normalizedTreeId,
+    node: {
+      tagName: "AlwaysSuccess",
+      attributes: {},
+      children: []
+    }
+  });
+  document.topLevelOrder.push("behaviorTree");
+}
+
+export function deleteBehaviorTree(document: BtDocumentAst, treeId: string): void {
+  const normalizedTreeId = treeId.trim();
+  if (!normalizedTreeId) {
+    throw new Error("BehaviorTree ID cannot be empty.");
+  }
+
+  const protectedTreeId = getProtectedTreeId(document);
+  if (protectedTreeId === normalizedTreeId) {
+    throw new Error(`BehaviorTree "${normalizedTreeId}" is the current entry tree and cannot be removed.`);
+  }
+
+  const treeIndex = document.behaviorTrees.findIndex((tree) => tree.id === normalizedTreeId);
+  if (treeIndex < 0) {
+    throw new Error(`BehaviorTree "${normalizedTreeId}" was not found in this document.`);
+  }
+
+  const referencedBy = findBehaviorTreeReferences(document, normalizedTreeId);
+  if (referencedBy.length > 0) {
+    throw new Error(
+      `BehaviorTree "${normalizedTreeId}" is referenced by: ${referencedBy.join(", ")}. Remove those SubTree nodes before deleting it.`
+    );
+  }
+
+  document.behaviorTrees.splice(treeIndex, 1);
+  const orderIndex = document.topLevelOrder.indexOf("behaviorTree");
+  if (orderIndex >= 0) {
+    document.topLevelOrder.splice(orderIndex, 1);
+  }
+}
+
+export function findBehaviorTreeReferences(document: BtDocumentAst, treeId: string): string[] {
+  const normalizedTreeId = treeId.trim();
+  if (!normalizedTreeId) {
+    return [];
+  }
+
+  const referencedBy = new Set<string>();
+  for (const tree of document.behaviorTrees) {
+    if (tree.id === normalizedTreeId || !tree.node) {
+      continue;
+    }
+
+    if (nodeReferencesBehaviorTree(tree.node, normalizedTreeId)) {
+      referencedBy.add(tree.id);
+    }
+  }
+
+  return [...referencedBy].sort((left, right) => left.localeCompare(right));
+}
+
 export function replaceNodeAttributes(
   document: BtDocumentAst,
   treeId: string,
@@ -86,13 +159,21 @@ export function insertNode(
     throw new Error(`BehaviorTree "${treeId}" was not found in this document.`);
   }
 
+  const nextNode = createNodeFromPalette(document, nodeKey, nodeCategory, settings);
+  if (targetParentPath === VIRTUAL_ROOT_PATH) {
+    if (tree.node) {
+      throw new Error(`BehaviorTree "${treeId}" already has a root node.`);
+    }
+    tree.node = nextNode;
+    return "0";
+  }
+
   if (!tree.node) {
     throw new Error(`BehaviorTree "${treeId}" does not contain a root node.`);
   }
 
   const targetParentNode = findNodeByPath(tree.node, targetParentPath);
   const normalizedTargetIndex = Math.max(0, Math.min(targetIndex, targetParentNode.children.length));
-  const nextNode = createNodeFromPalette(document, nodeKey, nodeCategory, settings);
 
   targetParentNode.children.splice(normalizedTargetIndex, 0, nextNode);
   return `${targetParentPath}.${normalizedTargetIndex}`;
@@ -111,21 +192,30 @@ export function insertNodeCopy(
     throw new Error(`BehaviorTree "${treeId}" was not found in this document.`);
   }
 
-  if (!tree.node) {
-    throw new Error(`BehaviorTree "${treeId}" does not contain a root node.`);
-  }
-
   if (!nodeTemplate.tagName) {
     throw new Error("The copied node is missing a node type.");
   }
 
-  const targetParentNode = findNodeByPath(tree.node, targetParentPath);
-  const normalizedTargetIndex = Math.max(0, Math.min(targetIndex, targetParentNode.children.length));
   const nextNode: BtNodeAst = {
     tagName: nodeTemplate.tagName,
     attributes: { ...nodeTemplate.attributes },
     children: []
   };
+
+  if (targetParentPath === VIRTUAL_ROOT_PATH) {
+    if (tree.node) {
+      throw new Error(`BehaviorTree "${treeId}" already has a root node.`);
+    }
+    tree.node = nextNode;
+    return "0";
+  }
+
+  if (!tree.node) {
+    throw new Error(`BehaviorTree "${treeId}" does not contain a root node.`);
+  }
+
+  const targetParentNode = findNodeByPath(tree.node, targetParentPath);
+  const normalizedTargetIndex = Math.max(0, Math.min(targetIndex, targetParentNode.children.length));
 
   targetParentNode.children.splice(normalizedTargetIndex, 0, nextNode);
   return `${targetParentPath}.${normalizedTargetIndex}`;
@@ -143,7 +233,8 @@ export function deleteNode(document: BtDocumentAst, treeId: string, nodePath: st
   }
 
   if (nodePath === "0") {
-    throw new Error("The root node cannot be deleted.");
+    tree.node = null;
+    return VIRTUAL_ROOT_PATH;
   }
 
   const parts = nodePath.split(".");
@@ -170,6 +261,14 @@ export function replaceNodeModels(document: BtDocumentAst, nextNodeModels: BtNod
   }
 
   document.topLevelOrder = document.topLevelOrder.filter((item) => item !== "treeNodesModel");
+}
+
+function nodeReferencesBehaviorTree(node: BtNodeAst, treeId: string): boolean {
+  if (node.tagName === "SubTree" && node.attributes.ID === treeId) {
+    return true;
+  }
+
+  return node.children.some((child) => nodeReferencesBehaviorTree(child, treeId));
 }
 
 function findNodeByPath(rootNode: BtNodeAst, nodePath: string): BtNodeAst {
@@ -358,4 +457,16 @@ function clonePortModel(port: BtPortModel): BtPortModel {
     tagName: port.tagName,
     attributes
   };
+}
+
+function getProtectedTreeId(document: BtDocumentAst): string | null {
+  if (document.mainTreeToExecute) {
+    return document.mainTreeToExecute;
+  }
+
+  if (document.behaviorTrees.some((tree) => tree.id === "MainTree")) {
+    return "MainTree";
+  }
+
+  return document.behaviorTrees[0]?.id ?? null;
 }

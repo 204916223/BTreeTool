@@ -37,7 +37,7 @@ const BUILTIN_LEAF_NODES = new Set([
   "Sleep"
 ]);
 
-type NodeKind = "control" | "decorator" | "leaf" | "unknown";
+type NodeKind = "control" | "decorator" | "leaf";
 
 export function validateBehaviorTreeDocument(document: BtDocumentAst): BtWarning[] {
   const warnings: BtWarning[] = [];
@@ -57,7 +57,9 @@ export function validateBehaviorTreeDocument(document: BtDocumentAst): BtWarning
       warnings.push({
         code: "empty_behavior_tree",
         message: `BehaviorTree "${tree.id}" does not contain a root node.`,
-        severity: "warning"
+        severity: "warning",
+        treeId: tree.id,
+        nodePath: "__btree_root__"
       });
       continue;
     }
@@ -88,16 +90,6 @@ function validateNode(
   const nodeKind = resolveNodeKind(node, model);
   const nodeLabel = getNodeLabel(node);
   const scopedNode = `"${nodeLabel}" in tree "${context.treeId}"`;
-
-  if (nodeKind === "unknown") {
-    context.warnings.push({
-      code: "unknown_node_type",
-      message: `Node ${scopedNode} is not a known built-in node and has no TreeNodesModel entry.`,
-      severity: "warning",
-      treeId: context.treeId,
-      nodePath: context.nodePath
-    });
-  }
 
   if (node.tagName === "SubTree") {
     if (!node.attributes.ID) {
@@ -161,23 +153,43 @@ function resolveNodeKind(node: BtNodeAst, model: BtNodeModel | undefined): NodeK
     return "leaf";
   }
 
-  if (!model) {
-    return "unknown";
-  }
-
-  if (model.modelKind === "Control") {
+  if (node.tagName === "Control") {
     return "control";
   }
 
-  if (model.modelKind === "Decorator") {
+  if (node.tagName === "Decorator") {
     return "decorator";
   }
 
-  if (model.modelKind === "Action" || model.modelKind === "Condition") {
+  if (node.tagName === "Action" || node.tagName === "Condition") {
     return "leaf";
   }
 
-  return "unknown";
+  if (model?.modelKind === "Control") {
+    return "control";
+  }
+
+  if (model?.modelKind === "Decorator") {
+    return "decorator";
+  }
+
+  if (model?.modelKind === "Action" || model?.modelKind === "Condition") {
+    return "leaf";
+  }
+
+  return inferNodeKindFromChildren(node);
+}
+
+function inferNodeKindFromChildren(node: BtNodeAst): NodeKind {
+  if (node.children.length > 1) {
+    return "control";
+  }
+
+  if (node.children.length === 1) {
+    return "decorator";
+  }
+
+  return "leaf";
 }
 
 function validateModeledAttributes(

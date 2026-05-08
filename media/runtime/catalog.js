@@ -128,13 +128,37 @@
           row.appendChild(editButton);
         }
 
+        if (item.removableTreeId) {
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.className = "catalog-item-remove";
+          const removeTitle = copy.removeSubTreeTitle(item.title);
+          removeButton.title = removeTitle;
+          removeButton.setAttribute("aria-label", removeTitle);
+          removeButton.textContent = "-";
+          removeButton.disabled = !app.canPerformAction("deleteBehaviorTree", {
+            treeId: item.removableTreeId
+          });
+          removeButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!runtime.app.canPerformAction("deleteBehaviorTree", { treeId: item.removableTreeId })) {
+              return;
+            }
+            runtime.overlays.showBehaviorTreeDeleteDialog({
+              treeId: item.removableTreeId
+            });
+          });
+          row.appendChild(removeButton);
+        }
+
         row.addEventListener("dragstart", (event) => {
           if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: state.selectedTreeId, item })) {
             event.preventDefault();
             return;
           }
 
-          if (event.target instanceof Element && event.target.closest(".catalog-item-edit")) {
+          if (event.target instanceof Element && event.target.closest(".catalog-item-edit, .catalog-item-remove")) {
             event.preventDefault();
             return;
           }

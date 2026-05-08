@@ -52,7 +52,7 @@ export interface BtPreviewNode {
 
 export interface BtPreviewTree {
   id: string;
-  node: BtPreviewNode;
+  node: BtPreviewNode | null;
 }
 
 export interface BtPreviewWarning extends BtWarning {}
@@ -62,6 +62,7 @@ export interface BtPreviewCatalogItem {
   title: string;
   category: BtNodeCategory;
   editableModelId: string | null;
+  removableTreeId: string | null;
 }
 
 export interface BtPreviewCatalogGroup {
@@ -106,12 +107,10 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
   );
   const catalog = buildNodeCatalog(ast, normalizedSettings);
   const warningIndex = buildWarningIndex(ast.warnings);
-  const behaviorTrees = ast.behaviorTrees
-    .filter((tree): tree is { id: string; node: BtNodeAst } => tree.node !== null)
-    .map((tree) => ({
-      id: tree.id,
-      node: toPreviewNode(tree.node, catalog, tree.id, "0", warningIndex)
-    }));
+  const behaviorTrees = ast.behaviorTrees.map((tree) => ({
+    id: tree.id,
+    node: tree.node ? toPreviewNode(tree.node, catalog, tree.id, "0", warningIndex) : null
+  }));
 
   return {
     modelCount: ast.nodeModels.length,
@@ -120,7 +119,7 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
     hasBlockingIssues: ast.warnings.some(isBlockingWarning),
     behaviorTrees,
     nodeModels: ast.nodeModels.map(cloneNodeModel),
-    catalog: buildPreviewCatalog(catalog, ast.nodeModels),
+    catalog: buildPreviewCatalog(catalog, ast),
     warnings: ast.warnings,
     settings: normalizedSettings
   };
@@ -409,9 +408,10 @@ function inferFallbackCategory(node: BtNodeAst): BtNodeCategory {
   return "Action";
 }
 
-function buildPreviewCatalog(catalog: ReturnType<typeof buildNodeCatalog>, nodeModels: BtNodeModel[]): BtPreviewCatalogGroup[] {
+function buildPreviewCatalog(catalog: ReturnType<typeof buildNodeCatalog>, ast: BtDocumentAst): BtPreviewCatalogGroup[] {
   const orderedCategories: BtNodeCategory[] = ["Action", "Condition", "Control", "Decorator", "SubTree"];
-  const editableModelIds = new Set(nodeModels.map((model) => model.id));
+  const editableModelIds = new Set(ast.nodeModels.map((model) => model.id));
+  const protectedTreeId = getProtectedTreeId(ast);
 
   return orderedCategories
     .map((category) => ({
@@ -421,11 +421,24 @@ function buildPreviewCatalog(catalog: ReturnType<typeof buildNodeCatalog>, nodeM
           key: entry.key,
           title: entry.title,
           category: entry.category,
-          editableModelId: editableModelIds.has(entry.key) ? entry.key : null
+          editableModelId: editableModelIds.has(entry.key) ? entry.key : null,
+          removableTreeId: entry.category === "SubTree" && entry.key !== protectedTreeId ? entry.key : null
         }))
         .sort((left, right) => left.title.localeCompare(right.title))
     }))
     .filter((group) => group.items.length > 0);
+}
+
+function getProtectedTreeId(ast: BtDocumentAst): string | null {
+  if (ast.mainTreeToExecute) {
+    return ast.mainTreeToExecute;
+  }
+
+  if (ast.behaviorTrees.some((tree) => tree.id === "MainTree")) {
+    return "MainTree";
+  }
+
+  return ast.behaviorTrees[0]?.id ?? null;
 }
 
 function getNodeSummary(kind: string, attributes: Record<string, string>): string {

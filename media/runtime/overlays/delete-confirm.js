@@ -65,7 +65,7 @@
       return;
     }
 
-    runtime.state.selectedNodePath = state.parentPath || "0";
+    runtime.state.selectedNodePath = state.parentPath || (state.nodePath === "0" ? "__btree_root__" : "0");
     runtime.app.persistUiState();
     showDeleteConfirm(state);
   }
