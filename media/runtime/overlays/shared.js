@@ -21,13 +21,26 @@
     setBlockingOverlay(active);
   }
 
-  function createMenuButton(label, onClick, tone = "") {
+  function createMenuButton(label, onClick, tone = "", shortcut = "") {
     const button = document.createElement("button");
     button.type = "button";
     button.className = tone ? `node-context-menu-item ${tone}` : "node-context-menu-item";
-    button.textContent = label;
+    setMenuButtonLabel(button, label, shortcut);
     button.addEventListener("click", onClick);
     return button;
+  }
+
+  function setMenuButtonLabel(button, label, shortcut = "") {
+    const text = document.createElement("span");
+    text.className = "node-context-menu-label";
+    text.textContent = label;
+    button.replaceChildren(text);
+    if (shortcut) {
+      const shortcutText = document.createElement("span");
+      shortcutText.className = "node-context-menu-shortcut";
+      shortcutText.textContent = shortcut;
+      button.appendChild(shortcutText);
+    }
   }
 
   function setMenuButtonDisabled(button, disabled) {
@@ -60,6 +73,7 @@
     setBlockingOverlay,
     syncBlockingOverlay,
     createMenuButton,
+    setMenuButtonLabel,
     setMenuButtonDisabled,
     createSettingsField,
     safeParseJson

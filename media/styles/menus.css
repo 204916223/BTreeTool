@@ -1,9 +1,11 @@
 .node-context-menu {
   position: fixed;
   z-index: 20;
-  min-width: 160px;
-  padding: 6px;
-  border-radius: 12px;
+  width: max-content;
+  min-width: 118px;
+  max-width: min(220px, calc(100vw - 24px));
+  padding: 4px;
+  border-radius: 8px;
   border: 1px solid var(--line-strong);
   background: var(--color-dialog-bg);
   box-shadow: var(--shadow);
@@ -11,15 +13,38 @@
 
 .node-context-menu-item {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   text-align: left;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text);
-  padding: 8px 10px;
+  padding: 6px 8px;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
+}
+
+.node-context-menu-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-context-menu-shortcut {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .node-context-menu-item:hover {

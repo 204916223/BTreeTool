@@ -40,6 +40,8 @@ export interface BtUserSettings {
   showMainTreeLocator: boolean;
   showBehaviorTreeRoot: boolean;
   requireNodeDeleteConfirmation: boolean;
+  copyNodeWithDescendants: boolean;
+  playbackAutoNavigateToTree: boolean;
   nodeAttributeLayout: BtNodeAttributeLayout;
   simplifyHiddenSections: BtSimplifySection[];
   presetNodes: BtPresetNodeSettings[];
@@ -53,6 +55,8 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   showMainTreeLocator: true,
   showBehaviorTreeRoot: true,
   requireNodeDeleteConfirmation: false,
+  copyNodeWithDescendants: true,
+  playbackAutoNavigateToTree: true,
   nodeAttributeLayout: "inline",
   simplifyHiddenSections: [],
   presetNodes: []
@@ -168,6 +172,8 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     showMainTreeLocator: settings.showMainTreeLocator !== false,
     showBehaviorTreeRoot: settings.showBehaviorTreeRoot !== false,
     requireNodeDeleteConfirmation: settings.requireNodeDeleteConfirmation === true,
+    copyNodeWithDescendants: settings.copyNodeWithDescendants !== false,
+    playbackAutoNavigateToTree: settings.playbackAutoNavigateToTree !== false,
     nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
     simplifyHiddenSections: [...settings.simplifyHiddenSections],
     presetNodes: settings.presetNodes.map(clonePresetNodeSettings)
@@ -192,6 +198,8 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const showMainTreeLocator = input.showMainTreeLocator !== false;
   const showBehaviorTreeRoot = input.showBehaviorTreeRoot !== false;
   const requireNodeDeleteConfirmation = input.requireNodeDeleteConfirmation === true;
+  const copyNodeWithDescendants = input.copyNodeWithDescendants !== false;
+  const playbackAutoNavigateToTree = input.playbackAutoNavigateToTree !== false;
   const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
   const simplifyHiddenSections = Array.isArray(input.simplifyHiddenSections)
     ? input.simplifyHiddenSections.map(normalizeSimplifySection).filter((value): value is BtSimplifySection => Boolean(value))
@@ -207,6 +215,8 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     showMainTreeLocator,
     showBehaviorTreeRoot,
     requireNodeDeleteConfirmation,
+    copyNodeWithDescendants,
+    playbackAutoNavigateToTree,
     nodeAttributeLayout,
     simplifyHiddenSections: Array.from(new Set(simplifyHiddenSections)),
     presetNodes

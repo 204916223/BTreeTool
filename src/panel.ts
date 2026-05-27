@@ -34,6 +34,20 @@ type PreviewPayload = {
   settingsFilePath: string;
 };
 
+type ShortcutAction = "copy" | "pasteSmart" | "undo" | "pasteAsChild" | "pasteBefore" | "pasteAfter";
+
+type NodeCopyTemplateMessage = {
+  tagName?: string;
+  attributes?: Record<string, string>;
+  children?: NodeCopyTemplateMessage[];
+};
+
+type NormalizedNodeCopyTemplate = {
+  tagName: string;
+  attributes: Record<string, string>;
+  children: NormalizedNodeCopyTemplate[];
+};
+
 type WebviewMessage =
   | { type?: string }
   | {
@@ -88,10 +102,7 @@ type WebviewMessage =
         treeId?: string;
         targetParentPath?: string;
         targetIndex?: number;
-        nodeTemplate?: {
-          tagName?: string;
-          attributes?: Record<string, string>;
-        };
+        nodeTemplate?: NodeCopyTemplateMessage;
       };
     }
   | {
@@ -115,6 +126,9 @@ type WebviewMessage =
       type: "saveCurrentDocument";
     }
   | {
+      type: "undoCurrentDocument";
+    }
+  | {
       type: "createNewBehaviorTreeDocument";
     }
   | {
@@ -130,6 +144,20 @@ type XmlMutation = {
   failurePrefix: string;
   mutate: (documentText: string) => string;
 };
+
+function normalizeNodeCopyChildren(children: NodeCopyTemplateMessage[] | undefined): NormalizedNodeCopyTemplate[] {
+  if (!Array.isArray(children)) {
+    return [];
+  }
+
+  return children
+    .filter((child) => Boolean(child?.tagName && child.attributes))
+    .map((child) => ({
+      tagName: child.tagName!,
+      attributes: child.attributes!,
+      children: normalizeNodeCopyChildren(child.children)
+    }));
+}
 
 function getPanelCopy(language: string) {
   const isChinese = language === "zh-CN";
@@ -175,6 +203,9 @@ function getPanelCopy(language: string) {
     settingsNotReady: "Settings could not be saved because the configuration file is not ready.",
     settingsSaved: "Settings saved.",
     settingsSaveFailed: (message: string) => `Failed to save settings. ${message}`,
+    undoUnavailable: "No BTreeTool edit is available to undo.",
+    undoApplied: "Undo applied.",
+    undoFailed: "Failed to undo the last BTreeTool edit.",
     settingsFileNotReadyWarning: "BTreeTool: The user settings file is not ready yet.",
     settingsFileNotReady: "The user settings file is not ready yet.",
     presetsImported: "Recommended presets imported.",
@@ -235,6 +266,9 @@ function getPanelCopy(language: string) {
     settingsNotReady: "配置文件尚未就绪，暂时无法保存设置。",
     settingsSaved: "设置已保存。",
     settingsSaveFailed: (message: string) => `保存设置失败。${message}`,
+    undoUnavailable: "没有可撤销的 BTreeTool 编辑。",
+    undoApplied: "已撤销。",
+    undoFailed: "撤销上一次 BTreeTool 编辑失败。",
     settingsFileNotReadyWarning: "BTreeTool：用户设置文件尚未就绪。",
     settingsFileNotReady: "用户设置文件尚未就绪。",
     presetsImported: "推荐预设已导入。",
@@ -251,8 +285,9 @@ function getPanelCopy(language: string) {
 }
 
 export class BehaviorTreePreviewPanel {
-  private static readonly panelsByDocument = new Map<string, BehaviorTreePreviewPanel>();
-  private static noDocumentPanel: BehaviorTreePreviewPanel | null = null;
+  private static readonly panelsByDocument = new Map<string, Set<BehaviorTreePreviewPanel>>();
+  private static readonly noDocumentPanels = new Set<BehaviorTreePreviewPanel>();
+  private static activePanel: BehaviorTreePreviewPanel | null = null;
   private static readonly emptyPayload: PreviewPayload = {
     fileName: "No active document",
     languageId: "unknown",
@@ -266,6 +301,8 @@ export class BehaviorTreePreviewPanel {
       showMainTreeLocator: true,
       showBehaviorTreeRoot: true,
       requireNodeDeleteConfirmation: false,
+      copyNodeWithDescendants: true,
+      playbackAutoNavigateToTree: true,
       nodeAttributeLayout: "inline",
       simplifyHiddenSections: [],
       presetNodes: []
@@ -281,11 +318,6 @@ export class BehaviorTreePreviewPanel {
     const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
 
     if (!document) {
-      if (BehaviorTreePreviewPanel.noDocumentPanel) {
-        BehaviorTreePreviewPanel.noDocumentPanel.panel.reveal(column);
-        return;
-      }
-
       const panel = vscode.window.createWebviewPanel(
         "btreeTool.preview",
         "BTreeTool",
@@ -298,30 +330,11 @@ export class BehaviorTreePreviewPanel {
       );
 
       const previewPanel = new BehaviorTreePreviewPanel(panel, extensionUri, globalStorageUri, undefined);
-      BehaviorTreePreviewPanel.noDocumentPanel = previewPanel;
+      BehaviorTreePreviewPanel.noDocumentPanels.add(previewPanel);
       return;
     }
 
-    const documentKey = document.uri.toString();
     const title = `BTreeTool: ${BehaviorTreePreviewPanel.toBaseName(document.fileName)}`;
-
-    const existingPanel = BehaviorTreePreviewPanel.panelsByDocument.get(documentKey);
-    if (existingPanel) {
-      existingPanel.panel.reveal(column);
-      existingPanel.refreshIfAttachedDocument(document);
-      if (BehaviorTreePreviewPanel.noDocumentPanel) {
-        BehaviorTreePreviewPanel.noDocumentPanel.dispose();
-      }
-      return;
-    }
-
-    if (BehaviorTreePreviewPanel.noDocumentPanel) {
-      const previewPanel = BehaviorTreePreviewPanel.noDocumentPanel;
-      previewPanel.attachDocument(document);
-      previewPanel.panel.reveal(column);
-      return;
-    }
-
     const panel = vscode.window.createWebviewPanel(
       "btreeTool.preview",
       title,
@@ -334,22 +347,51 @@ export class BehaviorTreePreviewPanel {
     );
 
     const previewPanel = new BehaviorTreePreviewPanel(panel, extensionUri, globalStorageUri, document);
-    BehaviorTreePreviewPanel.panelsByDocument.set(documentKey, previewPanel);
+    BehaviorTreePreviewPanel.addPanelForDocument(document.uri, previewPanel);
   }
 
   static refreshIfAttached(document: vscode.TextDocument): void {
-    BehaviorTreePreviewPanel.panelsByDocument.get(document.uri.toString())?.refreshIfAttachedDocument(document);
+    BehaviorTreePreviewPanel.panelsByDocument
+      .get(document.uri.toString())
+      ?.forEach((panel) => panel.refreshIfAttachedDocument(document));
+  }
+
+  static getActivePanel(): BehaviorTreePreviewPanel | null {
+    return BehaviorTreePreviewPanel.activePanel;
   }
 
   static disposeAll(): void {
-    for (const panel of Array.from(BehaviorTreePreviewPanel.panelsByDocument.values())) {
+    const panels = new Set<BehaviorTreePreviewPanel>(BehaviorTreePreviewPanel.noDocumentPanels);
+    for (const documentPanels of BehaviorTreePreviewPanel.panelsByDocument.values()) {
+      documentPanels.forEach((panel) => panels.add(panel));
+    }
+
+    for (const panel of panels) {
       panel.dispose();
     }
-    if (BehaviorTreePreviewPanel.noDocumentPanel) {
-      BehaviorTreePreviewPanel.noDocumentPanel.dispose();
-    }
     BehaviorTreePreviewPanel.panelsByDocument.clear();
-    BehaviorTreePreviewPanel.noDocumentPanel = null;
+    BehaviorTreePreviewPanel.noDocumentPanels.clear();
+    BehaviorTreePreviewPanel.activePanel = null;
+  }
+
+  private static addPanelForDocument(uri: vscode.Uri, panel: BehaviorTreePreviewPanel): void {
+    const documentKey = uri.toString();
+    const documentPanels = BehaviorTreePreviewPanel.panelsByDocument.get(documentKey) || new Set<BehaviorTreePreviewPanel>();
+    documentPanels.add(panel);
+    BehaviorTreePreviewPanel.panelsByDocument.set(documentKey, documentPanels);
+  }
+
+  private static removePanelFromDocument(uri: vscode.Uri, panel: BehaviorTreePreviewPanel): void {
+    const documentKey = uri.toString();
+    const documentPanels = BehaviorTreePreviewPanel.panelsByDocument.get(documentKey);
+    if (!documentPanels) {
+      return;
+    }
+
+    documentPanels.delete(panel);
+    if (documentPanels.size === 0) {
+      BehaviorTreePreviewPanel.panelsByDocument.delete(documentKey);
+    }
   }
 
   private static toBaseName(fileName: string): string {
@@ -367,6 +409,7 @@ export class BehaviorTreePreviewPanel {
   private settingsFileUri: vscode.Uri | null = null;
   private currentSettings: BtUserSettings = cloneUserSettings(BehaviorTreePreviewPanel.emptyPayload.settings);
   private webviewReady = false;
+  private readonly xmlUndoStack: string[] = [];
 
   private getCopy() {
     return getPanelCopy(this.currentSettings.language);
@@ -383,6 +426,7 @@ export class BehaviorTreePreviewPanel {
     this.globalStorageUri = globalStorageUri;
     this.latestDocumentUri = document?.uri || null;
     this.latestPayload = this.toPayload(document);
+    BehaviorTreePreviewPanel.activePanel = this;
 
     this.panel.webview.html = this.getHtml(this.panel.webview, Boolean(document));
     if (document?.fileName) {
@@ -391,6 +435,11 @@ export class BehaviorTreePreviewPanel {
     void this.initializeSettings();
 
     this.panel.onDidDispose(() => this.cleanup(), null, this.disposables);
+    this.panel.onDidChangeViewState(() => {
+      if (this.panel.active) {
+        BehaviorTreePreviewPanel.activePanel = this;
+      }
+    }, null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewMessage) => {
         if (message.type === "ready") {
@@ -464,6 +513,11 @@ export class BehaviorTreePreviewPanel {
           return;
         }
 
+        if (message.type === "undoCurrentDocument") {
+          void this.handleUndoCurrentDocument();
+          return;
+        }
+
         if (message.type === "createNewBehaviorTreeDocument") {
           void this.handleCreateNewBehaviorTreeDocument();
           return;
@@ -494,6 +548,13 @@ export class BehaviorTreePreviewPanel {
     if (this.webviewReady) {
       this.postLatestPayload();
     }
+  }
+
+  postShortcutAction(action: ShortcutAction): void {
+    this.panel.webview.postMessage({
+      type: "shortcutAction",
+      payload: { action }
+    });
   }
 
   private postLatestPayload(): void {
@@ -537,19 +598,17 @@ export class BehaviorTreePreviewPanel {
 
   private attachDocument(document: vscode.TextDocument): void {
     if (this.latestDocumentUri) {
-      const previousKey = this.latestDocumentUri.toString();
-      if (BehaviorTreePreviewPanel.panelsByDocument.get(previousKey) === this) {
-        BehaviorTreePreviewPanel.panelsByDocument.delete(previousKey);
-      }
+      BehaviorTreePreviewPanel.removePanelFromDocument(this.latestDocumentUri, this);
+    } else {
+      BehaviorTreePreviewPanel.noDocumentPanels.delete(this);
     }
 
     this.latestDocumentUri = document.uri;
+    this.xmlUndoStack.length = 0;
     this.latestPayload = this.toPayload(document);
     this.updatePanelTitle(document.fileName);
-    BehaviorTreePreviewPanel.panelsByDocument.set(document.uri.toString(), this);
-    if (BehaviorTreePreviewPanel.noDocumentPanel === this) {
-      BehaviorTreePreviewPanel.noDocumentPanel = null;
-    }
+    BehaviorTreePreviewPanel.addPanelForDocument(document.uri, this);
+    BehaviorTreePreviewPanel.activePanel = this;
     if (this.webviewReady) {
       this.postLatestPayload();
     }
@@ -809,10 +868,7 @@ export class BehaviorTreePreviewPanel {
           treeId?: string;
           targetParentPath?: string;
           targetIndex?: number;
-          nodeTemplate?: {
-            tagName?: string;
-            attributes?: Record<string, string>;
-          };
+          nodeTemplate?: NodeCopyTemplateMessage;
         }
       | undefined
   ): Promise<void> {
@@ -845,7 +901,8 @@ export class BehaviorTreePreviewPanel {
         const parsed = parseBehaviorTreeDocument(documentText);
         insertNodeCopy(parsed, payload.treeId!, payload.targetParentPath!, targetIndex, {
           tagName: nodeTemplate.tagName!,
-          attributes: nodeTemplate.attributes!
+          attributes: nodeTemplate.attributes!,
+          children: normalizeNodeCopyChildren(nodeTemplate.children)
         });
         return serializeBehaviorTreeDocument(parsed);
       }
@@ -908,11 +965,58 @@ export class BehaviorTreePreviewPanel {
         throw new Error(this.getCopy().xmlUpdateRejected);
       }
 
+      this.pushXmlUndoSnapshot(currentText);
       await this.refreshPreviewFromUri();
       this.postEditResult(true, mutation.successMessage, "dirty");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.postEditResult(false, `${mutation.failurePrefix} ${message}`);
+    }
+  }
+
+  private pushXmlUndoSnapshot(source: string): void {
+    this.xmlUndoStack.push(source);
+    if (this.xmlUndoStack.length > 50) {
+      this.xmlUndoStack.splice(0, this.xmlUndoStack.length - 50);
+    }
+  }
+
+  private async handleUndoCurrentDocument(): Promise<void> {
+    const copy = this.getCopy();
+    if (!this.latestDocumentUri) {
+      this.postEditResult(false, copy.noAttachedDocument);
+      return;
+    }
+
+    const previousText = this.xmlUndoStack.pop();
+    if (previousText === undefined) {
+      this.postEditResult(false, copy.undoUnavailable);
+      return;
+    }
+
+    try {
+      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
+      const currentText = document.getText();
+      if (previousText === currentText) {
+        this.postEditResult(true, copy.undoApplied);
+        return;
+      }
+
+      const edit = new vscode.WorkspaceEdit();
+      const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(currentText.length));
+      edit.replace(document.uri, fullRange, previousText);
+      const applied = await vscode.workspace.applyEdit(edit);
+
+      if (!applied) {
+        throw new Error(copy.xmlUpdateRejected);
+      }
+
+      await this.refreshPreviewFromUri();
+      this.postEditResult(true, copy.undoApplied, "dirty");
+    } catch (error) {
+      this.xmlUndoStack.push(previousText);
+      const message = error instanceof Error ? error.message : String(error);
+      this.postEditResult(false, `${copy.undoFailed} ${message}`);
     }
   }
 
@@ -1007,7 +1111,8 @@ export class BehaviorTreePreviewPanel {
       preview: false,
       preserveFocus: false
     });
-    BehaviorTreePreviewPanel.createOrShow(this.extensionUri, this.globalStorageUri, document);
+    this.attachDocument(document);
+    this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One);
   }
 
   private async handleOpenExistingBehaviorTreeDocument(): Promise<void> {
@@ -1033,7 +1138,8 @@ export class BehaviorTreePreviewPanel {
       preview: false,
       preserveFocus: false
     });
-    BehaviorTreePreviewPanel.createOrShow(this.extensionUri, this.globalStorageUri, document);
+    this.attachDocument(document);
+    this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One);
   }
 
   private async handleChoosePlaybackLogFile(): Promise<void> {
@@ -1220,6 +1326,9 @@ export class BehaviorTreePreviewPanel {
     const viewportScriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "viewport-layout.js")
     );
+    const playbackDataScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "playback-data.js")
+    );
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "main.js"));
     const nonce = getNonce();
 
@@ -1380,10 +1489,11 @@ ${overlayPartScriptUris.map((uri) => `    <script nonce="${nonce}" src="${uri}">
     <script nonce="${nonce}" src="${treeSwitcherScriptUri}"></script>
     <script nonce="${nonce}" src="${mainTreeLocatorScriptUri}"></script>
     <script nonce="${nonce}" src="${searchScriptUri}"></script>
-    <script nonce="${nonce}" src="${workspacePanelsScriptUri}"></script>
-    <script nonce="${nonce}" src="${canvasScriptUri}"></script>
-    <script nonce="${nonce}" src="${viewportScriptUri}"></script>
-    <script nonce="${nonce}" src="${scriptUri}"></script>
+<script nonce="${nonce}" src="${workspacePanelsScriptUri}"></script>
+<script nonce="${nonce}" src="${canvasScriptUri}"></script>
+<script nonce="${nonce}" src="${viewportScriptUri}"></script>
+<script nonce="${nonce}" src="${playbackDataScriptUri}"></script>
+<script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;
   }
@@ -1394,14 +1504,13 @@ ${overlayPartScriptUris.map((uri) => `    <script nonce="${nonce}" src="${uri}">
 
   private cleanup(): void {
     if (this.latestDocumentUri) {
-      const documentKey = this.latestDocumentUri.toString();
-      if (BehaviorTreePreviewPanel.panelsByDocument.get(documentKey) === this) {
-        BehaviorTreePreviewPanel.panelsByDocument.delete(documentKey);
-      }
+      BehaviorTreePreviewPanel.removePanelFromDocument(this.latestDocumentUri, this);
+    } else {
+      BehaviorTreePreviewPanel.noDocumentPanels.delete(this);
     }
 
-    if (BehaviorTreePreviewPanel.noDocumentPanel === this) {
-      BehaviorTreePreviewPanel.noDocumentPanel = null;
+    if (BehaviorTreePreviewPanel.activePanel === this) {
+      BehaviorTreePreviewPanel.activePanel = null;
     }
 
     while (this.disposables.length > 0) {

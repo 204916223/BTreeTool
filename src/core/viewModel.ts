@@ -103,6 +103,8 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
       showMainTreeLocator: true,
       showBehaviorTreeRoot: true,
       requireNodeDeleteConfirmation: false,
+      copyNodeWithDescendants: true,
+      playbackAutoNavigateToTree: true,
       nodeAttributeLayout: "inline",
       simplifyHiddenSections: [],
       presetNodes: []

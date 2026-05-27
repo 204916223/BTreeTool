@@ -12,18 +12,9 @@
     const overlayCopy = runtime.i18n.getOverlayCopy();
 
     const copyNodeButton = shared.createMenuButton(overlayCopy.copyNode, () => {
-      const state = overlayState.nodeContextMenu.state;
-      if (!state?.nodeTemplate) {
-        return;
-      }
-
-      runtime.state.copiedNodeTemplate = {
-        title: state.nodeTitle || state.nodeTemplate.tagName,
-        tagName: state.nodeTemplate.tagName,
-        attributes: { ...(state.nodeTemplate.attributes || {}) }
-      };
+      copyNodeFromState(overlayState.nodeContextMenu.state);
       hideNodeContextMenu();
-    });
+    }, "", "cc");
 
     const addBeforeButton = shared.createMenuButton(overlayCopy.addNewBefore, () => {
       const state = overlayState.nodeContextMenu.state;
@@ -79,12 +70,7 @@
         return;
       }
 
-      pasteCopiedNode({
-        treeId: state.treeId,
-        paneId: state.paneId,
-        targetParentPath: state.parentPath,
-        targetIndex: state.siblingIndex
-      });
+      pasteNodeBefore(state);
       hideNodeContextMenu();
     });
 
@@ -94,12 +80,7 @@
         return;
       }
 
-      pasteCopiedNode({
-        treeId: state.treeId,
-        paneId: state.paneId,
-        targetParentPath: state.parentPath,
-        targetIndex: state.siblingIndex + 1
-      });
+      pasteNodeAfter(state);
       hideNodeContextMenu();
     });
 
@@ -109,12 +90,7 @@
         return;
       }
 
-      pasteCopiedNode({
-        treeId: state.treeId,
-        paneId: state.paneId,
-        targetParentPath: state.nodePath,
-        targetIndex: state.childCount || 0
-      });
+      pasteNodeAsChild(state);
       hideNodeContextMenu();
     });
 
@@ -151,10 +127,83 @@
     };
   }
 
+  function copyNodeFromState(state) {
+    if (!state?.nodeTemplate) {
+      return false;
+    }
+
+    runtime.state.copiedNodeTemplate = {
+      title: state.nodeTitle || state.nodeTemplate.tagName,
+      tagName: state.nodeTemplate.tagName,
+      attributes: { ...(state.nodeTemplate.attributes || {}) },
+      children: runtime.state.currentSettings?.copyNodeWithDescendants === false
+        ? []
+        : cloneNodeTemplateChildren(state.nodeTemplate.children)
+    };
+    return true;
+  }
+
+  function cloneNodeTemplateChildren(children) {
+    if (!Array.isArray(children)) {
+      return [];
+    }
+
+    return children
+      .filter((child) => child?.tagName)
+      .map((child) => ({
+        tagName: child.tagName,
+        attributes: { ...(child.attributes || {}) },
+        children: cloneNodeTemplateChildren(child.children)
+      }));
+  }
+
+  function pasteNodeBefore(state) {
+    if (!state || !state.parentPath || !Number.isInteger(state.siblingIndex)) {
+      return false;
+    }
+
+    return pasteCopiedNode({
+      treeId: state.treeId,
+      paneId: state.paneId,
+      targetParentPath: state.parentPath,
+      targetIndex: state.siblingIndex
+    });
+  }
+
+  function pasteNodeAfter(state) {
+    if (!state || !state.parentPath || !Number.isInteger(state.siblingIndex)) {
+      return false;
+    }
+
+    return pasteCopiedNode({
+      treeId: state.treeId,
+      paneId: state.paneId,
+      targetParentPath: state.parentPath,
+      targetIndex: state.siblingIndex + 1
+    });
+  }
+
+  function pasteNodeAsChild(state) {
+    if (!state?.allowAppendChild) {
+      return false;
+    }
+
+    return pasteCopiedNode({
+      treeId: state.treeId,
+      paneId: state.paneId,
+      targetParentPath: state.nodePath,
+      targetIndex: state.childCount || 0
+    });
+  }
+
+  function pasteNodeSmart(state) {
+    return pasteNodeAsChild(state) || pasteNodeAfter(state);
+  }
+
   function pasteCopiedNode(target) {
     const copiedNodeTemplate = runtime.state.copiedNodeTemplate;
     if (!copiedNodeTemplate) {
-      return;
+      return false;
     }
 
     runtime.state.selectedNodePath = target.targetParentPath === "__btree_root__"
@@ -172,10 +221,102 @@
         ...target,
         nodeTemplate: {
           tagName: copiedNodeTemplate.tagName,
-          attributes: { ...(copiedNodeTemplate.attributes || {}) }
+          attributes: { ...(copiedNodeTemplate.attributes || {}) },
+          children: cloneNodeTemplateChildren(copiedNodeTemplate.children)
         }
       }
     });
+    return true;
+  }
+
+  function getSelectedNodeContextState() {
+    if (!runtime.state.currentPreview || runtime.modeRules?.isPlaybackMode?.()) {
+      return null;
+    }
+
+    const tree = runtime.app.getSelectedTree(runtime.state.currentPreview);
+    const nodePath = runtime.state.selectedNodePath || "0";
+    const node = tree ? runtime.app.findNodeByPath(tree.node, nodePath) : null;
+    if (!tree || !node) {
+      return null;
+    }
+
+    const parentPath = runtime.canvas?.getParentNodePath?.(nodePath) ?? null;
+    const siblingIndex = runtime.canvas?.getNodeIndex?.(nodePath);
+    const isVirtualRoot = node.isVirtualRoot === true;
+
+    return {
+      treeId: tree.id,
+      paneId: runtime.state.splitViewEnabled ? runtime.state.activeTreePane : null,
+      nodePath,
+      parentPath,
+      siblingIndex,
+      nodeTitle: node.title,
+      nodeTemplate: isVirtualRoot
+        ? null
+        : toNodeCopyTemplate(node),
+      allowAppendChild: runtime.canvas?.canAppendChildren?.(node) === true,
+      childCount: node.children?.length || 0,
+      allowDelete: runtime.canvas?.canDeleteNode?.(node) === true
+    };
+  }
+
+  function toNodeCopyTemplate(node) {
+    return {
+      tagName: node.kind,
+      attributes: { ...(node.attributes || {}) },
+      children: cloneNodeChildrenForCopy(node.children)
+    };
+  }
+
+  function cloneNodeChildrenForCopy(children) {
+    if (!Array.isArray(children)) {
+      return [];
+    }
+
+    return children.map(toNodeCopyTemplate);
+  }
+
+  function executeNodeShortcutAction(action) {
+    if (document.body.classList.contains("has-blocking-overlay")) {
+      return false;
+    }
+    if (isDuplicateShortcutAction(action)) {
+      return false;
+    }
+
+    const state = overlayState.nodeContextMenu.state || getSelectedNodeContextState();
+    if (!state || !runtime.app.canPerformAction("openNodeContextMenu", state)) {
+      return false;
+    }
+
+    let handled = false;
+    if (action === "copy") {
+      handled = copyNodeFromState(state);
+    } else if (action === "pasteSmart") {
+      handled = pasteNodeSmart(state);
+    } else if (action === "pasteBefore") {
+      handled = pasteNodeBefore(state);
+    } else if (action === "pasteAfter") {
+      handled = pasteNodeAfter(state);
+    } else if (action === "pasteAsChild") {
+      handled = pasteNodeAsChild(state);
+    }
+
+    if (handled) {
+      hideNodeContextMenu();
+    }
+    return handled;
+  }
+
+  function isDuplicateShortcutAction(action) {
+    const now = Date.now();
+    const lastAction = runtime.state.lastNodeShortcutAction;
+    if (lastAction?.action === action && now - lastAction.time < 160) {
+      return true;
+    }
+    runtime.state.lastNodeShortcutAction = { action, time: now };
+    return false;
   }
 
   function createCanvasContextMenu() {
@@ -208,14 +349,6 @@
     runtime.app.activateTreePane(state?.paneId, state?.treeId, state?.nodePath);
     overlayState.nodeContextMenu.state = state;
     const hasCopiedNode = Boolean(runtime.state.copiedNodeTemplate);
-    overlayState.nodeContextMenu.copyNodeButton.textContent = overlayCopy.copyNode;
-    overlayState.nodeContextMenu.addBeforeButton.textContent = overlayCopy.addNewBefore;
-    overlayState.nodeContextMenu.addAfterButton.textContent = overlayCopy.addNewAfter;
-    overlayState.nodeContextMenu.addChildButton.textContent = overlayCopy.addNewChild;
-    overlayState.nodeContextMenu.pasteBeforeButton.textContent = overlayCopy.pasteCopyBefore;
-    overlayState.nodeContextMenu.pasteAfterButton.textContent = overlayCopy.pasteCopyAfter;
-    overlayState.nodeContextMenu.pasteChildButton.textContent = overlayCopy.pasteCopyAsChild;
-    overlayState.nodeContextMenu.deleteButton.textContent = overlayCopy.deleteNode;
     overlayState.nodeContextMenu.copyNodeButton.hidden = !state?.nodeTemplate;
     overlayState.nodeContextMenu.addBeforeButton.hidden = !state?.parentPath || !Number.isInteger(state?.siblingIndex);
     overlayState.nodeContextMenu.addAfterButton.hidden = !state?.parentPath || !Number.isInteger(state?.siblingIndex);
@@ -224,6 +357,18 @@
     overlayState.nodeContextMenu.pasteAfterButton.hidden = overlayState.nodeContextMenu.addAfterButton.hidden;
     overlayState.nodeContextMenu.pasteChildButton.hidden = overlayState.nodeContextMenu.addChildButton.hidden;
     overlayState.nodeContextMenu.deleteButton.hidden = !state?.allowDelete;
+    shared.setMenuButtonLabel(overlayState.nodeContextMenu.copyNodeButton, overlayCopy.copyNode, "cc");
+    shared.setMenuButtonLabel(overlayState.nodeContextMenu.addBeforeButton, overlayCopy.addNewBefore);
+    shared.setMenuButtonLabel(overlayState.nodeContextMenu.addAfterButton, overlayCopy.addNewAfter);
+    shared.setMenuButtonLabel(overlayState.nodeContextMenu.addChildButton, overlayCopy.addNewChild);
+    shared.setMenuButtonLabel(overlayState.nodeContextMenu.pasteBeforeButton, overlayCopy.pasteCopyBefore);
+    shared.setMenuButtonLabel(
+      overlayState.nodeContextMenu.pasteAfterButton,
+      overlayCopy.pasteCopyAfter,
+      overlayState.nodeContextMenu.pasteChildButton.hidden ? "cv" : ""
+    );
+    shared.setMenuButtonLabel(overlayState.nodeContextMenu.pasteChildButton, overlayCopy.pasteCopyAsChild, "cv");
+    shared.setMenuButtonLabel(overlayState.nodeContextMenu.deleteButton, overlayCopy.deleteNode);
     shared.setMenuButtonDisabled(overlayState.nodeContextMenu.pasteBeforeButton, !hasCopiedNode);
     shared.setMenuButtonDisabled(overlayState.nodeContextMenu.pasteAfterButton, !hasCopiedNode);
     shared.setMenuButtonDisabled(overlayState.nodeContextMenu.pasteChildButton, !hasCopiedNode);
@@ -285,6 +430,7 @@
     showNodeContextMenu,
     hideNodeContextMenu,
     showCanvasContextMenu,
-    hideCanvasContextMenu
+    hideCanvasContextMenu,
+    executeNodeShortcutAction
   };
 })();

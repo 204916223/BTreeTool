@@ -1,5 +1,11 @@
 {
   "extension.displayName": "BTreeTool",
   "extension.description": "BehaviorTree XML preview and editing for VS Code.",
-  "command.openPreview.title": "BTreeTool: Open Behavior Tree View"
+  "command.openPreview.title": "BTreeTool: Open Behavior Tree View",
+  "command.copyNode.title": "BTreeTool: Copy Node",
+  "command.pasteNodeSmart.title": "BTreeTool: Paste Node",
+  "command.undoEdit.title": "BTreeTool: Undo Edit",
+  "command.pasteNodeAsChild.title": "BTreeTool: Paste Node as Child",
+  "command.pasteNodeBefore.title": "BTreeTool: Paste Node Before",
+  "command.pasteNodeAfter.title": "BTreeTool: Paste Node After"
 }

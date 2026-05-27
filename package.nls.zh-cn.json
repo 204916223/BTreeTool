@@ -1,5 +1,11 @@
 {
   "extension.displayName": "BTreeTool",
   "extension.description": "用于 VS Code 的 BehaviorTree XML 预览与编辑工具。",
-  "command.openPreview.title": "BTreeTool：打开行为树视图"
+  "command.openPreview.title": "BTreeTool：打开行为树视图",
+  "command.copyNode.title": "BTreeTool：复制节点",
+  "command.pasteNodeSmart.title": "BTreeTool：粘贴节点",
+  "command.undoEdit.title": "BTreeTool：撤销编辑",
+  "command.pasteNodeAsChild.title": "BTreeTool：作为子节点粘贴",
+  "command.pasteNodeBefore.title": "BTreeTool：粘贴到节点前",
+  "command.pasteNodeAfter.title": "BTreeTool：粘贴到节点后"
 }

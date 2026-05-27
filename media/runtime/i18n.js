@@ -19,9 +19,9 @@
     const base = {
       title: "Settings",
       close: "Close",
-      generalMode: "General Mode",
-      editMode: "Edit Mode",
-      playbackMode: "Playback Mode",
+      generalMode: "General Settings",
+      editMode: "Edit Settings",
+      playbackMode: "Playback Settings",
       language: "Language",
       theme: "Theme",
       nodeAttributeLayout: "Node Layout",
@@ -32,6 +32,8 @@
       locatorShort: "Locator",
       rootShort: "ROOT",
       deleteConfirmShort: "Delete confirm",
+      copyDescendantsShort: "Copy descendants",
+      playbackAutoNavigateShort: "Auto jump tree",
       nodeDetails: "Node Details",
       nodeDetailOptions: {
         description: "Description",
@@ -53,9 +55,9 @@
       {
         title: "设置",
         close: "关闭",
-        generalMode: "通用模式",
-        editMode: "编辑模式",
-        playbackMode: "回放模式",
+        generalMode: "通用设置",
+        editMode: "编辑设置",
+        playbackMode: "回放设置",
         language: "语言",
         theme: "主题",
         nodeAttributeLayout: "节点布局类型",
@@ -66,6 +68,8 @@
         locatorShort: "定位图",
         rootShort: "ROOT",
         deleteConfirmShort: "删除前确认",
+        copyDescendantsShort: "复制子节点",
+        playbackAutoNavigateShort: "自动跳转树",
         nodeDetails: "节点详情",
         nodeDetailOptions: {
           description: "描述",

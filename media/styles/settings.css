@@ -145,6 +145,7 @@
 }
 
 .settings-inline-control .settings-segmented {
+  position: relative;
   display: inline-flex;
   align-items: center;
   padding: 2px;
@@ -152,9 +153,22 @@
   border-radius: 8px;
   background: var(--color-surface-subtle);
   gap: 2px;
+  overflow: hidden;
+}
+
+.settings-segmented-indicator {
+  position: absolute;
+  inset: 2px auto 2px 2px;
+  border-radius: 6px;
+  background: #39d46a;
+  transition: transform 160ms ease, width 160ms ease;
+  pointer-events: none;
+  will-change: transform, width;
 }
 
 .settings-segmented-button {
+  position: relative;
+  z-index: 1;
   min-width: 40px;
   height: 22px;
   padding: 0 8px;
@@ -169,7 +183,6 @@
 }
 
 .settings-segmented-button.is-active {
-  background: #39d46a;
   color: #0f2d16;
   font-weight: 700;
 }

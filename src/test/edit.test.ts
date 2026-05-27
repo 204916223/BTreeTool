@@ -66,6 +66,48 @@ test("insertNodeCopy inserts a shallow node copy without children", () => {
   });
 });
 
+test("insertNodeCopy inserts a copied subtree when children are included", () => {
+  const document = createDocument();
+
+  const insertedPath = insertNodeCopy(document, "MainTree", "0", 1, {
+    tagName: "ActionA",
+    attributes: { foo: "bar" },
+    children: [
+      {
+        tagName: "NestedAction",
+        attributes: { depth: "1" },
+        children: [
+          {
+            tagName: "LeafAction",
+            attributes: { depth: "2" },
+            children: []
+          }
+        ]
+      }
+    ]
+  });
+
+  const root = document.behaviorTrees[0].node;
+  assert.equal(insertedPath, "0.1");
+  assert.deepEqual(root?.children[1], {
+    tagName: "ActionA",
+    attributes: { foo: "bar" },
+    children: [
+      {
+        tagName: "NestedAction",
+        attributes: { depth: "1" },
+        children: [
+          {
+            tagName: "LeafAction",
+            attributes: { depth: "2" },
+            children: []
+          }
+        ]
+      }
+    ]
+  });
+});
+
 test("createBehaviorTree adds a valid AlwaysSuccess placeholder tree", () => {
   const document = createDocument();
 

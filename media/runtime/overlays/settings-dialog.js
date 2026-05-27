@@ -57,6 +57,18 @@
     nodeLayoutRow.control.appendChild(nodeLayoutControl.element);
     commonSection.body.appendChild(nodeLayoutRow.element);
 
+    const detailTitle = document.createElement("div");
+    detailTitle.className = "settings-detail-title";
+    detailTitle.textContent = "Node Details";
+    const detailGrid = document.createElement("div");
+    detailGrid.className = "settings-detail-grid";
+    const detailSwitches = createDetailSwitches();
+    detailSwitches.forEach((entry) => {
+      detailGrid.appendChild(entry.switchControl.element);
+    });
+    commonSection.body.appendChild(detailTitle);
+    commonSection.body.appendChild(detailGrid);
+
     const editSection = createSettingsSection("Edit Mode");
     const editRow = document.createElement("div");
     editRow.className = "settings-toggle-row";
@@ -75,22 +87,23 @@
     const deleteConfirmInput = deleteConfirmSwitch.input;
     const deleteConfirmText = deleteConfirmSwitch.text;
     editRow.appendChild(deleteConfirmSwitch.element);
-    editSection.body.appendChild(editRow);
 
-    const detailTitle = document.createElement("div");
-    detailTitle.className = "settings-detail-title";
-    detailTitle.textContent = "Node Details";
-    const detailGrid = document.createElement("div");
-    detailGrid.className = "settings-detail-grid";
-    const detailSwitches = createDetailSwitches();
-    detailSwitches.forEach((entry) => {
-      detailGrid.appendChild(entry.switchControl.element);
-    });
-    editSection.body.appendChild(detailTitle);
-    editSection.body.appendChild(detailGrid);
+    const copyDescendantsSwitch = createSettingsSwitch("Copy Descendants");
+    const copyDescendantsInput = copyDescendantsSwitch.input;
+    const copyDescendantsText = copyDescendantsSwitch.text;
+    editRow.appendChild(copyDescendantsSwitch.element);
+    editSection.body.appendChild(editRow);
 
     const playbackSection = createSettingsSection("Playback Mode");
     playbackSection.element.classList.add("settings-section-playback");
+    const playbackRow = document.createElement("div");
+    playbackRow.className = "settings-toggle-row";
+
+    const playbackAutoNavigateSwitch = createSettingsSwitch("Auto Jump Tree");
+    const playbackAutoNavigateInput = playbackAutoNavigateSwitch.input;
+    const playbackAutoNavigateText = playbackAutoNavigateSwitch.text;
+    playbackRow.appendChild(playbackAutoNavigateSwitch.element);
+    playbackSection.body.appendChild(playbackRow);
 
     const actions = document.createElement("div");
     actions.className = "settings-actions";
@@ -108,6 +121,8 @@
         showMainTreeLocator: mainTreeLocatorInput.checked,
         showBehaviorTreeRoot: behaviorTreeRootInput.checked,
         requireNodeDeleteConfirmation: deleteConfirmInput.checked,
+        copyNodeWithDescendants: copyDescendantsInput.checked,
+        playbackAutoNavigateToTree: playbackAutoNavigateInput.checked,
         simplifyHiddenSections: detailSwitches.filter((entry) => !entry.switchControl.input.checked).map((entry) => entry.key)
       };
       runtime.state.currentSettings = nextSettings;
@@ -154,9 +169,13 @@
       behaviorTreeRootText,
       deleteConfirmInput,
       deleteConfirmText,
+      copyDescendantsInput,
+      copyDescendantsText,
       detailTitle,
       detailSwitches,
       playbackSectionTitle: playbackSection.title,
+      playbackAutoNavigateInput,
+      playbackAutoNavigateText,
       saveButton
     };
   }
@@ -217,7 +236,34 @@
     const element = document.createElement("div");
     element.className = "settings-segmented";
     const buttons = new Map();
+    const indicator = document.createElement("span");
+    indicator.className = "settings-segmented-indicator";
     let currentValue = options[0]?.value || "";
+    let syncHandle = 0;
+
+    function syncIndicator() {
+      syncHandle = 0;
+      const activeButton = buttons.get(currentValue);
+      if (!activeButton) {
+        indicator.style.width = "0px";
+        indicator.style.transform = "translateX(0px)";
+        return;
+      }
+
+      const left = activeButton.offsetLeft || 0;
+      const width = activeButton.offsetWidth || 0;
+      indicator.style.width = `${width}px`;
+      indicator.style.transform = `translateX(${left}px)`;
+    }
+
+    function scheduleSyncIndicator() {
+      if (syncHandle) {
+        return;
+      }
+      syncHandle = requestAnimationFrame(syncIndicator);
+    }
+
+    element.appendChild(indicator);
 
     options.forEach((option) => {
       const button = document.createElement("button");
@@ -238,6 +284,7 @@
         button.classList.toggle("is-active", active);
         button.setAttribute("aria-pressed", active ? "true" : "false");
       });
+      scheduleSyncIndicator();
     }
 
     setValue(currentValue);
@@ -253,6 +300,7 @@
             button.textContent = labelsByValue[value];
           }
         });
+        scheduleSyncIndicator();
       }
     };
   }
@@ -274,11 +322,13 @@
     overlayState.settingsDialog.mainTreeLocatorText.textContent = copy.locatorShort;
     overlayState.settingsDialog.behaviorTreeRootText.textContent = copy.rootShort;
     overlayState.settingsDialog.deleteConfirmText.textContent = copy.deleteConfirmShort;
+    overlayState.settingsDialog.copyDescendantsText.textContent = copy.copyDescendantsShort;
     overlayState.settingsDialog.detailTitle.textContent = copy.nodeDetails;
     overlayState.settingsDialog.detailSwitches.forEach((entry) => {
       entry.switchControl.text.textContent = copy.nodeDetailOptions[entry.key];
     });
     overlayState.settingsDialog.playbackSectionTitle.textContent = copy.playbackMode;
+    overlayState.settingsDialog.playbackAutoNavigateText.textContent = copy.playbackAutoNavigateShort;
     overlayState.settingsDialog.saveButton.textContent = copy.save;
     overlayState.settingsDialog.languageSelect.replaceChildren();
     [
@@ -298,18 +348,22 @@
       inline: copy.nodeAttributeLayoutOptions.inline,
       stacked: copy.nodeAttributeLayoutOptions.stacked
     });
-    overlayState.settingsDialog.nodeLayoutControl.setValue(
-      runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline"
-    );
     overlayState.settingsDialog.mainTreeLocatorInput.checked = runtime.state.currentSettings?.showMainTreeLocator !== false;
     overlayState.settingsDialog.behaviorTreeRootInput.checked = runtime.state.currentSettings?.showBehaviorTreeRoot !== false;
     overlayState.settingsDialog.deleteConfirmInput.checked =
       runtime.state.currentSettings?.requireNodeDeleteConfirmation === true;
+    overlayState.settingsDialog.copyDescendantsInput.checked =
+      runtime.state.currentSettings?.copyNodeWithDescendants !== false;
+    overlayState.settingsDialog.playbackAutoNavigateInput.checked =
+      runtime.state.currentSettings?.playbackAutoNavigateToTree !== false;
     const hiddenSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);
     overlayState.settingsDialog.detailSwitches.forEach((entry) => {
       entry.switchControl.input.checked = !hiddenSections.has(entry.key);
     });
     overlayState.settingsDialog.element.hidden = false;
+    overlayState.settingsDialog.nodeLayoutControl.setValue(
+      runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline"
+    );
     shared.syncBlockingOverlay();
   }
 

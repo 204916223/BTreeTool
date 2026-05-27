@@ -74,6 +74,10 @@ export function activate(context: vscode.ExtensionContext): void {
     resource: vscode.Uri | undefined
   ): Promise<vscode.TextDocument | undefined> => {
     if (resource) {
+      if (resource.scheme !== "file") {
+        return undefined;
+      }
+
       const document = await vscode.workspace.openTextDocument(resource);
       if (!isBehaviorTreeDocument(document)) {
         return undefined;
@@ -106,6 +110,22 @@ export function activate(context: vscode.ExtensionContext): void {
       BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, document);
     })
   );
+  const shortcutCommands: Array<[string, "copy" | "pasteSmart" | "undo" | "pasteAsChild" | "pasteBefore" | "pasteAfter"]> = [
+    ["btreeTool.copyNode", "copy"],
+    ["btreeTool.pasteNodeSmart", "pasteSmart"],
+    ["btreeTool.undoEdit", "undo"],
+    ["btreeTool.pasteNodeAsChild", "pasteAsChild"],
+    ["btreeTool.pasteNodeBefore", "pasteBefore"],
+    ["btreeTool.pasteNodeAfter", "pasteAfter"]
+  ];
+
+  shortcutCommands.forEach(([command, action]) => {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(command, () => {
+        BehaviorTreePreviewPanel.getActivePanel()?.postShortcutAction(action);
+      })
+    );
+  });
 
   context.subscriptions.push(previewButton);
   context.subscriptions.push(diagnostics);

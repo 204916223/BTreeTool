@@ -329,10 +329,7 @@
           parentPath,
           siblingIndex,
           nodeTitle: node.title,
-          nodeTemplate: {
-            tagName: node.kind,
-            attributes: { ...node.attributes }
-          },
+          nodeTemplate: toNodeCopyTemplate(node),
           allowAppendChild: canAppendChildren(node),
           childCount: node.children.length,
           allowDelete: canDeleteNode(node)
@@ -727,6 +724,14 @@
     }
 
     return runtime.state.currentSettings?.showBehaviorTreeRoot !== false;
+  }
+
+  function toNodeCopyTemplate(node) {
+    return {
+      tagName: node.kind,
+      attributes: { ...(node.attributes || {}) },
+      children: (node.children || []).map(toNodeCopyTemplate)
+    };
   }
 
   function createDropSlot(label, className, resolveDropTarget) {
@@ -1172,6 +1177,7 @@
     clearDropMarkers,
     applyDropMarker,
     applyAppendMarker,
-    canAppendChildren
+    canAppendChildren,
+    canDeleteNode
   };
 })();

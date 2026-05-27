@@ -17,6 +17,12 @@ const EDITOR_ONLY_ATTRIBUTES = new Set([
   "_post"
 ]);
 
+type NodeCopyTemplate = {
+  tagName: string;
+  attributes: Record<string, string>;
+  children?: NodeCopyTemplate[];
+};
+
 export function createBehaviorTree(document: BtDocumentAst, treeId: string): void {
   const normalizedTreeId = treeId.trim();
   if (!normalizedTreeId) {
@@ -198,7 +204,7 @@ export function insertNodeCopy(
   treeId: string,
   targetParentPath: string,
   targetIndex: number,
-  nodeTemplate: { tagName: string; attributes: Record<string, string> }
+  nodeTemplate: NodeCopyTemplate
 ): string {
   const tree = document.behaviorTrees.find((entry) => entry.id === treeId);
 
@@ -210,11 +216,7 @@ export function insertNodeCopy(
     throw new Error("The copied node is missing a node type.");
   }
 
-  const nextNode: BtNodeAst = {
-    tagName: nodeTemplate.tagName,
-    attributes: { ...nodeTemplate.attributes },
-    children: []
-  };
+  const nextNode = cloneNodeTemplate(nodeTemplate);
 
   if (targetParentPath === VIRTUAL_ROOT_PATH) {
     if (tree.node) {
@@ -233,6 +235,18 @@ export function insertNodeCopy(
 
   targetParentNode.children.splice(normalizedTargetIndex, 0, nextNode);
   return `${targetParentPath}.${normalizedTargetIndex}`;
+}
+
+function cloneNodeTemplate(nodeTemplate: NodeCopyTemplate): BtNodeAst {
+  return {
+    tagName: nodeTemplate.tagName,
+    attributes: { ...nodeTemplate.attributes },
+    children: Array.isArray(nodeTemplate.children)
+      ? nodeTemplate.children
+          .filter((child): child is NodeCopyTemplate => Boolean(child?.tagName && child.attributes))
+          .map(cloneNodeTemplate)
+      : []
+  };
 }
 
 export function deleteNode(document: BtDocumentAst, treeId: string, nodePath: string): string {

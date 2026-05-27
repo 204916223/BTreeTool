@@ -1,18 +1,19 @@
 # BTreeTool
 
-BTreeTool 是一个在 VS Code 里查看、定位和轻量编辑 `BehaviorTree.CPP / Groot2` XML 的可视化工具。
+BTreeTool 是一个在 VS Code 里查看、编辑 `BehaviorTree.CPP / Groot2` XML，并回放 `btlog` 的可视化工具。
 
 它适合在不切换到 Groot2 的情况下快速检查行为树结构、调整节点、编辑属性、定位 SubTree 关系，并把修改保存回 XML。
 
-## 适合做什么
+## 主要能力
 
 - 预览 `BehaviorTree.CPP` / Groot2 XML 的行为树结构
-- 在多个 `<BehaviorTree ID="...">` 之间快速切换
-- 通过 MainTree 定位图确认当前子树在主树里的位置
+- 在多个 `<BehaviorTree ID="...">` 之间切换
+- 通过 MainTree 定位图确认当前子树在主树中的位置
 - 编辑节点属性、描述、脚本代码和常见端口字段
-- 拖拽调整同一棵树里的节点顺序和层级
+- 拖拽调整节点顺序和层级
 - 从节点目录新增内建节点、模型节点和 SubTree 引用
 - 编辑 `TreeNodesModel` 节点定义
+- 导入 `btlog` 并在回放模式中播放、暂停、调速和逐步跳转
 
 ## 安装
 
@@ -37,19 +38,20 @@ npm run package:vsix
 打开一个行为树 XML 后，可以通过这些入口打开预览：
 
 - 编辑器右上角的 BTreeTool 图标
-- 编辑器右键菜单
+- 编辑器标题栏按钮
 - 文件标签右键菜单
 - 资源管理器右键菜单
 - 命令面板：`BTreeTool: Open Preview`
+- 状态栏里的预览按钮
 
-预览窗口会绑定当前 XML 文件。XML 有改动时，预览会自动刷新。
+如果当前没有可附加的 XML 文档，预览会先打开独立面板，进入回放入口，可直接导入 `btlog`。
 
-## 界面说明
+## 编辑模式
 
 ### 顶部工具栏
 
 - `Edit`：编辑模式，可修改 XML
-- `Playback`：回放模式入口，可切换到只读状态
+- `Playback`：回放模式入口
 - 保存按钮：把预览里的修改保存回当前 XML
 - 子树列表：切换当前 XML 中的不同 `BehaviorTree`
 - 设置按钮：打开 BTreeTool 设置
@@ -90,6 +92,18 @@ npm run package:vsix
 
 搜索默认匹配节点名、类型、实例名和摘要。展开筛选后，也可以搜索描述和属性。
 
+## 回放模式
+
+回放模式面向 `btlog` 文件，不依赖你当前打开的 XML。
+
+- 中间区域可导入 `btlog`
+- 底部进度条支持拖动
+- 左侧有播放 / 暂停按钮和倍速选择
+- 倍速支持 `0.1x`、`0.5x`、`1.0x`、`1.5x`、`2.0x`、`3.0x`
+- 右侧保留前后逐步跳转按钮
+- 左侧 transition 列表支持过滤
+- 右侧 blackboard 面板会随回放同步更新
+
 ## 设置
 
 点击右上角设置按钮可以修改用户配置。配置会保存到当前用户的 `user-settings.json`。
@@ -98,11 +112,10 @@ npm run package:vsix
 
 - `Language`：切换界面语言
 - `Theme`：切换主题
+- `Node Layout`：切换节点属性布局
 - `MainTree Locator`：显示或隐藏 MainTree 定位图，默认开启
 - `BehaviorTree Root`：显示或隐藏虚拟 root，默认开启
 - `Node Details`：控制简化视图里隐藏哪些节点详情
-- `Import Presets`：导入推荐节点预设
-- `Open Config`：直接打开配置文件
 
 用户预设节点会参与 Node Palette、右键新增、节点字段约束和新建节点默认值。
 
@@ -143,3 +156,11 @@ SubTree 节点只是一个引用。要编辑它指向的内容，请点击 SubTr
 ### 为什么保存后 XML 格式变了？
 
 这是预期行为。BTreeTool 会把 XML 序列化成统一格式，以便稳定编辑和保存。
+
+## 开发
+
+```bash
+npm install
+npm test
+npm run package:vsix
+```

@@ -104,6 +104,7 @@
     hideNodeContextMenu: (...args) => getPart("contextMenus").hideNodeContextMenu(...args),
     showCanvasContextMenu: (...args) => getPart("contextMenus").showCanvasContextMenu(...args),
     hideCanvasContextMenu: (...args) => getPart("contextMenus").hideCanvasContextMenu(...args),
+    executeNodeShortcutAction: (...args) => getPart("contextMenus").executeNodeShortcutAction(...args),
     requestDeleteConfirmation: (...args) => getPart("deleteConfirm").requestDeleteConfirmation(...args),
     hideDeleteConfirm: (...args) => getPart("deleteConfirm").hideDeleteConfirm(...args),
     showNodePicker: (...args) => getPart("nodePicker").showNodePicker(...args),
