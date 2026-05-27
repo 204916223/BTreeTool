@@ -67,7 +67,23 @@
 
     runtime.state.selectedNodePath = state.parentPath || (state.nodePath === "0" ? "__btree_root__" : "0");
     runtime.app.persistUiState();
+    if (runtime.state.currentSettings?.requireNodeDeleteConfirmation !== true) {
+      deleteNodeImmediately(state);
+      return;
+    }
+
     showDeleteConfirm(state);
+  }
+
+  function deleteNodeImmediately(state) {
+    hideDeleteConfirm();
+    runtime.vscode.postMessage({
+      type: "deleteNode",
+      payload: {
+        treeId: state.treeId,
+        nodePath: state.nodePath
+      }
+    });
   }
 
   function showDeleteConfirm(state) {

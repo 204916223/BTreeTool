@@ -1,13 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BtDocumentAst } from "../core/btAst";
+import { parseBehaviorTreeDocument } from "../core/parse";
+import { serializeBehaviorTreeDocument } from "../core/serialize";
 import {
   createBehaviorTree,
   deleteBehaviorTree,
   deleteNode,
   findBehaviorTreeReferences,
   insertNode,
-  insertNodeCopy
+  insertNodeCopy,
+  replaceNodeModels
 } from "../core/edit";
 
 function createDocument(): BtDocumentAst {
@@ -180,5 +183,75 @@ test("deleteBehaviorTree rejects removing the entry tree", () => {
   assert.throws(
     () => deleteBehaviorTree(document, "MainTree"),
     /current entry tree/
+  );
+});
+
+test("replaceNodeModels removes deleted ports from matching node instances", () => {
+  const document = parseBehaviorTreeDocument(`
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+      <ActionA foo="1" keep="2" extra="3" />
+      <Action ID="ExplicitAction" foo="4" keep="5" />
+      <OtherAction foo="6" keep="7" />
+    </Sequence>
+  </BehaviorTree>
+  <TreeNodesModel>
+    <Action ID="ActionA">
+      <input_port name="foo" />
+      <input_port name="keep" />
+    </Action>
+    <Action ID="ExplicitAction">
+      <input_port name="foo" />
+      <input_port name="keep" />
+    </Action>
+    <Action ID="OtherAction">
+      <input_port name="foo" />
+      <input_port name="keep" />
+    </Action>
+  </TreeNodesModel>
+</root>
+`);
+
+  replaceNodeModels(document, [
+    {
+      id: "ActionA",
+      modelKind: "Action",
+      attributes: { ID: "ActionA" },
+      ports: [{ tagName: "input_port", attributes: { name: "keep" } }]
+    },
+    {
+      id: "ExplicitAction",
+      modelKind: "Action",
+      attributes: { ID: "ExplicitAction" },
+      ports: [{ tagName: "input_port", attributes: { name: "keep" } }]
+    },
+    {
+      id: "OtherAction",
+      modelKind: "Action",
+      attributes: { ID: "OtherAction" },
+      ports: [
+        { tagName: "input_port", attributes: { name: "foo" } },
+        { tagName: "input_port", attributes: { name: "keep" } }
+      ]
+    }
+  ]);
+
+  const output = serializeBehaviorTreeDocument(document);
+  assert.match(output, /<ActionA keep="2" \/>/);
+  assert.match(output, /<Action ID="ExplicitAction" keep="5" \/>/);
+  assert.match(output, /<OtherAction foo="6" keep="7" \/>/);
+  assert.doesNotMatch(output, /<ActionA[^>]*foo=/);
+  assert.doesNotMatch(output, /<ActionA[^>]*extra=/);
+  assert.doesNotMatch(output, /<Action ID="ExplicitAction"[^>]*foo=/);
+
+  const reparsed = parseBehaviorTreeDocument(output);
+  assert.deepEqual(
+    reparsed.nodeModels.find((model) => model.id === "ActionA")?.ports.map((port) => port.attributes.name),
+    ["keep"]
+  );
+  assert.deepEqual(
+    reparsed.nodeModels.find((model) => model.id === "ExplicitAction")?.ports.map((port) => port.attributes.name),
+    ["keep"]
   );
 });

@@ -95,7 +95,7 @@
     toolbar.appendChild(deleteModelButton);
 
     const status = document.createElement("div");
-    status.className = "inspector-status";
+    status.className = "editor-status";
     status.hidden = true;
 
     const tableWrap = document.createElement("div");
@@ -245,13 +245,13 @@
 
     if (!message) {
       overlayState.treeNodesModelDialog.status.hidden = true;
-      overlayState.treeNodesModelDialog.status.className = "inspector-status";
+      overlayState.treeNodesModelDialog.status.className = "editor-status";
       overlayState.treeNodesModelDialog.status.textContent = "";
       return;
     }
 
     overlayState.treeNodesModelDialog.status.hidden = false;
-    overlayState.treeNodesModelDialog.status.className = `inspector-status is-${tone || "info"}`;
+    overlayState.treeNodesModelDialog.status.className = `editor-status is-${tone || "info"}`;
     overlayState.treeNodesModelDialog.status.textContent = message;
   }
 

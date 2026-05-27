@@ -33,6 +33,7 @@
 
       overlayApi.showNodePicker({
         treeId: state.treeId,
+        paneId: state.paneId,
         targetParentPath: state.parentPath,
         targetIndex: state.siblingIndex,
         title: runtime.i18n.getOverlayCopy().addNodeBeforeTitle(state.nodeTitle)
@@ -48,6 +49,7 @@
 
       overlayApi.showNodePicker({
         treeId: state.treeId,
+        paneId: state.paneId,
         targetParentPath: state.parentPath,
         targetIndex: state.siblingIndex + 1,
         title: runtime.i18n.getOverlayCopy().addNodeAfterTitle(state.nodeTitle)
@@ -63,6 +65,7 @@
 
       overlayApi.showNodePicker({
         treeId: state.treeId,
+        paneId: state.paneId,
         targetParentPath: state.nodePath,
         targetIndex: state.childCount || 0,
         title: runtime.i18n.getOverlayCopy().addChildTitle(state.nodeTitle)
@@ -78,6 +81,7 @@
 
       pasteCopiedNode({
         treeId: state.treeId,
+        paneId: state.paneId,
         targetParentPath: state.parentPath,
         targetIndex: state.siblingIndex
       });
@@ -92,6 +96,7 @@
 
       pasteCopiedNode({
         treeId: state.treeId,
+        paneId: state.paneId,
         targetParentPath: state.parentPath,
         targetIndex: state.siblingIndex + 1
       });
@@ -106,6 +111,7 @@
 
       pasteCopiedNode({
         treeId: state.treeId,
+        paneId: state.paneId,
         targetParentPath: state.nodePath,
         targetIndex: state.childCount || 0
       });
@@ -154,6 +160,11 @@
     runtime.state.selectedNodePath = target.targetParentPath === "__btree_root__"
       ? "0"
       : `${target.targetParentPath}.${target.targetIndex}`;
+    if (target.paneId) {
+      runtime.app.activateTreePane(target.paneId, target.treeId, runtime.state.selectedNodePath);
+    } else {
+      runtime.app.activateTreePaneByTreeId(target.treeId, runtime.state.selectedNodePath);
+    }
     runtime.app.persistUiState();
     runtime.vscode.postMessage({
       type: "createNodeCopy",
@@ -194,6 +205,7 @@
     }
 
     const overlayCopy = runtime.i18n.getOverlayCopy();
+    runtime.app.activateTreePane(state?.paneId, state?.treeId, state?.nodePath);
     overlayState.nodeContextMenu.state = state;
     const hasCopiedNode = Boolean(runtime.state.copiedNodeTemplate);
     overlayState.nodeContextMenu.copyNodeButton.textContent = overlayCopy.copyNode;

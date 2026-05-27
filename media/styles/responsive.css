@@ -70,23 +70,15 @@
     max-height: calc(100vh - 32px);
   }
 
-  .settings-form,
-  .settings-checkbox-list {
+  .settings-form {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .settings-form > .settings-field:nth-child(5),
-  .settings-form > .settings-field:nth-child(6) {
-    grid-column: auto;
   }
 
   .tree-workspace {
     grid-template-columns: 1fr;
   }
 
-  .tree-workspace.show-catalog,
-  .tree-workspace.show-inspector,
-  .tree-workspace.show-catalog.show-inspector {
+  .tree-workspace.show-catalog {
     grid-template-columns: 1fr;
   }
 
@@ -94,12 +86,7 @@
     left: 4px;
   }
 
-  .panel-edge-toggle-right {
-    right: 4px;
-  }
-
-  .tree-workspace.show-catalog .panel-edge-toggle-left,
-  .tree-workspace.show-inspector .panel-edge-toggle-right {
+  .tree-workspace.show-catalog .panel-edge-toggle-left {
     top: 72px;
     transform: none;
   }

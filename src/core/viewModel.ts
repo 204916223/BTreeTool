@@ -14,7 +14,7 @@ export interface BtPreviewAttribute {
   value: string;
 }
 
-export interface BtPreviewInspectorField {
+export interface BtPreviewNodeField {
   key: string;
   value: string;
   role: BtFieldRole;
@@ -41,8 +41,8 @@ export interface BtPreviewNode {
     outputs: BtPreviewAttribute[];
     params: BtPreviewAttribute[];
   };
-  inspectorFields: BtPreviewInspectorField[];
-  editorFields: BtPreviewInspectorField[];
+  attributeFields: BtPreviewNodeField[];
+  editorFields: BtPreviewNodeField[];
   modelKind: string;
   warningCount: number;
   hasError: boolean;
@@ -63,6 +63,7 @@ export interface BtPreviewCatalogItem {
   category: BtNodeCategory;
   editableModelId: string | null;
   removableTreeId: string | null;
+  isDetachedTree: boolean;
 }
 
 export interface BtPreviewCatalogGroup {
@@ -101,6 +102,8 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
       themePreset: "midnight",
       showMainTreeLocator: true,
       showBehaviorTreeRoot: true,
+      requireNodeDeleteConfirmation: false,
+      nodeAttributeLayout: "inline",
       simplifyHiddenSections: [],
       presetNodes: []
     }
@@ -150,7 +153,7 @@ function toPreviewNode(
     summary: getNodeSummary(node.tagName, node.attributes),
     attributes: node.attributes,
     ioGroups,
-    inspectorFields: buildInspectorFields(node.attributes, entry),
+    attributeFields: buildAttributeFields(node.attributes, entry),
     editorFields: buildEditorFields(node.attributes, entry),
     modelKind: entry?.modelKind || "",
     warningCount: blockingWarnings.length,
@@ -222,47 +225,72 @@ function groupAttributes(
     params: [] as BtPreviewAttribute[]
   };
 
-  const roleMap = new Map((entry?.fields || []).map((field) => [field.key, field.role]));
+  const definedKeys = new Set<string>();
+
+  for (const field of entry?.fields || []) {
+    if (!field.key || shouldSkipCardAttribute(field.key, entry)) {
+      continue;
+    }
+
+    definedKeys.add(field.key);
+    pushGroupedAttribute(groups, field.role, {
+      key: field.key,
+      value: attributes[field.key] ?? ""
+    });
+  }
 
   for (const [key, value] of Object.entries(attributes)) {
-    if (key === "name" || key === "ID" || key === "_description") {
+    if (key === "ID" || definedKeys.has(key) || shouldSkipCardAttribute(key, entry)) {
       continue;
     }
 
-    if ((entry?.key === "Script" || entry?.key === "ScriptCondition") && key === "code") {
-      continue;
-    }
-
-    const attribute = { key, value };
-    const role = roleMap.get(key);
-
-    if (role === "input") {
-      groups.inputs.push(attribute);
-      continue;
-    }
-
-    if (role === "output") {
-      groups.outputs.push(attribute);
-      continue;
-    }
-
-    if (role === "inout") {
-      groups.inputs.push(attribute);
-      groups.outputs.push(attribute);
-      continue;
-    }
-
-    groups.params.push(attribute);
+    groups.params.push({ key, value });
   }
 
   return groups;
 }
 
-function buildInspectorFields(
+function pushGroupedAttribute(
+  groups: BtPreviewNode["ioGroups"],
+  role: BtFieldRole,
+  attribute: BtPreviewAttribute
+): void {
+  if (role === "input") {
+    groups.inputs.push(attribute);
+    return;
+  }
+
+  if (role === "output") {
+    groups.outputs.push(attribute);
+    return;
+  }
+
+  if (role === "inout") {
+    groups.inputs.push(attribute);
+    groups.outputs.push(attribute);
+    return;
+  }
+
+  groups.params.push(attribute);
+}
+
+function shouldSkipCardAttribute(key: string, entry: BtNodeCatalogEntry | undefined): boolean {
+  if (key === "name" || key === "_description") {
+    return true;
+  }
+
+  if ((entry?.key === "Script" || entry?.key === "ScriptCondition") && key === "code") {
+    return true;
+  }
+
+  return false;
+}
+
+function buildAttributeFields(
   attributes: Record<string, string>,
   entry: BtNodeCatalogEntry | undefined
-): BtPreviewInspectorField[] {
-  const fields: BtPreviewInspectorField[] = [];
+): BtPreviewNodeField[] {
+  const fields: BtPreviewNodeField[] = [];
   const definedKeys = new Set<string>();
   const isSubTreeReference = entry?.category === "SubTree";
   const editorOnlyKeys = new Set([
@@ -317,8 +345,8 @@ function buildInspectorFields(
 function buildEditorFields(
   attributes: Record<string, string>,
   entry: BtNodeCatalogEntry | undefined
-): BtPreviewInspectorField[] {
-  const fields: BtPreviewInspectorField[] = [];
+): BtPreviewNodeField[] {
+  const fields: BtPreviewNodeField[] = [];
   const definedKeys = new Set<string>();
   const isSubTreeReference = entry?.category === "SubTree";
 
@@ -329,7 +357,7 @@ function buildEditorFields(
     editableKey: boolean,
     editableValue: boolean,
     removable: boolean,
-    source: BtPreviewInspectorField["source"]
+    source: BtPreviewNodeField["source"]
   ) => {
     if (definedKeys.has(key)) {
       return;
@@ -411,7 +439,9 @@ function inferFallbackCategory(node: BtNodeAst): BtNodeCategory {
 function buildPreviewCatalog(catalog: ReturnType<typeof buildNodeCatalog>, ast: BtDocumentAst): BtPreviewCatalogGroup[] {
   const orderedCategories: BtNodeCategory[] = ["Action", "Condition", "Control", "Decorator", "SubTree"];
   const editableModelIds = new Set(ast.nodeModels.map((model) => model.id));
+  const treeIds = new Set(ast.behaviorTrees.map((tree) => tree.id));
   const protectedTreeId = getProtectedTreeId(ast);
+  const linkedTreeIds = findLinkedBehaviorTreeIds(ast);
 
   return orderedCategories
     .map((category) => ({
@@ -422,11 +452,47 @@ function buildPreviewCatalog(catalog: ReturnType<typeof buildNodeCatalog>, ast: 
           title: entry.title,
           category: entry.category,
           editableModelId: editableModelIds.has(entry.key) ? entry.key : null,
-          removableTreeId: entry.category === "SubTree" && entry.key !== protectedTreeId ? entry.key : null
+          removableTreeId:
+            entry.category === "SubTree" && treeIds.has(entry.key) && entry.key !== protectedTreeId ? entry.key : null,
+          isDetachedTree:
+            entry.category === "SubTree" &&
+            treeIds.has(entry.key) &&
+            entry.key !== protectedTreeId &&
+            !linkedTreeIds.has(entry.key)
         }))
         .sort((left, right) => left.title.localeCompare(right.title))
     }))
     .filter((group) => group.items.length > 0);
+}
+
+function findLinkedBehaviorTreeIds(ast: BtDocumentAst): Set<string> {
+  const treeIds = new Set(ast.behaviorTrees.map((tree) => tree.id));
+  const linkedTreeIds = new Set<string>();
+
+  for (const tree of ast.behaviorTrees) {
+    if (!tree.node) {
+      continue;
+    }
+
+    for (const targetTreeId of collectReferencedTreeIds(tree.node)) {
+      if (!treeIds.has(targetTreeId) || targetTreeId === tree.id) {
+        continue;
+      }
+
+      linkedTreeIds.add(tree.id);
+      linkedTreeIds.add(targetTreeId);
+    }
+  }
+
+  return linkedTreeIds;
+}
+
+function collectReferencedTreeIds(node: BtNodeAst): string[] {
+  const references = node.tagName === "SubTree" && node.attributes.ID ? [node.attributes.ID] : [];
+  for (const child of node.children) {
+    references.push(...collectReferencedTreeIds(child));
+  }
+  return references;
 }
 
 function getProtectedTreeId(ast: BtDocumentAst): string | null {

@@ -2,20 +2,19 @@
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
 
   function applyWorkspacePanels() {
-    runtime.refs.catalogPanel.hidden = !runtime.state.showCatalog;
-    runtime.refs.catalogResizer.hidden = !runtime.state.showCatalog;
-    runtime.refs.inspectorPanel.hidden = !runtime.state.showInspector;
-    runtime.refs.inspectorResizer.hidden = !runtime.state.showInspector;
+    const hasDocument = runtime.state.currentHasDocument === true;
+    const isPlayback = runtime.modeRules?.isPlaybackMode?.() === true;
+    const showCatalog = hasDocument && !isPlayback && runtime.state.showCatalog;
+    runtime.refs.catalogPanel.hidden = !showCatalog;
+    runtime.refs.catalogResizer.hidden = !showCatalog;
+    runtime.refs.toggleCatalogButton.hidden = !hasDocument || isPlayback;
 
     runtime.refs.treeWorkspace.style.setProperty("--catalog-width", `${runtime.state.catalogWidth}px`);
-    runtime.refs.treeWorkspace.style.setProperty("--inspector-width", `${runtime.state.inspectorWidth}px`);
-    runtime.refs.treeWorkspace.classList.toggle("show-catalog", runtime.state.showCatalog);
-    runtime.refs.treeWorkspace.classList.toggle("show-inspector", runtime.state.showInspector);
+    runtime.refs.treeWorkspace.classList.toggle("show-catalog", showCatalog);
 
-    runtime.refs.toggleCatalogButton.classList.toggle("is-active", runtime.state.showCatalog);
-    runtime.refs.toggleInspectorButton.classList.toggle("is-active", runtime.state.showInspector);
+    runtime.refs.toggleCatalogButton.classList.toggle("is-active", showCatalog);
 
-    if (runtime.state.currentCanvasState) {
+    if (hasDocument && runtime.state.currentCanvasState) {
       requestAnimationFrame(() => {
         runtime.viewport.refreshViewport();
       });
@@ -28,30 +27,20 @@
     }
 
     handle.addEventListener("pointerdown", (event) => {
-      if ((side === "catalog" && !runtime.state.showCatalog) || (side === "inspector" && !runtime.state.showInspector)) {
+      if (side !== "catalog" || !runtime.state.showCatalog) {
         return;
       }
 
       const pointerId = event.pointerId;
       const startX = event.clientX;
       const startCatalogWidth = runtime.state.catalogWidth;
-      const startInspectorWidth = runtime.state.inspectorWidth;
 
       handle.setPointerCapture(pointerId);
       document.body.classList.add("is-resizing-panels");
 
       const onPointerMove = (moveEvent) => {
         const deltaX = moveEvent.clientX - startX;
-        if (side === "catalog") {
-          runtime.state.catalogWidth = runtime.viewport.clampNumber(startCatalogWidth + deltaX, 220, 460, startCatalogWidth);
-        } else {
-          runtime.state.inspectorWidth = runtime.viewport.clampNumber(
-            startInspectorWidth - deltaX,
-            260,
-            520,
-            startInspectorWidth
-          );
-        }
+        runtime.state.catalogWidth = runtime.viewport.clampNumber(startCatalogWidth + deltaX, 220, 460, startCatalogWidth);
         runtime.app.persistUiState();
         applyWorkspacePanels();
       };

@@ -19,19 +19,21 @@
     const base = {
       title: "Settings",
       close: "Close",
+      generalMode: "General Mode",
+      editMode: "Edit Mode",
+      playbackMode: "Playback Mode",
       language: "Language",
       theme: "Theme",
-      mainTreeLocator: "MainTree Locator",
-      showMainTreeLocator: "Show locator",
-      behaviorTreeRoot: "BehaviorTree Root",
-      showBehaviorTreeRoot: "Show virtual root",
-      simplifyView: "Node Details",
-      configFile: "Config File",
-      importPresets: "Import Presets",
-      openConfig: "Open Config",
-      settingsFileAutoHint: "The settings file will be created automatically.",
-      simplifyHint: "Choose which sections are visible on node cards.",
-      simplifyOptions: {
+      nodeAttributeLayout: "Node Layout",
+      nodeAttributeLayoutOptions: {
+        inline: "Key left, value right",
+        stacked: "Key top, value bottom"
+      },
+      locatorShort: "Locator",
+      rootShort: "ROOT",
+      deleteConfirmShort: "Delete confirm",
+      nodeDetails: "Node Details",
+      nodeDetailOptions: {
         description: "Description",
         code: "Code",
         inputs: "Inputs",
@@ -51,19 +53,21 @@
       {
         title: "设置",
         close: "关闭",
+        generalMode: "通用模式",
+        editMode: "编辑模式",
+        playbackMode: "回放模式",
         language: "语言",
         theme: "主题",
-        mainTreeLocator: "MainTree 定位图",
-        showMainTreeLocator: "显示定位图",
-        behaviorTreeRoot: "行为树 root",
-        showBehaviorTreeRoot: "显示虚拟 root",
-        simplifyView: "节点详情",
-        configFile: "配置文件",
-        importPresets: "导入预设",
-        openConfig: "打开配置",
-        settingsFileAutoHint: "设置文件会在首次保存时自动创建。",
-        simplifyHint: "选择节点卡片中要显示的内容块。",
-        simplifyOptions: {
+        nodeAttributeLayout: "节点布局类型",
+        nodeAttributeLayoutOptions: {
+          inline: "左 key，右 value",
+          stacked: "上 key，下 value"
+        },
+        locatorShort: "定位图",
+        rootShort: "ROOT",
+        deleteConfirmShort: "删除前确认",
+        nodeDetails: "节点详情",
+        nodeDetailOptions: {
           description: "描述",
           code: "代码",
           inputs: "输入",
@@ -247,6 +251,7 @@
       emptyCatalog: "No node definitions are available for this XML file yet.",
       emptySearch: (query) => `No nodes matched "${query}".`,
       editModelTitle: (title) => `Edit node model ${title}`,
+      detachedSubTreeTitle: (title) => `SubTree ${title} is not connected to any other tree`,
       removeSubTreeTitle: (title) => `Remove SubTree ${title}`
     };
 
@@ -261,63 +266,34 @@
         emptyCatalog: "当前 XML 里还没有可用的节点定义。",
         emptySearch: (query) => `没有匹配“${query}”的节点。`,
         editModelTitle: (title) => `编辑节点模型 ${title}`,
+        detachedSubTreeTitle: (title) => `子树 ${title} 未与其他行为树相连`,
         removeSubTreeTitle: (title) => `移除子树 ${title}`
       },
       language
     );
   }
 
-  function getInspectorCopy(language = getCurrentLanguage()) {
+  function getAttributeCopy(language = getCurrentLanguage()) {
     const base = {
-      eyebrow: "Node Inspector",
-      emptyTitle: "No node selected",
-      emptySummary: "Select a node in the canvas to inspect and edit its XML attributes.",
-      unavailableTitle: "Unavailable",
       unresolvedNode: "The selected node could not be resolved in the current tree.",
-      parseErrorSummary: "Fix the XML parse error before editing node attributes.",
-      noPreviewSummary: "No preview data is available for this file.",
-      emptyFileSummary: "The current XML file is empty.",
-      noBehaviorTreeSummary: "No BehaviorTree nodes were found in this XML file.",
-      missingTreeSummary: "The selected tree could not be found in this document.",
-      subtreeSummary: (targetTreeId) =>
-        `This SubTree node is a jump reference to ${targetTreeId || "another tree"}. Open that tree and edit its internal nodes there.`,
-      defaultSummary: "Edit the XML attributes below. Saving will rewrite this file using BTreeTool's normalized format.",
       attributePlaceholder: "attribute",
       valuePlaceholder: "value",
-      apply: "Apply",
       selectedTreeUnavailable: "The selected tree is no longer available.",
-      readOnlyNode: "This node is read-only here. Open the target SubTree to edit its contents.",
       missingAttributeKey: "Every attribute value needs a non-empty key.",
       requiredAttributeValue: (key) => `Attribute "${key}" requires a value.`,
-      duplicateAttribute: (key) => `Attribute "${key}" is duplicated in the inspector.`,
-      applying: "Applying node attributes..."
+      duplicateAttribute: (key) => `Attribute "${key}" is duplicated.`
     };
 
     return localize(
       base,
       {
-        eyebrow: "节点检查器",
-        emptyTitle: "未选择节点",
-        emptySummary: "在画布中选择一个节点，即可查看并编辑它的 XML 属性。",
-        unavailableTitle: "当前不可用",
         unresolvedNode: "当前树中无法定位所选节点。",
-        parseErrorSummary: "请先修复 XML 解析错误，再编辑节点属性。",
-        noPreviewSummary: "当前文件没有可用的预览数据。",
-        emptyFileSummary: "当前 XML 文件为空。",
-        noBehaviorTreeSummary: "当前 XML 文件中没有找到 BehaviorTree 节点。",
-        missingTreeSummary: "当前文档里找不到所选行为树。",
-        subtreeSummary: (targetTreeId) =>
-          `这个 SubTree 节点引用的是 ${targetTreeId || "另一个行为树"}。请打开目标树后再编辑其内部节点。`,
-        defaultSummary: "在下方编辑 XML 属性。保存后会用 BTreeTool 的规范化格式回写文件。",
         attributePlaceholder: "属性名",
         valuePlaceholder: "属性值",
-        apply: "应用",
         selectedTreeUnavailable: "所选行为树已不可用。",
-        readOnlyNode: "这个节点在这里是只读的。请打开目标 SubTree 后再编辑其内容。",
         missingAttributeKey: "每个属性值都需要一个非空属性名。",
         requiredAttributeValue: (key) => `属性“${key}”必须填写值。`,
-        duplicateAttribute: (key) => `检查器里存在重复属性“${key}”。`,
-        applying: "正在应用节点属性..."
+        duplicateAttribute: (key) => `存在重复属性“${key}”。`
       },
       language
     );
@@ -421,7 +397,14 @@
       emptyFileOutline: "This file is empty. Add a <root> element and at least one <BehaviorTree> to visualize it.",
       noBehaviorTreeOutline: "The file is valid XML, but no <BehaviorTree> nodes were found yet.",
       selectedTreeNotFound: "The selected tree could not be found in this document.",
-      startupHint: "Open an XML file and run the preview command."
+      startupHint: "Open an XML file and run the preview command.",
+      startupTitle: "No XML document open",
+      startupSummary: "Choose an action to start working.",
+      createNewXml: "New BehaviorTree XML",
+      openExistingXml: "Open existing XML",
+      importPlaybackLog: "Import Log",
+      importPlaybackSummary: "Choose a btlog file to select it.",
+      newXmlNameTitle: "Confirm the new XML name"
     };
 
     return localize(
@@ -435,7 +418,14 @@
         emptyFileOutline: "这个文件是空的。请添加一个 <root> 元素和至少一个 <BehaviorTree>。",
         noBehaviorTreeOutline: "文件是合法 XML，但还没有找到任何 <BehaviorTree> 节点。",
         selectedTreeNotFound: "当前文档里找不到所选行为树。",
-        startupHint: "打开一个 XML 文件并运行预览命令。"
+        startupHint: "打开一个 XML 文件并运行预览命令。",
+        startupTitle: "当前没有打开 XML 文档",
+        startupSummary: "请选择一个动作继续。",
+        createNewXml: "新建行为树 XML",
+        openExistingXml: "打开已有 XML",
+        importPlaybackLog: "导入日志",
+        importPlaybackSummary: "选择一个 btlog 文件进行导入。",
+        newXmlNameTitle: "确认新 XML 的名称"
       },
       language
     );
@@ -470,8 +460,8 @@
       saveXmlErrorTitle: "Behavior tree has blocking issues. Fix them before saving",
       saveXmlConfirm: "Save the current XML file now?",
       toggleCatalogTitle: "Show or hide the node palette",
-      toggleInspectorTitle: "Show or hide the node inspector",
       addBehaviorTreeTitle: "Add BehaviorTree",
+      splitViewTitle: "Split tree view",
       openSettingsTitle: "Open BTreeTool settings"
     };
 
@@ -485,45 +475,9 @@
         saveXmlErrorTitle: "行为树存在阻断性问题，修复后才能保存",
         saveXmlConfirm: "现在保存当前 XML 文件吗？",
         toggleCatalogTitle: "显示或隐藏节点面板",
-        toggleInspectorTitle: "显示或隐藏节点检查器",
         addBehaviorTreeTitle: "新增子树",
+        splitViewTitle: "左右分栏",
         openSettingsTitle: "打开 BTreeTool 设置"
-      },
-      language
-    );
-  }
-
-  function getPlaybackCopy(language = getCurrentLanguage()) {
-    const base = {
-      blackboardTitle: "Blackboard",
-      nodeStatesTitle: "Node States",
-      importLog: "Import Log",
-      importHint: "Switch to playback mode and import a btlog/json/jsonl file.",
-      importFailed: "Failed to import playback log.",
-      noLog: "No playback log has been imported yet.",
-      noLogLoaded: "No log loaded",
-      notSeen: "not seen",
-      noBlackboardData: "This frame has no blackboard data.",
-      noNodeStates: "No node states are available at this frame.",
-      unknownNode: "Unknown node",
-      summary: (fileName, frameCount, duration) => `${fileName} · ${frameCount} frames · ${duration}`
-    };
-
-    return localize(
-      base,
-      {
-        blackboardTitle: "黑板值",
-        nodeStatesTitle: "节点状态",
-        importLog: "导入日志",
-        importHint: "切换到回放模式后导入 btlog/json/jsonl 文件。",
-        importFailed: "导入回放日志失败。",
-        noLog: "尚未导入回放日志。",
-        noLogLoaded: "未加载日志",
-        notSeen: "未出现",
-        noBlackboardData: "当前帧没有黑板数据。",
-        noNodeStates: "当前帧没有节点状态。",
-        unknownNode: "未知节点",
-        summary: (fileName, frameCount, duration) => `${fileName} · ${frameCount} 帧 · ${duration}`
       },
       language
     );
@@ -570,10 +524,9 @@
   runtime.i18n = {
     getCurrentLanguage,
     getChromeCopy,
-    getPlaybackCopy,
     getSearchCopy,
     getCatalogCopy,
-    getInspectorCopy,
+    getAttributeCopy,
     getOverlayCopy,
     getNodeEditorCopy,
     getMainTreeLocatorCopy,

@@ -12,7 +12,7 @@
     openNodeEditor: isEditingEnabled,
     openNodePicker: isEditingEnabled,
     requestNodeDelete: isEditingEnabled,
-    applyInspectorAttributes: (state, context) =>
+    editNodeAttributes: (state, context) =>
       isEditingEnabled(state) && Boolean(context.hasEditableFields),
     createBehaviorTree: (state, context) => isEditingEnabled(state) && Boolean(context.hasPreview),
     deleteBehaviorTree: (state, context) => isEditingEnabled(state) && Boolean(context.treeId),
@@ -36,10 +36,6 @@
     return getMode(state) === "playback";
   }
 
-  function isMonitorMode(state = runtime.state) {
-    return isPlaybackMode(state);
-  }
-
   function can(action, context = {}) {
     const rule = ACTION_RULES[action];
     if (!rule) {
@@ -54,7 +50,6 @@
     getMode,
     isEditingEnabled,
     isPlaybackMode,
-    isMonitorMode,
     can
   };
 })();

@@ -2,13 +2,13 @@
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
   const vscode = acquireVsCodeApi();
   const persistedState = vscode.getState() || {};
+  const initialMode = window.BTreeToolInitialMode === "playback" ? "playback" : "edit";
   runtime.vscode = vscode;
   runtime.state = {
     selectedTreeId: persistedState.selectedTreeId || null,
     selectedNodePath: persistedState.selectedNodePath || "0",
     showCatalog: persistedState.showCatalog || false,
-    showInspector: persistedState.showInspector || false,
-    editModeEnabled: persistedState.editModeEnabled !== false,
+    editModeEnabled: initialMode === "playback" ? false : persistedState.editModeEnabled !== false,
     collapsedCatalogGroups: persistedState.collapsedCatalogGroups || {},
     collapsedNodePickerGroups: persistedState.collapsedNodePickerGroups || {},
     catalogWidth: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
@@ -16,12 +16,6 @@
       220,
       460,
       280
-    ),
-    inspectorWidth: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
-      persistedState.inspectorWidth,
-      260,
-      520,
-      320
     ),
     currentDocumentPath: "",
     currentHasDocument: false,
@@ -40,22 +34,62 @@
     activeSearchResultIndex: -1,
     searchMatchedNodePaths: new Set(),
     currentCanvasState: null,
+    canvasStatesByPane: {},
+    latestPayload: null,
     currentPreview: null,
     currentCatalogGroups: [],
+    splitViewEnabled: persistedState.splitViewEnabled === true,
+    activeTreePane: persistedState.activeTreePane === "right" ? "right" : "left",
+    splitPaneTreeIds: {
+      left: persistedState.splitPaneTreeIds?.left || persistedState.selectedTreeId || null,
+      right: persistedState.splitPaneTreeIds?.right || null
+    },
+    splitPaneNodePaths: persistedState.splitPaneNodePaths || {},
+    playbackLog: null,
+    playbackFrameIndex: Number.isInteger(persistedState.playbackFrameIndex) ? persistedState.playbackFrameIndex : 0,
+    playbackLeftVisible: persistedState.playbackLeftVisible !== false,
+    playbackRightVisible: persistedState.playbackRightVisible !== false,
+    playbackLeftWidth: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
+      persistedState.playbackLeftWidth,
+      220,
+      520,
+      300
+    ),
+    playbackRightWidth: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
+      persistedState.playbackRightWidth,
+      220,
+      560,
+      320
+    ),
+    playbackStatusByUid: {},
+    playbackLatestTransitionByUid: {},
+    playbackLastTerminalStatusByUid: {},
+    playbackCurrentFrameTransitionKeys: new Set(),
+    playbackUidByTreePath: {},
+    playbackNodeLocationsByUid: {},
+    playbackChildrenByUid: {},
+    playbackDepthByUid: {},
+    playbackTransitionFilter: persistedState.playbackTransitionFilter || "",
+    playbackTransitionScrollTop: Number.isFinite(persistedState.playbackTransitionScrollTop)
+      ? persistedState.playbackTransitionScrollTop
+      : 0,
+    playbackBlackboardFilter: persistedState.playbackBlackboardFilter || "",
+    playbackExpandedBlackboardKeys: new Set(persistedState.playbackExpandedBlackboardKeys || []),
+    playbackBlackboardScrollTop: Number.isFinite(persistedState.playbackBlackboardScrollTop)
+      ? persistedState.playbackBlackboardScrollTop
+      : 0,
     currentSettings: {
       language: "en-US",
       themePreset: "midnight",
       showMainTreeLocator: true,
       showBehaviorTreeRoot: true,
+      requireNodeDeleteConfirmation: false,
+      nodeAttributeLayout: "inline",
       simplifyHiddenSections: [],
       presetNodes: []
     },
     copiedNodeTemplate: null,
     forceHideNodeDetails: false,
-    playbackLog: null,
-    playbackFrameIndex: 0,
-    playbackError: "",
-    prePlaybackPanels: null,
     settingsFilePath: "",
     currentZoom: 1,
     treeNavigationParents: persistedState.treeNavigationParents || {},
@@ -65,6 +99,9 @@
     MIN_ZOOM: 0.45,
     MAX_ZOOM: 1.8
   };
+
+  let playbackFrameUpdateHandle = 0;
+  let pendingPlaybackFrameUpdate = null;
 
   runtime.refs = {
     treeSwitcher: document.getElementById("tree-switcher"),
@@ -76,13 +113,8 @@
     treeRoot: document.getElementById("tree-root"),
     treeContent: document.getElementById("tree-content"),
     addBehaviorTreeButton: document.getElementById("add-behavior-tree"),
+    splitViewButton: document.getElementById("toggle-split-view"),
     mainTreeLocator: document.getElementById("main-tree-locator"),
-    playbackTimeline: document.getElementById("playback-timeline"),
-    playbackImportButton: document.getElementById("playback-import"),
-    playbackPrevFrameButton: document.getElementById("playback-prev-frame"),
-    playbackNextFrameButton: document.getElementById("playback-next-frame"),
-    playbackRange: document.getElementById("playback-range"),
-    playbackTime: document.getElementById("playback-time"),
     treeSearchPanel: document.getElementById("tree-search-panel"),
     treeSearchTitle: document.getElementById("tree-search-title"),
     treeSearchInput: document.getElementById("tree-search-input"),
@@ -106,24 +138,13 @@
     editNodeDefinitionsButton: document.getElementById("edit-node-definitions"),
     catalogResizer: document.getElementById("catalog-resizer"),
     toggleCatalogButton: document.getElementById("toggle-catalog"),
-    toggleInspectorButton: document.getElementById("toggle-inspector"),
-    openSettingsButton: document.getElementById("open-settings"),
-    inspectorPanel: document.getElementById("inspector-panel"),
-    inspectorEyebrow: document.getElementById("inspector-eyebrow"),
-    inspectorTitle: document.getElementById("inspector-title"),
-    inspectorKind: document.getElementById("inspector-kind"),
-    inspectorSummary: document.getElementById("inspector-summary"),
-    inspectorStatus: document.getElementById("inspector-status"),
-    inspectorWarnings: document.getElementById("inspector-warnings"),
-    attributeList: document.getElementById("attribute-list"),
-    inspectorActions: document.querySelector(".inspector-actions"),
-    applyAttributesButton: document.getElementById("apply-attributes"),
-    inspectorResizer: document.getElementById("inspector-resizer")
+    openSettingsButton: document.getElementById("open-settings")
   };
 
   runtime.app = {
     render,
     renderCurrentTree,
+    renderPlaybackLog,
     renderWarnings,
     emptyState,
     toBaseName,
@@ -131,6 +152,9 @@
     getSelectedTree,
     findNodeByPath,
     pickNodePath,
+    selectTreeInActivePane,
+    activateTreePane,
+    activateTreePaneByTreeId,
     persistUiState,
     applyWorkspacePanels: runtime.workspacePanels.apply,
     applyUserSettings,
@@ -156,23 +180,33 @@
     }
 
     if (message?.type === "editResult") {
-      const appCopy = runtime.i18n.getAppCopy();
       if (message.payload?.dirtyState === "dirty") {
         runtime.state.hasUnsavedXmlChanges = true;
       } else if (message.payload?.dirtyState === "saved") {
         runtime.state.hasUnsavedXmlChanges = false;
       }
       updateSaveIndicator();
-      runtime.inspector.renderInspectorStatus(
-        message.payload?.message || appCopy.nodeEditFinished,
-        message.payload?.ok ? "success" : "error"
-      );
       runtime.overlays.handleEditResult?.(message.payload);
     }
 
-    if (message?.type === "playbackLogResult") {
-      runtime.playback?.handlePlaybackLogResult(message.payload);
+    if (message?.type === "playbackLog") {
+      runtime.state.playbackLog = message.payload || null;
+      runtime.state.playbackFrameIndex = 0;
+      runtime.state.editModeEnabled = false;
+      runtime.state.selectedTreeId = message.payload?.preview ? pickTreeId(message.payload.preview) : null;
+      runtime.state.selectedNodePath = "0";
+      persistUiState();
+      runtime.workspacePanels.apply();
+      updateEditModeButton();
+      renderPlaybackState();
+      return;
     }
+
+    if (message?.type === "playbackLogError") {
+      runtime.state.playbackLog = null;
+      runtime.refs.treeContent.replaceChildren(emptyState(message.payload?.message || "Failed to load playback log."));
+    }
+
   });
 
   window.addEventListener("keydown", (event) => {
@@ -225,21 +259,12 @@
   });
 
   runtime.catalog.init();
-  runtime.inspector.init();
   runtime.overlays.init();
-  runtime.playback?.init();
   runtime.viewport.init();
   runtime.workspacePanels.enableResize(runtime.refs.catalogResizer, "catalog");
-  runtime.workspacePanels.enableResize(runtime.refs.inspectorResizer, "inspector");
 
   runtime.refs.toggleCatalogButton?.addEventListener("click", () => {
     runtime.state.showCatalog = !runtime.state.showCatalog;
-    persistUiState();
-    runtime.workspacePanels.apply();
-  });
-
-  runtime.refs.toggleInspectorButton?.addEventListener("click", () => {
-    runtime.state.showInspector = !runtime.state.showInspector;
     persistUiState();
     runtime.workspacePanels.apply();
   });
@@ -252,6 +277,16 @@
   });
   runtime.refs.openSettingsButton?.addEventListener("click", () => {
     runtime.overlays.showSettingsDialog();
+  });
+  runtime.refs.splitViewButton?.addEventListener("click", () => {
+    runtime.state.splitViewEnabled = !runtime.state.splitViewEnabled;
+    if (runtime.state.currentPreview) {
+      ensureSplitPaneState(runtime.state.currentPreview);
+      runtime.app.renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
+    } else {
+      updateSplitViewButton();
+    }
+    persistUiState();
   });
   runtime.refs.addBehaviorTreeButton?.addEventListener("click", () => {
     if (!runtime.app.canPerformAction("createBehaviorTree", { hasPreview: Boolean(runtime.state.currentPreview) })) {
@@ -311,7 +346,8 @@
 
   function render(payload) {
     const appCopy = runtime.i18n.getAppCopy();
-    const inspectorCopy = runtime.i18n.getInspectorCopy();
+    runtime.state.latestPayload = payload;
+    const hadDocumentBefore = runtime.state.currentHasDocument;
     const incomingDocumentPath = payload.hasDocument ? payload.fileName || "" : "";
     if (incomingDocumentPath !== runtime.state.currentDocumentPath) {
       runtime.state.treeNavigationParents = {};
@@ -325,29 +361,27 @@
     runtime.state.settingsFilePath = payload.settingsFilePath || "";
     applyUserSettings();
 
+    if (runtime.modeRules.isPlaybackMode()) {
+      renderPlaybackState();
+      return;
+    }
+
+    if (runtime.state.currentHasDocument && !hadDocumentBefore) {
+      runtime.state.showCatalog = true;
+      persistUiState();
+      runtime.workspacePanels.apply();
+    }
+
     if (!payload.hasDocument) {
-      runtime.state.currentFileName = appCopy.noActiveDocument;
-      runtime.state.currentPreview = null;
-      runtime.state.currentCanvasState = null;
-      runtime.state.currentCatalogGroups = [];
-      runtime.state.currentZoom = 1;
-      runtime.state.currentHasBlockingIssues = false;
-      runtime.viewport.updateZoomLabel();
-      runtime.refs.treeSwitcher.replaceChildren();
-      runtime.refs.catalogList.replaceChildren();
-      runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
-      runtime.search.clearResults();
-      runtime.refs.treeContent.replaceChildren(emptyState(appCopy.openBehaviorTreeFile));
-      runtime.mainTreeLocator.clear();
-      runtime.inspector.renderInspectorEmpty(inspectorCopy.emptyTitle, inspectorCopy.emptySummary);
-      updateSaveIndicator();
-      runtime.search.updateUi();
+      renderNoDocumentState();
       return;
     }
 
     if (payload.parseError) {
       runtime.state.currentFileName = toBaseName(payload.fileName);
       runtime.state.currentPreview = null;
+      runtime.state.currentCanvasState = null;
+      runtime.state.canvasStatesByPane = {};
       runtime.state.currentHasBlockingIssues = true;
       runtime.refs.treeSwitcher.replaceChildren();
       renderWarnings([{ severity: "error", message: payload.parseError }]);
@@ -356,8 +390,8 @@
       runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.parseFailed(payload.parseError)));
       runtime.mainTreeLocator.clear();
-      runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.parseErrorSummary);
       updateSaveIndicator();
+      updateSplitViewButton();
       runtime.search.updateUi();
       return;
     }
@@ -366,6 +400,8 @@
     if (!result) {
       runtime.state.currentFileName = toBaseName(payload.fileName);
       runtime.state.currentPreview = null;
+      runtime.state.currentCanvasState = null;
+      runtime.state.canvasStatesByPane = {};
       runtime.state.currentCatalogGroups = [];
       runtime.state.currentHasBlockingIssues = false;
       runtime.refs.treeSwitcher.replaceChildren();
@@ -374,8 +410,8 @@
       runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.noPreview));
       runtime.mainTreeLocator.clear();
-      runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.noPreviewSummary);
       updateSaveIndicator();
+      updateSplitViewButton();
       runtime.search.updateUi();
       return;
     }
@@ -391,6 +427,7 @@
 
     if (result.warnings.some((warning) => warning.code === "empty_document")) {
       runtime.state.currentCanvasState = null;
+      runtime.state.canvasStatesByPane = {};
       runtime.state.currentZoom = 1;
       runtime.viewport.updateZoomLabel();
       runtime.refs.treeSwitcher.replaceChildren();
@@ -398,14 +435,15 @@
       runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.emptyFileOutline));
       runtime.mainTreeLocator.clear();
-      runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.emptyFileSummary);
       updateSaveIndicator();
+      updateSplitViewButton();
       runtime.search.updateUi();
       return;
     }
 
     if (result.behaviorTrees.length === 0) {
       runtime.state.currentCanvasState = null;
+      runtime.state.canvasStatesByPane = {};
       runtime.state.currentZoom = 1;
       runtime.viewport.updateZoomLabel();
       runtime.refs.treeSwitcher.replaceChildren();
@@ -413,13 +451,16 @@
       runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.noBehaviorTreeOutline));
       runtime.mainTreeLocator.clear();
-      runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.noBehaviorTreeSummary);
       updateSaveIndicator();
+      updateSplitViewButton();
       runtime.search.updateUi();
       return;
     }
 
     runtime.state.selectedTreeId = pickTreeId(result);
+    if (runtime.state.splitViewEnabled) {
+      ensureSplitPaneState(result);
+    }
     runtime.search.refreshResults({ renderTree: false, focusActive: false });
     renderCurrentTree(result, { preserveViewport: hadViewport });
     updateSaveIndicator();
@@ -429,20 +470,21 @@
   function applyUserSettings() {
     const chromeCopy = runtime.i18n.getChromeCopy();
     const catalogCopy = runtime.i18n.getCatalogCopy();
-    const inspectorCopy = runtime.i18n.getInspectorCopy();
-    const playbackCopy = runtime.i18n.getPlaybackCopy();
     const themePreset = runtime.state.currentSettings?.themePreset || "midnight";
     document.documentElement.dataset.btreeTheme = themePreset;
     document.documentElement.lang = runtime.state.currentSettings?.language || "en-US";
+    document.documentElement.dataset.nodeAttributeLayout =
+      runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline";
     runtime.refs.toggleCatalogButton.title = chromeCopy.toggleCatalogTitle;
     runtime.refs.toggleCatalogButton.setAttribute("aria-label", chromeCopy.toggleCatalogTitle);
-    runtime.refs.toggleInspectorButton.title = chromeCopy.toggleInspectorTitle;
-    runtime.refs.toggleInspectorButton.setAttribute("aria-label", chromeCopy.toggleInspectorTitle);
     runtime.refs.openSettingsButton.title = chromeCopy.openSettingsTitle;
     runtime.refs.openSettingsButton.setAttribute("aria-label", chromeCopy.openSettingsTitle);
     runtime.refs.addBehaviorTreeButton.title = chromeCopy.addBehaviorTreeTitle;
     runtime.refs.addBehaviorTreeButton.setAttribute("aria-label", chromeCopy.addBehaviorTreeTitle);
+    runtime.refs.splitViewButton.title = chromeCopy.splitViewTitle;
+    runtime.refs.splitViewButton.setAttribute("aria-label", chromeCopy.splitViewTitle);
     updateBehaviorTreeCreateButton();
+    updateSplitViewButton();
     updateEditModeButton();
     const indicatorTitle = getSaveIndicatorTitle(chromeCopy);
     runtime.refs.saveDocumentButton.title = indicatorTitle;
@@ -453,9 +495,6 @@
     runtime.refs.addNodeModelButton.title = catalogCopy.addModelTitle;
     runtime.refs.addNodeModelButton.setAttribute("aria-label", catalogCopy.addModelTitle);
     runtime.refs.editNodeDefinitionsButton.textContent = catalogCopy.editXml;
-    runtime.refs.playbackImportButton.textContent = playbackCopy.importLog;
-    runtime.refs.inspectorEyebrow.textContent = inspectorCopy.eyebrow;
-    runtime.refs.applyAttributesButton.textContent = inspectorCopy.apply;
     const searchCopy = runtime.i18n.getSearchCopy();
     runtime.refs.treeSearchTitle.textContent = searchCopy.title;
     runtime.refs.treeSearchInput.placeholder = searchCopy.placeholder;
@@ -477,14 +516,26 @@
       return;
     }
 
-    button.hidden = !runtime.state.currentHasDocument;
+    button.hidden = !runtime.state.currentHasDocument || runtime.modeRules.isPlaybackMode();
     button.disabled = !runtime.app.canPerformAction("createBehaviorTree", {
       hasPreview: Boolean(runtime.state.currentPreview)
     });
   }
 
+  function updateSplitViewButton() {
+    const button = runtime.refs.splitViewButton;
+    if (!button) {
+      return;
+    }
+
+    button.hidden = !runtime.state.currentHasDocument || runtime.modeRules.isPlaybackMode();
+    button.disabled = !runtime.state.currentPreview || runtime.state.currentHasBlockingIssues;
+    button.classList.toggle("is-active", runtime.state.splitViewEnabled === true);
+  }
+
   function updateSaveIndicator() {
     updateBehaviorTreeCreateButton();
+    updateSplitViewButton();
     const button = runtime.refs.saveDocumentButton;
     if (!button) {
       return;
@@ -496,8 +547,8 @@
     button.classList.toggle("is-healthy", indicatorState === "healthy");
     button.classList.toggle("is-dirty", indicatorState === "dirty");
     button.classList.toggle("has-errors", indicatorState === "error");
-    button.disabled = !runtime.state.currentHasDocument || indicatorState === "error";
-    button.hidden = !runtime.state.currentHasDocument;
+    button.disabled = !runtime.state.currentHasDocument || runtime.modeRules.isPlaybackMode() || indicatorState === "error";
+    button.hidden = !runtime.state.currentHasDocument || runtime.modeRules.isPlaybackMode();
     button.title = title;
     button.setAttribute("aria-label", title);
   }
@@ -514,21 +565,18 @@
     const isPlaybackMode = runtime.modeRules.isPlaybackMode();
     editButton.classList.toggle("is-active", isEditingEnabled);
     playbackButton.classList.toggle("is-active", isPlaybackMode);
-    document.body.classList.toggle("is-monitor-mode", isPlaybackMode);
     document.body.classList.toggle("is-playback-mode", isPlaybackMode);
     editButton.title = chromeCopy.editModeTitle;
     editButton.setAttribute("aria-label", chromeCopy.editModeTitle);
     playbackButton.title = chromeCopy.playbackModeTitle;
     playbackButton.setAttribute("aria-label", chromeCopy.playbackModeTitle);
 
-    runtime.catalog.renderCatalog(runtime.state.currentCatalogGroups);
-    runtime.inspector.renderInspector();
-    updateBehaviorTreeCreateButton();
     runtime.overlays.hideAll?.();
     runtime.overlays.hideNodeContextMenu?.();
     runtime.overlays.hideCanvasContextMenu?.();
     runtime.canvas.clearDragState?.();
-    runtime.playback?.syncPlaybackUi();
+
+    updateBehaviorTreeCreateButton();
   }
 
   function setPreviewMode(mode) {
@@ -537,23 +585,19 @@
       return;
     }
 
-    if (mode === "playback") {
-      runtime.state.prePlaybackPanels = {
-        showCatalog: runtime.state.showCatalog,
-        showInspector: runtime.state.showInspector
-      };
-      runtime.state.showCatalog = true;
-      runtime.state.showInspector = true;
-    } else if (runtime.state.prePlaybackPanels) {
-      runtime.state.showCatalog = runtime.state.prePlaybackPanels.showCatalog;
-      runtime.state.showInspector = runtime.state.prePlaybackPanels.showInspector;
-      runtime.state.prePlaybackPanels = null;
-    }
-
     runtime.state.editModeEnabled = nextEditModeEnabled;
     persistUiState();
     runtime.workspacePanels.apply();
     updateEditModeButton();
+    if (runtime.modeRules.isPlaybackMode()) {
+      renderPlaybackState();
+      return;
+    }
+    if (runtime.state.latestPayload) {
+      render(runtime.state.latestPayload);
+      return;
+    }
+    renderNoDocumentState();
   }
 
   function isEditModeEnabled() {
@@ -591,39 +635,1517 @@
     return chromeCopy.saveXmlHealthyTitle;
   }
 
-  function renderCurrentTree(result, options = {}) {
-    const preserveViewport = Boolean(options.preserveViewport && runtime.state.currentCanvasState);
-    const viewportState = preserveViewport
-      ? {
-          zoom: runtime.state.currentZoom,
-          panX: runtime.state.currentCanvasState.panX,
-          panY: runtime.state.currentCanvasState.panY
-        }
+  function renderNoDocumentState() {
+    const appCopy = runtime.i18n.getAppCopy();
+
+    runtime.state.currentFileName = appCopy.noActiveDocument;
+    runtime.state.currentPreview = null;
+    runtime.state.currentCanvasState = null;
+    runtime.state.canvasStatesByPane = {};
+    runtime.state.currentCatalogGroups = [];
+    runtime.state.currentZoom = 1;
+    runtime.state.currentHasBlockingIssues = false;
+    runtime.viewport.updateZoomLabel();
+    runtime.workspacePanels.apply();
+    updateSplitViewButton();
+    runtime.refs.treeSwitcher.replaceChildren();
+    runtime.refs.catalogList.replaceChildren();
+    runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
+    runtime.search.clearResults();
+    runtime.refs.treeContent.replaceChildren(buildStartupState());
+    runtime.mainTreeLocator.clear();
+    updateSaveIndicator();
+    runtime.search.updateUi();
+
+    function buildStartupState() {
+      const shell = document.createElement("div");
+      shell.className = "startup-state";
+
+      const title = document.createElement("strong");
+      title.className = "startup-state-title";
+      title.textContent = appCopy.startupTitle;
+
+      const summary = document.createElement("p");
+      summary.className = "startup-state-summary";
+      summary.textContent = appCopy.startupSummary;
+
+      shell.appendChild(title);
+      shell.appendChild(summary);
+
+      const actions = document.createElement("div");
+      actions.className = "startup-state-actions";
+
+      const createButton = document.createElement("button");
+      createButton.className = "canvas-btn accent";
+      createButton.type = "button";
+      createButton.textContent = appCopy.createNewXml;
+      createButton.addEventListener("click", () => {
+        vscode.postMessage({ type: "createNewBehaviorTreeDocument" });
+      });
+
+      const openButton = document.createElement("button");
+      openButton.className = "canvas-btn";
+      openButton.type = "button";
+      openButton.textContent = appCopy.openExistingXml;
+      openButton.addEventListener("click", () => {
+        vscode.postMessage({ type: "openExistingBehaviorTreeDocument" });
+      });
+
+      actions.appendChild(createButton);
+      actions.appendChild(openButton);
+      shell.appendChild(actions);
+
+      return shell;
+    }
+  }
+
+  function renderPlaybackState() {
+    const appCopy = runtime.i18n.getAppCopy();
+    const log = runtime.state.playbackLog;
+
+    runtime.state.currentFileName = log?.fileName || appCopy.noActiveDocument;
+    runtime.state.currentPreview = log?.preview || null;
+    runtime.state.currentCanvasState = null;
+    runtime.state.canvasStatesByPane = {};
+    runtime.state.currentCatalogGroups = [];
+    runtime.state.currentZoom = 1;
+    runtime.state.currentHasBlockingIssues = false;
+    runtime.state.currentHasDocument = false;
+    runtime.viewport.updateZoomLabel();
+    runtime.workspacePanels.apply();
+    updateSplitViewButton();
+    if (log?.preview) {
+      runtime.state.selectedTreeId = getTreeMap(log.preview).has(runtime.state.selectedTreeId)
+        ? runtime.state.selectedTreeId
+        : log.preview.defaultTreeId;
+      runtime.treeSwitcher.render(log.preview);
+    } else {
+      runtime.refs.treeSwitcher.replaceChildren();
+    }
+    runtime.refs.catalogList.replaceChildren();
+    runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
+    runtime.search.clearResults();
+    if (log?.preview) {
+      renderPlaybackLog();
+    } else {
+      runtime.refs.treeContent.replaceChildren(buildPlaybackImportState());
+      runtime.mainTreeLocator.clear();
+    }
+    updateSaveIndicator();
+    runtime.search.updateUi();
+
+    function buildPlaybackImportState() {
+      const shell = document.createElement("div");
+      shell.className = "startup-state";
+
+      const title = document.createElement("strong");
+      title.className = "startup-state-title";
+      title.textContent = appCopy.importPlaybackLog;
+
+      const summary = document.createElement("p");
+      summary.className = "startup-state-summary";
+      summary.textContent = appCopy.importPlaybackSummary;
+
+      const importButton = document.createElement("button");
+      importButton.className = "canvas-btn accent";
+      importButton.type = "button";
+      importButton.textContent = appCopy.importPlaybackLog;
+      importButton.addEventListener("click", () => {
+        vscode.postMessage({ type: "choosePlaybackLogFile" });
+      });
+
+      shell.appendChild(title);
+      shell.appendChild(summary);
+      shell.appendChild(importButton);
+      return shell;
+    }
+  }
+
+  function renderPlaybackLog(options = {}) {
+    const log = runtime.state.playbackLog;
+    if (!log?.preview) {
+      renderPlaybackState();
+      return;
+    }
+    const viewportState = options.preserveViewport && runtime.state.currentCanvasState
+      ? getCanvasViewportState(runtime.state.currentCanvasState)
       : null;
 
+    const frameCount = log.frames?.length || 0;
+    runtime.state.playbackFrameIndex = clampInteger(runtime.state.playbackFrameIndex, 0, Math.max(0, frameCount - 1));
+    const playbackSnapshot = buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex);
+    runtime.state.playbackStatusByUid = playbackSnapshot.statusByUid;
+    runtime.state.playbackLatestTransitionByUid = playbackSnapshot.latestTransitionByUid;
+    runtime.state.playbackLastTerminalStatusByUid = playbackSnapshot.lastTerminalStatusByUid;
+    runtime.state.playbackCurrentFrameTransitionKeys = playbackSnapshot.currentFrameTransitionKeys;
+    const nodeIndex = indexPlaybackNodes(log.preview);
+    runtime.state.playbackUidByTreePath = nodeIndex.uidByTreePath;
+    runtime.state.playbackNodeLocationsByUid = nodeIndex.locationsByUid;
+    runtime.state.playbackChildrenByUid = nodeIndex.childrenByUid;
+    runtime.state.playbackDepthByUid = nodeIndex.depthByUid;
+    runtime.state.currentPreview = log.preview;
+    runtime.state.currentFileName = log.fileName || runtime.i18n.getAppCopy().noActiveDocument;
+    runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
+
+    if (!getTreeMap(log.preview).has(runtime.state.selectedTreeId)) {
+      runtime.state.selectedTreeId = log.preview.defaultTreeId;
+      runtime.state.selectedNodePath = "0";
+    }
+
+    runtime.treeSwitcher.render(log.preview, { ensureActiveVisible: options.ensureActiveTreeVisible === true });
+    const selectedTree = getSelectedTree(log.preview);
+    const shell = document.createElement("div");
+    shell.className = "playback-shell";
+    shell.style.setProperty("--playback-left-width", `${runtime.state.playbackLeftWidth}px`);
+    shell.style.setProperty("--playback-right-width", `${runtime.state.playbackRightWidth}px`);
+    shell.classList.toggle("hide-left", runtime.state.playbackLeftVisible === false);
+    shell.classList.toggle("hide-right", runtime.state.playbackRightVisible === false);
+
+    const leftToggle = createPlaybackPanelToggle("left");
+    const rightToggle = createPlaybackPanelToggle("right");
+    shell.appendChild(leftToggle);
+    shell.appendChild(rightToggle);
+
+    const leftPanel = renderPlaybackTransitionPanel(log);
+    const leftResizer = createPlaybackResizer("left");
+    const center = document.createElement("div");
+    center.className = "playback-canvas-pane";
+    if (selectedTree) {
+      runtime.state.selectedNodePath = pickNodePath(selectedTree, runtime.state.selectedNodePath);
+      center.appendChild(runtime.canvas.renderTree(selectedTree, log.preview, viewportState, { playback: true }));
+      runtime.mainTreeLocator.render(log.preview, selectedTree);
+    } else {
+      center.appendChild(emptyState(runtime.i18n.getAppCopy().selectedTreeNotFound));
+      runtime.mainTreeLocator.clear();
+    }
+    const rightResizer = createPlaybackResizer("right");
+    const rightPanel = renderPlaybackBlackboardPanel(log, playbackSnapshot);
+
+    shell.appendChild(leftPanel);
+    shell.appendChild(leftResizer);
+    shell.appendChild(center);
+    shell.appendChild(rightResizer);
+    shell.appendChild(rightPanel);
+
+    const layout = document.createElement("div");
+    layout.className = "playback-layout";
+    layout.appendChild(shell);
+    layout.appendChild(renderPlaybackTimeline(log));
+    runtime.refs.treeContent.replaceChildren(layout);
+    runtime.canvas.clearDragState();
+    persistUiState();
+    requestAnimationFrame(() => {
+      syncPlaybackFrameUi(log, { scrollList: true, focusNode: false });
+      if (options.focusActiveNode === true) {
+        schedulePlaybackFocus();
+      }
+    });
+  }
+
+  function renderPlaybackTransitionPanel(log) {
+    const panel = document.createElement("aside");
+    panel.className = "playback-side-panel playback-transition-panel";
+
+    const header = document.createElement("div");
+    header.className = "playback-panel-header";
+    const title = document.createElement("strong");
+    title.textContent = "Transitions";
+    const count = document.createElement("span");
+    count.className = "playback-transition-count";
+    count.textContent = formatTransitionCount(log);
+    header.appendChild(title);
+    header.appendChild(count);
+
+    const filterRow = document.createElement("div");
+    filterRow.className = "playback-transition-filter-row";
+    const filterInput = document.createElement("input");
+    filterInput.className = "playback-transition-filter";
+    filterInput.type = "search";
+    filterInput.placeholder = "Filter by Node Name";
+    filterInput.spellcheck = false;
+    filterInput.value = runtime.state.playbackTransitionFilter || "";
+    filterInput.addEventListener("input", () => {
+      runtime.state.playbackTransitionFilter = filterInput.value;
+      updatePlaybackTransitionRows(log);
+      updatePlaybackTransitionCount(log);
+      syncPlaybackFrameUi(log, { scrollList: true, focusNode: false });
+      persistUiState();
+    });
+    const menuIcon = document.createElement("span");
+    menuIcon.className = "playback-transition-menu-icon";
+    menuIcon.textContent = "≡";
+    filterRow.appendChild(filterInput);
+    filterRow.appendChild(menuIcon);
+
+    const table = document.createElement("div");
+    table.className = "playback-transition-table";
+    const tableHeader = document.createElement("div");
+    tableHeader.className = "playback-transition-table-header";
+    ["Time", "Node Name", "Prev", "Status"].forEach((label) => {
+      const cell = document.createElement("span");
+      cell.textContent = label;
+      tableHeader.appendChild(cell);
+    });
+    const list = document.createElement("div");
+    list.className = "playback-transition-list";
+    table.appendChild(tableHeader);
+    table.appendChild(list);
+
+    panel.appendChild(header);
+    panel.appendChild(filterRow);
+    panel.appendChild(table);
+    updatePlaybackTransitionRows(log, list);
+    return panel;
+  }
+
+  function updatePlaybackTransitionRows(log, targetList = null) {
+    const list = targetList || document.querySelector(".playback-transition-list");
+    if (!list) {
+      return;
+    }
+
+    const previousScrollTop = list.scrollTop || runtime.state.playbackTransitionScrollTop || 0;
+    const filter = normalizeFilter(runtime.state.playbackTransitionFilter);
+    const activeTransitionIndex = getActiveTransitionIndex(log, runtime.state.playbackFrameIndex);
+    const fragment = document.createDocumentFragment();
+    (log.transitions || []).forEach((transition, index) => {
+      const nodeName = resolvePlaybackNodeName(log, transition);
+      if (filter && !nodeName.toLowerCase().includes(filter)) {
+        return;
+      }
+
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "playback-transition-row";
+      row.dataset.transitionIndex = String(index);
+      row.dataset.frameIndex = String(transition.frameIndex);
+      row.classList.toggle("is-active", index === activeTransitionIndex);
+      row.addEventListener("click", (event) => {
+        if (event.detail > 1) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        jumpToPlaybackTransition(log, transition.frameIndex);
+      });
+      row.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+
+      row.appendChild(createTransitionCell("time", formatTransitionTime(log, transition.tUs)));
+      row.appendChild(createTransitionCell("node", nodeName));
+      row.appendChild(createStatusCell("prev", transition.prevStatus));
+      row.appendChild(createStatusCell("status", transition.status));
+      fragment.appendChild(row);
+    });
+
+    list.replaceChildren(fragment);
+    list.scrollTop = previousScrollTop;
+    runtime.state.playbackTransitionScrollTop = list.scrollTop;
+    list.addEventListener("scroll", () => {
+      runtime.state.playbackTransitionScrollTop = list.scrollTop;
+    }, { passive: true });
+  }
+
+  function jumpToPlaybackTransition(log, frameIndex) {
+    setPlaybackFrame(log, frameIndex, {
+      navigateToActiveNode: true,
+      scrollList: true,
+      focusNode: true,
+      persist: true
+    });
+  }
+
+  function createTransitionCell(kind, text) {
+    const cell = document.createElement("span");
+    cell.className = `playback-transition-cell playback-transition-${kind}`;
+    cell.textContent = text;
+    return cell;
+  }
+
+  function createStatusCell(kind, status) {
+    const cell = createTransitionCell(kind, status);
+    cell.classList.add(`status-${normalizeStatusClass(status)}`);
+    return cell;
+  }
+
+  function updatePlaybackTransitionCount(log) {
+    const count = document.querySelector(".playback-transition-count");
+    if (count) {
+      count.textContent = formatTransitionCount(log);
+    }
+  }
+
+  function formatTransitionCount(log) {
+    const filter = normalizeFilter(runtime.state.playbackTransitionFilter);
+    const total = log.transitions?.length || 0;
+    if (!filter) {
+      return String(total);
+    }
+    const visible = (log.transitions || []).filter((transition) =>
+      resolvePlaybackNodeName(log, transition).toLowerCase().includes(filter)
+    ).length;
+    return `${visible}/${total}`;
+  }
+
+  function renderPlaybackBlackboardPanel(log, snapshot) {
+    const panel = document.createElement("aside");
+    panel.className = "playback-side-panel playback-blackboard-panel";
+
+    const header = document.createElement("div");
+    header.className = "playback-panel-header";
+    const title = document.createElement("strong");
+    title.textContent = "Blackboard";
+    const count = document.createElement("span");
+    count.className = "playback-blackboard-count";
+    count.textContent = formatBlackboardCount(snapshot);
+    header.appendChild(title);
+    header.appendChild(count);
+
+    const filterRow = document.createElement("div");
+    filterRow.className = "playback-blackboard-filter-row";
+    const filterInput = document.createElement("input");
+    filterInput.className = "playback-blackboard-filter";
+    filterInput.type = "search";
+    filterInput.placeholder = "Filter blackboard";
+    filterInput.spellcheck = false;
+    filterInput.value = runtime.state.playbackBlackboardFilter || "";
+    filterInput.addEventListener("input", () => {
+      runtime.state.playbackBlackboardFilter = filterInput.value;
+      updatePlaybackBlackboardPanel(log, snapshot);
+      persistUiState();
+    });
+    filterRow.appendChild(filterInput);
+
+    panel.appendChild(header);
+    panel.appendChild(filterRow);
+    panel.appendChild(renderPlaybackBlackboardBody(log, snapshot));
+    return panel;
+  }
+
+  function renderPlaybackBlackboardBody(log, snapshot) {
+    const table = document.createElement("div");
+    table.className = "playback-blackboard-table";
+
+    const tableHeader = document.createElement("div");
+    tableHeader.className = "playback-blackboard-table-header";
+    ["Key", "Value"].forEach((label) => {
+      const cell = document.createElement("span");
+      cell.textContent = label;
+      tableHeader.appendChild(cell);
+    });
+
+    const list = document.createElement("div");
+    list.className = "playback-blackboard-list";
+    const rows = getFilteredBlackboardRows(snapshot);
+    if (rows.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "playback-blackboard-empty";
+      empty.textContent = snapshot.latestBlackboardEvent ? "No matching blackboard values." : "No blackboard values before this frame.";
+      list.appendChild(empty);
+    } else {
+      const fragment = document.createDocumentFragment();
+      rows.forEach((row) => {
+        const item = document.createElement("div");
+        item.className = "playback-blackboard-row";
+        item.dataset.blackboardKey = row.key;
+        item.classList.toggle("is-expanded", row.expanded === true);
+        item.appendChild(createBlackboardCell("key", row.key, row.keyTitle));
+        item.appendChild(createBlackboardValueCell(row, log, snapshot));
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    if (runtime.state.playbackBlackboardScrollTop > 0) {
+      requestAnimationFrame(() => {
+        list.scrollTop = runtime.state.playbackBlackboardScrollTop;
+      });
+    }
+    list.addEventListener("scroll", () => {
+      runtime.state.playbackBlackboardScrollTop = list.scrollTop;
+    }, { passive: true });
+
+    table.appendChild(tableHeader);
+    table.appendChild(list);
+    return table;
+  }
+
+  function createBlackboardCell(kind, text, title = "") {
+    const cell = document.createElement("span");
+    cell.className = `playback-blackboard-cell playback-blackboard-${kind}`;
+    cell.textContent = text;
+    cell.title = title || text;
+    return cell;
+  }
+
+  function createBlackboardValueCell(row, log, snapshot) {
+    const cell = document.createElement("div");
+    cell.className = "playback-blackboard-cell playback-blackboard-value";
+    cell.title = row.valueTitle || row.valueText;
+
+    if (row.expandable) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "playback-blackboard-expand";
+      button.textContent = row.expanded ? "▾" : "▸";
+      button.title = row.expanded ? "Collapse value" : "Expand value";
+      button.setAttribute("aria-label", button.title);
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (runtime.state.playbackExpandedBlackboardKeys.has(row.key)) {
+          runtime.state.playbackExpandedBlackboardKeys.delete(row.key);
+        } else {
+          runtime.state.playbackExpandedBlackboardKeys.add(row.key);
+        }
+        updatePlaybackBlackboardPanel(log, snapshot);
+        persistUiState();
+      });
+      cell.appendChild(button);
+    }
+
+    if (row.expanded) {
+      const value = document.createElement("pre");
+      value.className = "playback-blackboard-value-full";
+      value.textContent = row.valueFullText;
+      cell.appendChild(value);
+    } else {
+      const value = document.createElement("span");
+      value.className = "playback-blackboard-value-preview";
+      value.textContent = row.valueText;
+      cell.appendChild(value);
+    }
+
+    return cell;
+  }
+
+  function renderPlaybackTimeline(log) {
+    const footer = document.createElement("div");
+    footer.className = "playback-timeline";
+
+    const prevButton = document.createElement("button");
+    prevButton.type = "button";
+    prevButton.className = "canvas-btn icon-btn playback-step-btn";
+    prevButton.textContent = "<";
+    prevButton.title = "Previous node status change";
+    prevButton.addEventListener("click", () => {
+      stepPlaybackTransition(log, -1);
+    });
+
+    const nextButton = document.createElement("button");
+    nextButton.type = "button";
+    nextButton.className = "canvas-btn icon-btn playback-step-btn";
+    nextButton.textContent = ">";
+    nextButton.title = "Next node status change";
+    nextButton.addEventListener("click", () => {
+      stepPlaybackTransition(log, 1);
+    });
+
+    const slider = document.createElement("input");
+    slider.className = "playback-slider";
+    slider.type = "range";
+    slider.min = "0";
+    slider.max = String(Math.max(0, (log.frames?.length || 1) - 1));
+    slider.step = "1";
+    slider.value = String(runtime.state.playbackFrameIndex);
+    slider.addEventListener("input", () => {
+      requestPlaybackFrame(log, Number(slider.value), {
+        navigateToActiveNode: false,
+        scrollList: false,
+        focusNode: false,
+        persist: false,
+        updateBlackboard: false
+      });
+    });
+    slider.addEventListener("change", () => {
+      setPlaybackFrame(log, Number(slider.value), {
+        navigateToActiveNode: true,
+        scrollList: true,
+        focusNode: true,
+        persist: true,
+        updateBlackboard: true
+      });
+    });
+
+    const time = document.createElement("div");
+    time.className = "playback-current-time";
+    const frame = log.frames?.[runtime.state.playbackFrameIndex] || null;
+    time.textContent = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : "No frames";
+
+    footer.appendChild(prevButton);
+    footer.appendChild(nextButton);
+    footer.appendChild(slider);
+    footer.appendChild(time);
+    return footer;
+  }
+
+  function createPlaybackPanelToggle(side) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `panel-edge-toggle playback-edge-toggle playback-edge-toggle-${side}`;
+    const isLeft = side === "left";
+    const visibleKey = isLeft ? "playbackLeftVisible" : "playbackRightVisible";
+    button.title = isLeft ? "Show or hide transitions" : "Show or hide blackboard";
+    button.setAttribute("aria-label", button.title);
+    button.addEventListener("click", () => {
+      runtime.state[visibleKey] = runtime.state[visibleKey] === false;
+      renderPlaybackLog();
+    });
+    return button;
+  }
+
+  function createPlaybackResizer(side) {
+    const handle = document.createElement("div");
+    handle.className = `panel-resizer playback-resizer playback-resizer-${side}`;
+    handle.hidden = side === "left" ? runtime.state.playbackLeftVisible === false : runtime.state.playbackRightVisible === false;
+    handle.addEventListener("pointerdown", (event) => {
+      const widthKey = side === "left" ? "playbackLeftWidth" : "playbackRightWidth";
+      const startX = event.clientX;
+      const startWidth = runtime.state[widthKey];
+      const pointerId = event.pointerId;
+      handle.setPointerCapture(pointerId);
+      document.body.classList.add("is-resizing-panels");
+
+      const onPointerMove = (moveEvent) => {
+        const deltaX = side === "left" ? moveEvent.clientX - startX : startX - moveEvent.clientX;
+        runtime.state[widthKey] = runtime.viewport.clampNumber(startWidth + deltaX, 220, side === "left" ? 520 : 560, startWidth);
+        persistUiState();
+        const shell = handle.closest(".playback-shell");
+        shell?.style.setProperty(side === "left" ? "--playback-left-width" : "--playback-right-width", `${runtime.state[widthKey]}px`);
+        runtime.viewport.refreshViewport();
+      };
+
+      const finish = () => {
+        document.body.classList.remove("is-resizing-panels");
+        handle.removeEventListener("pointermove", onPointerMove);
+        handle.removeEventListener("pointerup", onPointerUp);
+        handle.removeEventListener("pointercancel", onPointerCancel);
+        try {
+          handle.releasePointerCapture(pointerId);
+        } catch (_error) {
+          // Ignore stale pointer capture state.
+        }
+      };
+      const onPointerUp = () => finish();
+      const onPointerCancel = () => finish();
+
+      handle.addEventListener("pointermove", onPointerMove);
+      handle.addEventListener("pointerup", onPointerUp);
+      handle.addEventListener("pointercancel", onPointerCancel);
+    });
+    return handle;
+  }
+
+  function stepPlaybackTransition(log, direction) {
+    const transitions = log.transitions || [];
+    if (transitions.length === 0) {
+      return;
+    }
+    const currentFrameIndex = runtime.state.playbackFrameIndex;
+    const next = direction < 0
+      ? [...transitions].reverse().find((transition) => transition.frameIndex < currentFrameIndex)
+      : transitions.find((transition) => transition.frameIndex > currentFrameIndex);
+    if (!next) {
+      return;
+    }
+    setPlaybackFrame(log, next.frameIndex, {
+      navigateToActiveNode: true,
+      scrollList: true,
+      focusNode: true,
+      persist: true
+    });
+  }
+
+  function requestPlaybackFrame(log, frameIndex, options = {}) {
+    pendingPlaybackFrameUpdate = { log, frameIndex, options };
+    if (playbackFrameUpdateHandle) {
+      return;
+    }
+    playbackFrameUpdateHandle = requestAnimationFrame(() => {
+      playbackFrameUpdateHandle = 0;
+      const update = pendingPlaybackFrameUpdate;
+      pendingPlaybackFrameUpdate = null;
+      if (update) {
+        setPlaybackFrame(update.log, update.frameIndex, update.options);
+      }
+    });
+  }
+
+  function setPlaybackFrame(log, frameIndex, options = {}) {
+    if (!log?.preview) {
+      return;
+    }
+    const maxFrameIndex = Math.max(0, (log.frames?.length || 1) - 1);
+    runtime.state.playbackFrameIndex = clampInteger(frameIndex, 0, maxFrameIndex);
+
+    if (options.navigateToActiveNode) {
+      const activeTransition = getActiveTransition(log, runtime.state.playbackFrameIndex);
+      const location = activeTransition ? findPlaybackNodeLocation(activeTransition.uid) : null;
+      if (location) {
+        const treeChanged = runtime.state.selectedTreeId !== location.treeId;
+        runtime.state.selectedTreeId = location.treeId;
+        runtime.state.selectedNodePath = location.nodePath;
+        if (treeChanged) {
+          renderPlaybackLog({
+            ensureActiveTreeVisible: true,
+            focusActiveNode: options.focusNode === true,
+            preserveViewport: true
+          });
+          return;
+        }
+      }
+    }
+
+    syncPlaybackFrameUi(log, options);
+    if (options.persist) {
+      persistUiState();
+    }
+  }
+
+  function syncPlaybackFrameUi(log, options = {}) {
+    const playbackSnapshot = buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex);
+    runtime.state.playbackStatusByUid = playbackSnapshot.statusByUid;
+    runtime.state.playbackLatestTransitionByUid = playbackSnapshot.latestTransitionByUid;
+    runtime.state.playbackLastTerminalStatusByUid = playbackSnapshot.lastTerminalStatusByUid;
+    runtime.state.playbackCurrentFrameTransitionKeys = playbackSnapshot.currentFrameTransitionKeys;
+    updatePlaybackCanvasStatuses();
+    updatePlaybackCanvasSelection();
+    updatePlaybackTimeline(log);
+    updatePlaybackActiveTransition(log, options.scrollList === true);
+    if (options.updateBlackboard !== false) {
+      updatePlaybackBlackboardPanel(log, playbackSnapshot);
+    }
+    if (options.focusNode) {
+      schedulePlaybackFocus();
+    }
+  }
+
+  function schedulePlaybackFocus(frame = 0) {
+    requestAnimationFrame(() => {
+      const canvasState = runtime.state.currentCanvasState;
+      if (!canvasState?.shell || !runtime.state.selectedNodePath) {
+        return;
+      }
+      if ((canvasState.shell.clientWidth <= 0 || canvasState.shell.clientHeight <= 0) && frame < 8) {
+        schedulePlaybackFocus(frame + 1);
+        return;
+      }
+      runtime.viewport.focusNodePath(runtime.state.selectedNodePath);
+      if (frame < 8) {
+        schedulePlaybackFocus(frame + 1);
+      }
+    });
+  }
+
+  function updatePlaybackCanvasStatuses() {
+    document.querySelectorAll(".canvas-node[data-playback-uid]").forEach((node) => {
+      const card = node.querySelector(".flow-card");
+      if (!card) {
+        return;
+      }
+      clearPlaybackStatusClasses(card, "playback-status");
+      card.classList.add("is-playback-status", getPlaybackStatusClassForUid(node.dataset.playbackUid, false));
+    });
+
+    document.querySelectorAll(".canvas-edge-path-base[data-playback-uid]").forEach((edge) => {
+      clearPlaybackStatusClasses(edge, "playback-edge-status");
+      edge.classList.add(getPlaybackStatusClassForUid(edge.dataset.playbackUid, true));
+    });
+  }
+
+  function updatePlaybackCanvasSelection() {
+    document.querySelectorAll(".flow-card.is-selected").forEach((card) => {
+      card.classList.remove("is-selected");
+    });
+    const selected = document.querySelector(
+      `.canvas-node[data-tree-id="${CSS.escape(runtime.state.selectedTreeId || "")}"][data-node-path="${CSS.escape(runtime.state.selectedNodePath || "")}"] > .flow-card`
+    );
+    selected?.classList.add("is-selected");
+    runtime.treeSwitcher.updateActive?.();
+  }
+
+  function updatePlaybackTimeline(log) {
+    const slider = document.querySelector(".playback-slider");
+    if (slider) {
+      slider.value = String(runtime.state.playbackFrameIndex);
+    }
+    const time = document.querySelector(".playback-current-time");
+    if (time) {
+      const frame = log.frames?.[runtime.state.playbackFrameIndex] || null;
+      time.textContent = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : "No frames";
+    }
+  }
+
+  function updatePlaybackActiveTransition(log, scrollList) {
+    const activeTransitionIndex = getActiveTransitionIndex(log, runtime.state.playbackFrameIndex);
+    document.querySelectorAll(".playback-transition-row.is-active").forEach((row) => {
+      row.classList.remove("is-active");
+    });
+    if (activeTransitionIndex === null) {
+      return;
+    }
+    const activeRow = document.querySelector(
+      `.playback-transition-row[data-transition-index="${CSS.escape(String(activeTransitionIndex))}"]`
+    );
+    activeRow?.classList.add("is-active");
+    if (scrollList && activeRow) {
+      activeRow.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function updatePlaybackBlackboardPanel(log, snapshot) {
+    const panel = document.querySelector(".playback-blackboard-panel");
+    if (!panel) {
+      return;
+    }
+    const previousPanelScrollTop = panel.scrollTop || 0;
+    const oldList = panel.querySelector(".playback-blackboard-list");
+    const scrollSnapshot = captureBlackboardScrollSnapshot(oldList);
+    const count = panel.querySelector(".playback-blackboard-count");
+    if (count) {
+      count.textContent = formatBlackboardCount(snapshot);
+    }
+    const oldBody = panel.querySelector(".playback-blackboard-table");
+    oldBody?.replaceWith(renderPlaybackBlackboardBody(log, snapshot));
+    const nextList = panel.querySelector(".playback-blackboard-list");
+    if (nextList) {
+      restoreBlackboardScrollSnapshot(nextList, scrollSnapshot);
+    }
+    panel.scrollTop = previousPanelScrollTop;
+  }
+
+  function captureBlackboardScrollSnapshot(list) {
+    if (!list) {
+      return {
+        scrollTop: runtime.state.playbackBlackboardScrollTop || 0,
+        anchorKey: "",
+        anchorOffset: 0
+      };
+    }
+
+    const listTop = list.getBoundingClientRect().top;
+    const rows = Array.from(list.querySelectorAll(".playback-blackboard-row[data-blackboard-key]"));
+    const anchor = rows.find((row) => row.getBoundingClientRect().bottom >= listTop) || rows[0] || null;
+    return {
+      scrollTop: list.scrollTop,
+      anchorKey: anchor?.dataset.blackboardKey || "",
+      anchorOffset: anchor ? anchor.getBoundingClientRect().top - listTop : 0
+    };
+  }
+
+  function restoreBlackboardScrollSnapshot(list, snapshot) {
+    if (!list) {
+      return;
+    }
+    const fallbackScrollTop = snapshot?.scrollTop ?? runtime.state.playbackBlackboardScrollTop ?? 0;
+    const restore = () => {
+      const anchorKey = snapshot?.anchorKey || "";
+      const anchor = anchorKey
+        ? list.querySelector(`.playback-blackboard-row[data-blackboard-key="${CSS.escape(anchorKey)}"]`)
+        : null;
+      if (anchor) {
+        list.scrollTop += anchor.getBoundingClientRect().top - list.getBoundingClientRect().top - (snapshot.anchorOffset || 0);
+      } else {
+        list.scrollTop = fallbackScrollTop;
+      }
+      runtime.state.playbackBlackboardScrollTop = list.scrollTop;
+    };
+
+    list.scrollTop = fallbackScrollTop;
+    restore();
+    requestAnimationFrame(restore);
+  }
+
+  function formatBlackboardCount(snapshot) {
+    const total = flattenBlackboardRows(snapshot.blackboardValues).length;
+    const visible = getFilteredBlackboardRows(snapshot).length;
+    if (visible === total) {
+      return String(total);
+    }
+    return `${visible}/${total}`;
+  }
+
+  function getFilteredBlackboardRows(snapshot) {
+    const filter = normalizeFilter(runtime.state.playbackBlackboardFilter);
+    const rows = flattenBlackboardRows(snapshot.blackboardValues);
+    if (!filter) {
+      return rows;
+    }
+    return rows.filter((row) =>
+      `${row.key} ${row.valueText}`.toLowerCase().includes(filter)
+    );
+  }
+
+  function flattenBlackboardRows(values) {
+    if (!values || typeof values !== "object" || Array.isArray(values)) {
+      return [];
+    }
+
+    const rowsByKey = new Map();
+    Object.entries(values).forEach(([scope, scopedValues]) => {
+      if (scopedValues && typeof scopedValues === "object" && !Array.isArray(scopedValues)) {
+        Object.entries(scopedValues).forEach(([key, value]) => {
+          const displayKey = toBlackboardDisplayKey(key);
+          rowsByKey.set(displayKey, toBlackboardRow(displayKey, value, toBlackboardSourceKey(scope, key)));
+        });
+        return;
+      }
+      const displayKey = toBlackboardDisplayKey(scope);
+      rowsByKey.set(displayKey, toBlackboardRow(displayKey, scopedValues, scope));
+    });
+
+    const rows = Array.from(rowsByKey.values());
+    rows.sort((left, right) =>
+      left.key.localeCompare(right.key)
+    );
+    return rows;
+  }
+
+  function toBlackboardDisplayKey(key) {
+    const text = String(key || "");
+    const parts = text.split("/").filter(Boolean);
+    return parts[parts.length - 1] || text || "(value)";
+  }
+
+  function toBlackboardSourceKey(scope, key) {
+    if (!scope) {
+      return key || "(value)";
+    }
+    if (!key) {
+      return scope;
+    }
+    return `${scope}/${key}`;
+  }
+
+  function toBlackboardRow(key, value, sourceKey) {
+    const valueInfo = formatBlackboardValueInfo(value);
+    return {
+      key,
+      keyTitle: sourceKey || key,
+      valueText: valueInfo.preview,
+      valueFullText: valueInfo.full,
+      valueTitle: valueInfo.preview,
+      expandable: valueInfo.expandable,
+      expanded: runtime.state.playbackExpandedBlackboardKeys.has(key)
+    };
+  }
+
+  function formatBlackboardValue(value) {
+    return formatBlackboardValueInfo(value).preview;
+  }
+
+  function formatBlackboardValueInfo(value) {
+    if (value === null) {
+      return { preview: "null", full: "null", expandable: false };
+    }
+    if (value === undefined) {
+      return { preview: "", full: "", expandable: false };
+    }
+    if (typeof value === "string") {
+      const parsed = parseJsonLikeValue(value);
+      if (parsed.ok) {
+        return {
+          preview: value,
+          full: JSON.stringify(parsed.value, null, 2),
+          expandable: true
+        };
+      }
+      return { preview: value, full: value, expandable: false };
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      const text = String(value);
+      return { preview: text, full: text, expandable: false };
+    }
+    try {
+      return {
+        preview: JSON.stringify(value),
+        full: JSON.stringify(value, null, 2),
+        expandable: true
+      };
+    } catch (_error) {
+      const text = String(value);
+      return { preview: text, full: text, expandable: false };
+    }
+  }
+
+  function parseJsonLikeValue(value) {
+    const text = String(value || "").trim();
+    if (!text || !["{", "["].includes(text[0])) {
+      return { ok: false, value: null };
+    }
+    try {
+      return { ok: true, value: JSON.parse(text) };
+    } catch (_error) {
+      return { ok: false, value: null };
+    }
+  }
+
+  function clearPlaybackStatusClasses(element, prefix) {
+    Array.from(element.classList).forEach((className) => {
+      if (className.startsWith(`${prefix}-`)) {
+        element.classList.remove(className);
+      }
+    });
+  }
+
+  function getPlaybackStatusClassForUid(uid, edge) {
+    const key = String(uid || "");
+    const status = runtime.state.playbackStatusByUid?.[key] || "IDLE";
+    const lastTerminalStatus = runtime.state.playbackLastTerminalStatusByUid?.[key] || "";
+    const prefix = edge ? "playback-edge-status" : "playback-status";
+    if (status === "IDLE" && lastTerminalStatus === "SUCCESS") {
+      return `${prefix}-success-idle`;
+    }
+    if (status === "IDLE" && lastTerminalStatus === "FAILURE") {
+      return `${prefix}-failure-idle`;
+    }
+    const normalized = normalizeStatusClass(status);
+    if (["idle", "running", "success", "failure"].includes(normalized)) {
+      return `${prefix}-${normalized}`;
+    }
+    return `${prefix}-unknown`;
+  }
+
+  function getActiveTransition(log, frameIndex) {
+    const index = getActiveTransitionIndex(log, frameIndex);
+    return index === null ? null : log.transitions?.[index] || null;
+  }
+
+  function getActiveTransitionIndex(log, frameIndex) {
+    const frame = log.frames?.[frameIndex] || null;
+    if (Number.isInteger(frame?.transitionIndex)) {
+      return frame.transitionIndex;
+    }
+    const transitions = log.transitions || [];
+    for (let index = transitions.length - 1; index >= 0; index -= 1) {
+      if (transitions[index].frameIndex <= frameIndex) {
+        return index;
+      }
+    }
+    return null;
+  }
+
+  function findPlaybackNodeLocation(uid) {
+    const locations = runtime.state.playbackNodeLocationsByUid?.[String(uid)] || [];
+    if (locations.length === 0) {
+      return null;
+    }
+    return locations.find((entry) => entry.treeId === runtime.state.selectedTreeId) || locations[0];
+  }
+
+  function buildPlaybackSnapshot(log, frameIndex) {
+    const statusByUid = {};
+    const latestTransitionByUid = {};
+    const lastTerminalStatusByUid = {};
+    const currentFrameTransitionKeys = new Set();
+    let latestBlackboardEvent = null;
+    let blackboardValues = null;
+    for (const transition of log.transitions || []) {
+      if (transition.frameIndex > frameIndex) {
+        break;
+      }
+      const key = String(transition.uid);
+      statusByUid[key] = transition.status;
+      latestTransitionByUid[key] = transition;
+      if (transition.status === "SUCCESS" || transition.status === "FAILURE") {
+        lastTerminalStatusByUid[key] = transition.status;
+      }
+      if (transition.frameIndex === frameIndex) {
+        currentFrameTransitionKeys.add(`${transition.uid}:${transition.seq}`);
+      }
+    }
+    for (const event of log.blackboardEvents || []) {
+      if (event.frameIndex <= frameIndex) {
+        latestBlackboardEvent = event;
+        if (event.kind === "snapshot") {
+          blackboardValues = cloneJsonValue(event.values || {});
+        } else {
+          blackboardValues = applyBlackboardPatch(blackboardValues || {}, event.patch);
+        }
+      } else {
+        break;
+      }
+    }
+    applyRunningStatusToAncestors(statusByUid);
+    return {
+      statusByUid,
+      latestTransitionByUid,
+      lastTerminalStatusByUid,
+      currentFrameTransitionKeys,
+      latestBlackboardEvent,
+      blackboardValues: blackboardValues || {}
+    };
+  }
+
+  function applyBlackboardPatch(source, patch) {
+    const target = cloneJsonValue(source || {});
+    if (!Array.isArray(patch)) {
+      return target;
+    }
+
+    patch.forEach((operation) => {
+      if (!operation || typeof operation !== "object" || !operation.path) {
+        return;
+      }
+      applyJsonPatchOperation(target, operation);
+    });
+    return target;
+  }
+
+  function applyJsonPatchOperation(target, operation) {
+    const pathParts = decodeJsonPointer(operation.path);
+    if (pathParts.length === 0) {
+      return;
+    }
+
+    const key = pathParts[pathParts.length - 1];
+    let parent = target;
+    for (const part of pathParts.slice(0, -1)) {
+      if (!parent || typeof parent !== "object") {
+        return;
+      }
+      if (!Object.prototype.hasOwnProperty.call(parent, part) || parent[part] == null) {
+        parent[part] = {};
+      }
+      parent = parent[part];
+    }
+
+    if (!parent || typeof parent !== "object") {
+      return;
+    }
+    if (operation.op === "remove") {
+      delete parent[key];
+      return;
+    }
+    if (operation.op === "add" || operation.op === "replace") {
+      parent[key] = cloneJsonValue(operation.value);
+    }
+  }
+
+  function decodeJsonPointer(path) {
+    if (path === "") {
+      return [];
+    }
+    return String(path)
+      .replace(/^\//, "")
+      .split("/")
+      .map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"));
+  }
+
+  function cloneJsonValue(value) {
+    if (value === null || typeof value !== "object") {
+      return value;
+    }
+    if (Array.isArray(value)) {
+      return value.map(cloneJsonValue);
+    }
+    const result = {};
+    Object.entries(value).forEach(([key, entry]) => {
+      result[key] = cloneJsonValue(entry);
+    });
+    return result;
+  }
+
+  function applyRunningStatusToAncestors(statusByUid) {
+    const entries = Object.keys(runtime.state.playbackDepthByUid || {})
+      .map((uid) => ({ uid, depth: runtime.state.playbackDepthByUid[uid] || 0 }))
+      .sort((left, right) => right.depth - left.depth);
+
+    entries.forEach(({ uid }) => {
+      const children = runtime.state.playbackChildrenByUid?.[uid] || [];
+      if (children.some((childUid) => statusByUid[String(childUid)] === "RUNNING")) {
+        statusByUid[String(uid)] = "RUNNING";
+      }
+    });
+  }
+
+  function indexPlaybackNodes(preview) {
+    const uidByTreePath = {};
+    const locationsByUid = {};
+    const childrenByUid = {};
+    const depthByUid = {};
+    (preview?.behaviorTrees || []).forEach((tree) => {
+      walkWithParent(tree.node, null, 0, (node, parentUid, depth) => {
+        if (node?.attributes?._uid) {
+          const uid = String(node.attributes._uid);
+          uidByTreePath[`${tree.id}::${node.nodePath}`] = uid;
+          depthByUid[uid] = Math.max(depthByUid[uid] || 0, depth);
+          const locations = locationsByUid[uid] || [];
+          locations.push({
+            treeId: tree.id,
+            nodePath: node.nodePath
+          });
+          locationsByUid[uid] = locations;
+          if (parentUid) {
+            const children = childrenByUid[parentUid] || [];
+            if (!children.includes(uid)) {
+              children.push(uid);
+            }
+            childrenByUid[parentUid] = children;
+          }
+        }
+      });
+    });
+    return { uidByTreePath, locationsByUid, childrenByUid, depthByUid };
+  }
+
+  function walkWithParent(node, parentUid, depth, visit) {
+    if (!node) {
+      return;
+    }
+    const uid = node.attributes?._uid ? String(node.attributes._uid) : null;
+    visit(node, parentUid, depth);
+    (node.children || []).forEach((child) => walkWithParent(child, uid || parentUid, depth + 1, visit));
+  }
+
+  function resolvePlaybackNodeName(log, transition) {
+    const definition = (log.nodeDefinitions || []).find((entry) => entry.uid === transition.uid);
+    return definition?.name || `uid ${transition.uid}`;
+  }
+
+  function formatRelativeTime(log, tUs) {
+    const start = log.frames?.[0]?.tUs ?? 0;
+    const elapsed = Math.max(0, Number(tUs) - Number(start));
+    return `+${(elapsed / 1000000).toFixed(3)}s`;
+  }
+
+  function formatTransitionTime(log, tUs) {
+    const start = log.frames?.[0]?.tUs ?? 0;
+    const elapsed = Math.max(0, Number(tUs) - Number(start));
+    return (elapsed / 1000000).toFixed(3);
+  }
+
+  function formatWallTime(wallUs) {
+    const numeric = Number(wallUs);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return "";
+    }
+    const date = new Date(Math.floor(numeric / 1000));
+    return date.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function normalizeStatusClass(status) {
+    return String(status || "unknown").toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+  }
+
+  function normalizeFilter(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function clampInteger(value, min, max) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return min;
+    }
+    return Math.min(max, Math.max(min, Math.round(numeric)));
+  }
+
+  function renderCurrentTree(result, options = {}) {
+    const preserveViewport = Boolean(options.preserveViewport && runtime.state.currentCanvasState);
+    const viewportState = !runtime.state.splitViewEnabled && preserveViewport
+      ? getCanvasViewportState(runtime.state.currentCanvasState)
+      : null;
+    const splitViewportStates = runtime.state.splitViewEnabled && preserveViewport
+      ? getSplitViewportStates()
+      : {};
+
+    if (runtime.state.splitViewEnabled) {
+      ensureSplitPaneState(result);
+    }
     runtime.treeSwitcher.render(result, { ensureActiveVisible: options.ensureActiveTreeVisible === true });
+
+    if (runtime.state.splitViewEnabled) {
+      renderSplitTreeView(result, splitViewportStates);
+      return;
+    }
 
     const selectedTree = getSelectedTree(result);
     if (!selectedTree) {
       const appCopy = runtime.i18n.getAppCopy();
-      const inspectorCopy = runtime.i18n.getInspectorCopy();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
       runtime.search.clearResults();
       runtime.refs.treeContent.replaceChildren(emptyState(appCopy.selectedTreeNotFound));
       runtime.mainTreeLocator.clear();
-      runtime.inspector.renderInspectorEmpty(inspectorCopy.unavailableTitle, inspectorCopy.missingTreeSummary);
       runtime.search.updateUi();
       return;
     }
 
+    runtime.state.canvasStatesByPane = {};
     runtime.state.selectedNodePath = pickNodePath(selectedTree);
     persistUiState();
     runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
     runtime.refs.treeContent.replaceChildren(runtime.canvas.renderTree(selectedTree, result, viewportState));
     runtime.mainTreeLocator.render(result, selectedTree);
     runtime.canvas.clearDragState();
-    runtime.inspector.renderInspector();
-    runtime.playback?.syncPlaybackUi();
+  }
+
+  function renderSplitTreeView(result, viewportStates = {}) {
+    ensureSplitPaneState(result);
+    runtime.treeSwitcher.updateActive?.();
+    runtime.state.canvasStatesByPane = {};
+
+    const treeMap = getTreeMap(result);
+    const container = document.createElement("div");
+    container.className = "tree-split-view";
+
+    ["left", "right"].forEach((paneId) => {
+      container.appendChild(renderTreePane(result, treeMap, paneId, viewportStates[paneId] || null));
+    });
+
+    runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
+    runtime.refs.treeContent.replaceChildren(container);
+    persistUiState();
+
+    const activeTree = getSelectedTree(result);
+    runtime.mainTreeLocator.render(result, activeTree);
+    runtime.canvas.clearDragState();
+    updateSplitPaneActiveState();
+    requestAnimationFrame(() => {
+      const activeCanvasState = runtime.state.canvasStatesByPane?.[runtime.state.activeTreePane];
+      if (activeCanvasState) {
+        runtime.viewport.activateCanvasState(activeCanvasState);
+      }
+    });
+  }
+
+  function renderTreePane(result, treeMap, paneId, viewportState) {
+    const treeId = runtime.state.splitPaneTreeIds?.[paneId];
+    const tree = treeMap.get(treeId) || null;
+    const isActive = runtime.state.activeTreePane === paneId;
+    const pane = document.createElement("section");
+    pane.className = isActive ? "tree-split-pane is-active" : "tree-split-pane";
+    pane.dataset.paneId = paneId;
+    if (treeId) {
+      pane.dataset.treeId = treeId;
+    }
+
+    const header = document.createElement("div");
+    header.className = "tree-split-pane-header";
+
+    const title = document.createElement("span");
+    title.className = "tree-split-pane-title";
+    const isChinese = runtime.state.currentSettings?.language === "zh-CN";
+    title.textContent = paneId === "left" ? (isChinese ? "左" : "Left") : (isChinese ? "右" : "Right");
+
+    const select = document.createElement("select");
+    select.className = "tree-split-pane-select";
+    result.behaviorTrees.forEach((entry) => {
+      const option = document.createElement("option");
+      option.value = entry.id;
+      option.textContent = entry.id;
+      select.appendChild(option);
+    });
+    if (treeId) {
+      select.value = treeId;
+    }
+    select.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      activateTreePane(paneId, select.value, null);
+    });
+    select.addEventListener("change", () => {
+      selectTreeInPane(paneId, select.value, result);
+    });
+
+    header.appendChild(title);
+    header.appendChild(select);
+    pane.appendChild(header);
+
+    pane.addEventListener("pointerdown", () => {
+      activateTreePane(paneId, treeId, null);
+    });
+    pane.addEventListener("focusin", () => {
+      activateTreePane(paneId, treeId, null);
+    });
+    pane.addEventListener("dragenter", () => {
+      activateTreePane(paneId, treeId, null);
+    });
+
+    if (!tree) {
+      pane.appendChild(emptyState(runtime.i18n.getAppCopy().selectedTreeNotFound));
+      return pane;
+    }
+
+    const selectedNodePath = pickNodePath(tree, runtime.state.splitPaneNodePaths?.[paneId] || "0");
+    runtime.state.splitPaneNodePaths = {
+      ...(runtime.state.splitPaneNodePaths || {}),
+      [paneId]: selectedNodePath
+    };
+    if (isActive) {
+      runtime.state.selectedTreeId = tree.id;
+      runtime.state.selectedNodePath = selectedNodePath;
+    }
+
+    pane.appendChild(
+      runtime.canvas.renderTree(tree, result, viewportState, {
+        paneId,
+        active: isActive,
+        selectedNodePath
+      })
+    );
+    return pane;
+  }
+
+  function getCanvasViewportState(canvasState) {
+    if (!canvasState) {
+      return null;
+    }
+
+    return {
+      zoom: canvasState.zoom || runtime.state.currentZoom || 1,
+      panX: canvasState.panX || 0,
+      panY: canvasState.panY || 0
+    };
+  }
+
+  function getSplitViewportStates() {
+    const states = {};
+    Object.entries(runtime.state.canvasStatesByPane || {}).forEach(([paneId, canvasState]) => {
+      const viewportState = getCanvasViewportState(canvasState);
+      if (viewportState) {
+        states[paneId] = viewportState;
+      }
+    });
+    return states;
+  }
+
+  function ensureSplitPaneState(result) {
+    if (!result || !result.behaviorTrees?.length) {
+      return;
+    }
+
+    const treeMap = getTreeMap(result);
+    const currentTreeId = treeMap.has(runtime.state.selectedTreeId) ? runtime.state.selectedTreeId : result.defaultTreeId;
+    const paneTreeIds = {
+      ...(runtime.state.splitPaneTreeIds || {})
+    };
+
+    if (!treeMap.has(paneTreeIds.left)) {
+      paneTreeIds.left = currentTreeId;
+    }
+    if (!treeMap.has(paneTreeIds.right)) {
+      paneTreeIds.right = pickNeighborTreeId(result, paneTreeIds.left);
+    }
+
+    runtime.state.splitPaneTreeIds = paneTreeIds;
+    if (runtime.state.activeTreePane !== "right") {
+      runtime.state.activeTreePane = "left";
+    }
+
+    const activeTreeId = paneTreeIds[runtime.state.activeTreePane] || paneTreeIds.left || result.defaultTreeId;
+    runtime.state.selectedTreeId = treeMap.has(activeTreeId) ? activeTreeId : result.defaultTreeId;
+    runtime.state.selectedNodePath = runtime.state.splitPaneNodePaths?.[runtime.state.activeTreePane] || runtime.state.selectedNodePath || "0";
+  }
+
+  function pickNeighborTreeId(result, treeId) {
+    const treeIds = result.behaviorTrees.map((tree) => tree.id);
+    if (treeIds.length === 0) {
+      return null;
+    }
+    const currentIndex = Math.max(0, treeIds.indexOf(treeId));
+    return treeIds.find((candidate) => candidate !== treeId) || treeIds[currentIndex] || treeIds[0];
+  }
+
+  function selectTreeInActivePane(treeId, result) {
+    if (!runtime.state.splitViewEnabled) {
+      runtime.state.selectedTreeId = treeId;
+      runtime.state.selectedNodePath = "0";
+      runtime.app.persistUiState();
+      if (runtime.modeRules.isPlaybackMode()) {
+        renderPlaybackLog({ ensureActiveTreeVisible: true, focusActiveNode: true, preserveViewport: true });
+        return;
+      }
+      runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true });
+      return;
+    }
+
+    selectTreeInPane(runtime.state.activeTreePane, treeId, result);
+  }
+
+  function selectTreeInPane(paneId, treeId, result) {
+    if (!result || !getTreeMap(result).has(treeId)) {
+      return;
+    }
+
+    runtime.state.activeTreePane = paneId === "right" ? "right" : "left";
+    runtime.state.splitPaneTreeIds = {
+      ...(runtime.state.splitPaneTreeIds || {}),
+      [runtime.state.activeTreePane]: treeId
+    };
+    runtime.state.splitPaneNodePaths = {
+      ...(runtime.state.splitPaneNodePaths || {}),
+      [runtime.state.activeTreePane]: "0"
+    };
+    runtime.state.selectedTreeId = treeId;
+    runtime.state.selectedNodePath = "0";
+    runtime.app.persistUiState();
+    if (runtime.modeRules.isPlaybackMode()) {
+      renderPlaybackLog({ ensureActiveTreeVisible: true, focusActiveNode: true, preserveViewport: true });
+      return;
+    }
+    runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true, preserveViewport: true });
+  }
+
+  function activateTreePane(paneId, treeId, nodePath) {
+    if (!runtime.state.splitViewEnabled || !paneId) {
+      if (treeId) {
+        runtime.state.selectedTreeId = treeId;
+      }
+      if (nodePath) {
+        runtime.state.selectedNodePath = nodePath;
+      }
+      return;
+    }
+
+    const normalizedPaneId = paneId === "right" ? "right" : "left";
+    runtime.state.activeTreePane = normalizedPaneId;
+    if (treeId) {
+      runtime.state.splitPaneTreeIds = {
+        ...(runtime.state.splitPaneTreeIds || {}),
+        [normalizedPaneId]: treeId
+      };
+      runtime.state.selectedTreeId = treeId;
+    }
+    if (nodePath) {
+      runtime.state.splitPaneNodePaths = {
+        ...(runtime.state.splitPaneNodePaths || {}),
+        [normalizedPaneId]: nodePath
+      };
+      runtime.state.selectedNodePath = nodePath;
+    } else {
+      runtime.state.selectedNodePath = runtime.state.splitPaneNodePaths?.[normalizedPaneId] || runtime.state.selectedNodePath || "0";
+    }
+
+    updateSplitPaneActiveState();
+    runtime.treeSwitcher.updateActive?.();
+    const activeCanvasState = runtime.state.canvasStatesByPane?.[normalizedPaneId];
+    if (activeCanvasState) {
+      runtime.viewport.activateCanvasState(activeCanvasState);
+    }
+  }
+
+  function activateTreePaneByTreeId(treeId, nodePath) {
+    if (!runtime.state.splitViewEnabled || !treeId) {
+      if (treeId) {
+        runtime.state.selectedTreeId = treeId;
+      }
+      if (nodePath) {
+        runtime.state.selectedNodePath = nodePath;
+      }
+      return;
+    }
+
+    const paneEntry = Object.entries(runtime.state.splitPaneTreeIds || {}).find(([, paneTreeId]) => paneTreeId === treeId);
+    const paneId = paneEntry?.[0] || runtime.state.activeTreePane || "left";
+    activateTreePane(paneId, treeId, nodePath);
+  }
+
+  function updateSplitPaneActiveState() {
+    document.querySelectorAll(".tree-split-pane").forEach((pane) => {
+      const isActive = pane.dataset.paneId === runtime.state.activeTreePane;
+      pane.classList.toggle("is-active", isActive);
+    });
   }
 
   function toBaseName(fileName) {
@@ -648,14 +2170,26 @@
       selectedTreeId: runtime.state.selectedTreeId,
       selectedNodePath: runtime.state.selectedNodePath,
       showCatalog: runtime.state.showCatalog,
-      showInspector: runtime.state.showInspector,
       editModeEnabled: runtime.state.editModeEnabled,
       collapsedCatalogGroups: runtime.state.collapsedCatalogGroups,
       collapsedNodePickerGroups: runtime.state.collapsedNodePickerGroups,
       catalogWidth: runtime.state.catalogWidth,
-      inspectorWidth: runtime.state.inspectorWidth,
       treeSwitcherScrollLeft: runtime.state.treeSwitcherScrollLeft,
-      treeNavigationParents: runtime.state.treeNavigationParents
+      treeNavigationParents: runtime.state.treeNavigationParents,
+      splitViewEnabled: runtime.state.splitViewEnabled,
+      activeTreePane: runtime.state.activeTreePane,
+      splitPaneTreeIds: runtime.state.splitPaneTreeIds,
+      splitPaneNodePaths: runtime.state.splitPaneNodePaths,
+      playbackFrameIndex: runtime.state.playbackFrameIndex,
+      playbackLeftVisible: runtime.state.playbackLeftVisible,
+      playbackRightVisible: runtime.state.playbackRightVisible,
+      playbackLeftWidth: runtime.state.playbackLeftWidth,
+      playbackRightWidth: runtime.state.playbackRightWidth,
+      playbackTransitionFilter: runtime.state.playbackTransitionFilter,
+      playbackTransitionScrollTop: runtime.state.playbackTransitionScrollTop || 0,
+      playbackBlackboardFilter: runtime.state.playbackBlackboardFilter,
+      playbackExpandedBlackboardKeys: Array.from(runtime.state.playbackExpandedBlackboardKeys || []),
+      playbackBlackboardScrollTop: runtime.state.playbackBlackboardScrollTop || 0
     });
   }
 
@@ -663,12 +2197,12 @@
     return getTreeMap(result).get(runtime.state.selectedTreeId) || null;
   }
 
-  function pickNodePath(tree) {
+  function pickNodePath(tree, preferredNodePath = runtime.state.selectedNodePath) {
     if (!tree?.node) {
       return runtime.state.currentSettings?.showBehaviorTreeRoot === false ? "0" : "__btree_root__";
     }
-    if (runtime.state.selectedNodePath && findNodeByPath(tree.node, runtime.state.selectedNodePath)) {
-      return runtime.state.selectedNodePath;
+    if (preferredNodePath && findNodeByPath(tree.node, preferredNodePath)) {
+      return preferredNodePath;
     }
     return "0";
   }

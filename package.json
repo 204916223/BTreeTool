@@ -35,11 +35,10 @@
     ],
     "menus": {
       "editor/title": [
-        {
-          "command": "btreeTool.openPreview",
-          "when": "resourceLangId == xml || resourceExtname == .xml",
-          "group": "navigation"
-        }
+      {
+        "command": "btreeTool.openPreview",
+        "group": "navigation"
+      }
       ],
       "editor/context": [
         {

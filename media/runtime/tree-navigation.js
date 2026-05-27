@@ -16,9 +16,17 @@
       };
     }
 
-    runtime.state.selectedTreeId = targetTreeId;
-    runtime.state.selectedNodePath = "0";
+    if (runtime.state.splitViewEnabled) {
+      runtime.app.activateTreePane(runtime.state.activeTreePane, targetTreeId, "0");
+    } else {
+      runtime.state.selectedTreeId = targetTreeId;
+      runtime.state.selectedNodePath = "0";
+    }
     runtime.app.persistUiState();
+    if (runtime.modeRules?.isPlaybackMode?.() && runtime.app.renderPlaybackLog) {
+      runtime.app.renderPlaybackLog({ ensureActiveTreeVisible: true, focusActiveNode: true, preserveViewport: true });
+      return;
+    }
     runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true });
   }
 
@@ -28,9 +36,22 @@
       return;
     }
 
-    runtime.state.selectedTreeId = parentReference.treeId;
-    runtime.state.selectedNodePath = parentReference.nodePath || "0";
+    if (runtime.state.splitViewEnabled) {
+      runtime.app.activateTreePane(runtime.state.activeTreePane, parentReference.treeId, parentReference.nodePath || "0");
+    } else {
+      runtime.state.selectedTreeId = parentReference.treeId;
+      runtime.state.selectedNodePath = parentReference.nodePath || "0";
+    }
     runtime.app.persistUiState();
+    if (runtime.modeRules?.isPlaybackMode?.() && runtime.app.renderPlaybackLog) {
+      runtime.app.renderPlaybackLog({ ensureActiveTreeVisible: true, focusActiveNode: true, preserveViewport: true });
+      requestAnimationFrame(() => {
+        if (parentReference.nodePath) {
+          runtime.viewport.focusNodePath(parentReference.nodePath);
+        }
+      });
+      return;
+    }
     runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true });
     requestAnimationFrame(() => {
       if (parentReference.nodePath) {

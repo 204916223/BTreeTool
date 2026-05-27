@@ -45,6 +45,10 @@ body.has-blocking-overlay .settings-dialog {
   top: 0;
 }
 
+.canvas-shell.is-drag-preview-zooming .canvas-stage {
+  transition: transform 140ms ease;
+}
+
 .canvas-edges {
   position: absolute;
   inset: 0;
@@ -60,6 +64,44 @@ body.has-blocking-overlay .settings-dialog {
   stroke-linejoin: round;
 }
 
+.canvas-edge-path.playback-edge-status-idle {
+  stroke: #8a8f98;
+}
+
+.canvas-edge-path.playback-edge-status-running {
+  stroke: #d6a400;
+}
+
+.canvas-edge-path.playback-edge-status-success {
+  stroke: #37b26c;
+}
+
+.canvas-edge-path.playback-edge-status-failure {
+  stroke: #d84a4a;
+}
+
+.canvas-edge-path.playback-edge-status-success-idle {
+  stroke: #37b26c;
+  stroke-dasharray: 6 5;
+}
+
+.canvas-edge-path.playback-edge-status-failure-idle {
+  stroke: #d84a4a;
+  stroke-dasharray: 6 5;
+}
+
+.canvas-edge-path-drop {
+  display: none;
+}
+
+body.is-reordering-nodes .canvas-edge-path-base {
+  display: none;
+}
+
+body.is-reordering-nodes .canvas-edge-path-drop {
+  display: block;
+}
+
 .canvas-nodes {
   position: absolute;
   inset: 0;
@@ -67,6 +109,24 @@ body.has-blocking-overlay .settings-dialog {
 
 .canvas-node {
   position: absolute;
+  transition: left 120ms ease, top 120ms ease, width 120ms ease, height 120ms ease;
+}
+
+body.is-reordering-nodes .canvas-node {
+  left: var(--drop-target-left) !important;
+  top: var(--drop-target-top) !important;
+}
+
+body.is-reordering-nodes .canvas-node.is-drop-target-expandable:not(.is-drag-source) {
+  width: var(--drop-target-width) !important;
+  height: var(--drop-target-height) !important;
+  z-index: 3;
+}
+
+body.is-reordering-nodes .canvas-node.is-drag-source {
+  left: var(--drop-target-source-left) !important;
+  width: var(--node-base-width) !important;
+  height: var(--node-base-height) !important;
 }
 
 .flow-card {
@@ -86,6 +146,51 @@ body.has-blocking-overlay .settings-dialog {
   transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
   position: relative;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.flow-card.is-playback-status {
+  border-width: 2px;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--playback-status-color, var(--line)) 34%, transparent),
+    var(--color-card-shadow-soft);
+}
+
+.flow-card.playback-status-idle {
+  --playback-status-color: #8a8f98;
+  border-color: #8a8f98;
+}
+
+.flow-card.playback-status-running {
+  --playback-status-color: #d6a400;
+  border-color: #d6a400;
+}
+
+.flow-card.playback-status-success {
+  --playback-status-color: #37b26c;
+  border-color: #37b26c;
+}
+
+.flow-card.playback-status-failure {
+  --playback-status-color: #d84a4a;
+  border-color: #d84a4a;
+}
+
+.flow-card.playback-status-success-idle {
+  --playback-status-color: #37b26c;
+  border-color: #37b26c;
+  border-style: dashed;
+}
+
+.flow-card.playback-status-failure-idle {
+  --playback-status-color: #d84a4a;
+  border-color: #d84a4a;
+  border-style: dashed;
+}
+
+body.is-reordering-nodes .canvas-node.is-drop-target-expandable:not(.is-drag-source) .flow-card {
+  align-content: start;
 }
 
 .flow-card.has-append-slot {
@@ -104,8 +209,12 @@ body.has-blocking-overlay .settings-dialog {
   display: inline-grid;
 }
 
-.flow-card[draggable="true"] {
+.flow-card-heading.is-drag-handle {
   cursor: grab;
+}
+
+.flow-card-heading.is-drag-handle:active {
+  cursor: grabbing;
 }
 
 .flow-card:hover {
@@ -379,6 +488,15 @@ body.is-reordering-nodes .drop-slot-overlay {
   border-color: var(--color-code-border);
 }
 
+.flow-text-code .flow-attribute-input,
+.flow-text-code .flow-attribute-chip-value {
+  min-height: 34px;
+  font-family: "SF Mono", "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 11px;
+  background: var(--color-code-bg);
+  border-color: var(--color-code-border);
+}
+
 .flow-text-description .flow-text-body {
   background: var(--color-description-bg);
   border-color: var(--color-description-border);
@@ -407,6 +525,26 @@ body.is-reordering-nodes .drop-slot-overlay {
   gap: 4px;
 }
 
+[data-node-attribute-layout="stacked"] .flow-attribute-pair {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+
+[data-node-attribute-layout="stacked"] .flow-attribute-chip,
+[data-node-attribute-layout="stacked"] .flow-attribute-input {
+  min-height: 30px;
+}
+
+.flow-card.is-attribute-layout-stacked .flow-attribute-pair {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+
+.flow-card.is-attribute-layout-stacked .flow-attribute-chip,
+.flow-card.is-attribute-layout-stacked .flow-attribute-input {
+  min-height: 30px;
+}
+
 .flow-attribute-chip {
   display: inline-flex;
   align-items: center;
@@ -432,10 +570,57 @@ body.is-reordering-nodes .drop-slot-overlay {
   color: var(--text);
 }
 
+.flow-attribute-chip-value.is-empty {
+  color: var(--muted);
+  opacity: 0.72;
+}
+
+.flow-attribute-input {
+  min-width: 0;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--color-bg-card-strong) 78%, var(--color-surface-subtle));
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.35;
+  cursor: text;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
+
+.flow-attribute-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-soft) 72%, transparent);
+}
+
+.flow-attribute-input.is-saving {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--line-strong));
+}
+
+.flow-attribute-input.is-invalid {
+  border-color: color-mix(in srgb, var(--color-status-danger) 62%, var(--line-strong));
+  background: var(--color-danger-soft);
+}
+
 .flow-attribute-pair.tone-input .flow-attribute-chip {
   border-color: var(--color-role-input-border-strong);
   background: var(--color-role-input-bg);
   color: var(--color-role-input-text);
+}
+
+.flow-attribute-pair.tone-input .flow-attribute-chip-key {
+  background: color-mix(in srgb, var(--color-role-input-bg) 72%, var(--color-bg-card-strong));
+  color: color-mix(in srgb, var(--color-role-input-text) 82%, var(--text));
+}
+
+.flow-attribute-pair.tone-input .flow-attribute-chip-value {
+  background: color-mix(in srgb, var(--color-role-input-bg) 44%, var(--color-bg-card-strong));
+  color: var(--text);
 }
 
 .flow-attribute-pair.tone-output .flow-attribute-chip {
@@ -444,9 +629,29 @@ body.is-reordering-nodes .drop-slot-overlay {
   color: var(--color-role-output-text);
 }
 
+.flow-attribute-pair.tone-output .flow-attribute-chip-key {
+  background: color-mix(in srgb, var(--color-role-output-bg) 72%, var(--color-bg-card-strong));
+  color: color-mix(in srgb, var(--color-role-output-text) 82%, var(--text));
+}
+
+.flow-attribute-pair.tone-output .flow-attribute-chip-value {
+  background: color-mix(in srgb, var(--color-role-output-bg) 44%, var(--color-bg-card-strong));
+  color: var(--text);
+}
+
 .flow-attribute-pair.tone-param .flow-attribute-chip {
   border-color: var(--color-role-param-border);
   background: var(--color-role-param-bg);
+}
+
+.flow-attribute-pair.tone-param .flow-attribute-chip-key {
+  background: color-mix(in srgb, var(--color-role-param-bg) 72%, var(--color-bg-card-strong));
+  color: var(--muted);
+}
+
+.flow-attribute-pair.tone-param .flow-attribute-chip-value {
+  background: color-mix(in srgb, var(--color-role-param-bg) 42%, var(--color-bg-card-strong));
+  color: var(--text);
 }
 
 .subtree-jump {
@@ -470,6 +675,42 @@ body.is-reordering-nodes .drop-slot-overlay {
   color: var(--muted);
   line-height: 1.7;
   font-size: 12px;
+}
+
+.startup-state {
+  margin: auto;
+  width: min(560px, calc(100% - 32px));
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
+  padding: 22px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, var(--color-surface-ghost), transparent),
+    var(--color-bg-card);
+  box-shadow: var(--color-card-shadow-soft);
+}
+
+.startup-state-title {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.startup-state-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.startup-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
 .tree-actions {

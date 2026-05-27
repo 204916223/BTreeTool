@@ -9,16 +9,14 @@
     result.behaviorTrees.forEach((tree) => {
       const button = document.createElement("button");
       button.type = "button";
+      button.dataset.treeId = tree.id;
       button.className = tree.id === runtime.state.selectedTreeId ? "tree-tab is-active" : "tree-tab";
       button.textContent = tree.id;
       if (tree.id === runtime.state.selectedTreeId) {
         activeButton = button;
       }
       button.addEventListener("click", () => {
-        runtime.state.selectedTreeId = tree.id;
-        runtime.state.selectedNodePath = "0";
-        runtime.app.persistUiState();
-        runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true });
+        runtime.app.selectTreeInActivePane(tree.id, result);
       });
       fragment.appendChild(button);
     });
@@ -38,7 +36,14 @@
     });
   }
 
+  function updateActiveTreeSwitcherButton() {
+    runtime.refs.treeSwitcher?.querySelectorAll(".tree-tab").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.treeId === runtime.state.selectedTreeId);
+    });
+  }
+
   runtime.treeSwitcher = {
-    render: renderTreeSwitcher
+    render: renderTreeSwitcher,
+    updateActive: updateActiveTreeSwitcherButton
   };
 })();

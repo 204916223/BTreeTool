@@ -160,19 +160,11 @@ body.is-playback-mode .catalog-item-edit,
 body.is-playback-mode .catalog-item-remove,
 body.is-playback-mode #add-node-model,
 body.is-playback-mode #edit-node-definitions,
-body.is-playback-mode #apply-attributes,
-body.is-monitor-mode .catalog-item,
-body.is-monitor-mode .node-picker-item,
-body.is-monitor-mode .catalog-item-edit,
-body.is-monitor-mode .catalog-item-remove,
-body.is-monitor-mode #add-node-model,
-body.is-monitor-mode #edit-node-definitions,
-body.is-monitor-mode #apply-attributes {
+body.is-playback-mode #apply-attributes {
   cursor: not-allowed;
 }
 
-body.is-playback-mode .drop-slot-overlay,
-body.is-monitor-mode .drop-slot-overlay {
+body.is-playback-mode .drop-slot-overlay {
   display: none;
 }
 

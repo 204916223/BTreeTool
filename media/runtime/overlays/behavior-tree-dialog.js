@@ -56,7 +56,7 @@
     related.appendChild(relatedList);
 
     const status = document.createElement("div");
-    status.className = "inspector-status";
+    status.className = "editor-status";
     status.hidden = true;
 
     const actions = document.createElement("div");
@@ -318,13 +318,13 @@
 
     if (!message) {
       overlayState.behaviorTreeDialog.status.hidden = true;
-      overlayState.behaviorTreeDialog.status.className = "inspector-status";
+      overlayState.behaviorTreeDialog.status.className = "editor-status";
       overlayState.behaviorTreeDialog.status.textContent = "";
       return;
     }
 
     overlayState.behaviorTreeDialog.status.hidden = false;
-    overlayState.behaviorTreeDialog.status.className = `inspector-status is-${tone || "info"}`;
+    overlayState.behaviorTreeDialog.status.className = `editor-status is-${tone || "info"}`;
     overlayState.behaviorTreeDialog.status.textContent = message;
   }
 

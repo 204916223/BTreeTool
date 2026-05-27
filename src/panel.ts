@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as zlib from "zlib";
 import { BtNodeModel } from "./core/btAst";
 import {
   createBehaviorTree,
@@ -12,8 +11,8 @@ import {
   replaceNodeModels
 } from "./core/edit";
 import { isBlockingWarning } from "./core/issueRules";
+import { decodeBtlogFile } from "./core/btlog";
 import { parseBehaviorTreeDocument } from "./core/parse";
-import { parsePlaybackLogText } from "./core/playbackLog";
 import { serializeBehaviorTreeDocument } from "./core/serialize";
 import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
 import {
@@ -116,7 +115,13 @@ type WebviewMessage =
       type: "saveCurrentDocument";
     }
   | {
-      type: "importPlaybackLog";
+      type: "createNewBehaviorTreeDocument";
+    }
+  | {
+      type: "openExistingBehaviorTreeDocument";
+    }
+  | {
+      type: "choosePlaybackLogFile";
     };
 
 type XmlMutation = {
@@ -179,8 +184,9 @@ function getPanelCopy(language: string) {
     documentSaveBlocked: "The current behavior tree has blocking issues and cannot be saved from the preview.",
     saveDocumentConfirm: "Save the current XML file now?",
     saveAction: "Save",
-    playbackOpenTitle: "Open BehaviorTree playback log",
-    playbackOpenFailed: (message: string) => `Failed to open playback log. ${message}`
+    openExistingXmlTitle: "Open existing BehaviorTree XML",
+    newXmlNameTitle: "Confirm the new XML name",
+    importPlaybackLogTitle: "Import Log"
   };
 
   if (!isChinese) {
@@ -238,13 +244,15 @@ function getPanelCopy(language: string) {
     documentSaveBlocked: "当前行为树存在阻断性问题，无法从预览窗口保存。",
     saveDocumentConfirm: "现在保存当前 XML 文件吗？",
     saveAction: "保存",
-    playbackOpenTitle: "打开行为树回放日志",
-    playbackOpenFailed: (message: string) => `打开回放日志失败。${message}`
+    openExistingXmlTitle: "打开已有 BehaviorTree XML",
+    newXmlNameTitle: "确认新 XML 的名称",
+    importPlaybackLogTitle: "导入日志"
   };
 }
 
 export class BehaviorTreePreviewPanel {
   private static readonly panelsByDocument = new Map<string, BehaviorTreePreviewPanel>();
+  private static noDocumentPanel: BehaviorTreePreviewPanel | null = null;
   private static readonly emptyPayload: PreviewPayload = {
     fileName: "No active document",
     languageId: "unknown",
@@ -257,6 +265,8 @@ export class BehaviorTreePreviewPanel {
       themePreset: "midnight",
       showMainTreeLocator: true,
       showBehaviorTreeRoot: true,
+      requireNodeDeleteConfirmation: false,
+      nodeAttributeLayout: "inline",
       simplifyHiddenSections: [],
       presetNodes: []
     },
@@ -266,16 +276,49 @@ export class BehaviorTreePreviewPanel {
   static createOrShow(
     extensionUri: vscode.Uri,
     globalStorageUri: vscode.Uri,
-    document: vscode.TextDocument
+    document?: vscode.TextDocument
   ): void {
-    const documentKey = document.uri.toString();
     const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
+
+    if (!document) {
+      if (BehaviorTreePreviewPanel.noDocumentPanel) {
+        BehaviorTreePreviewPanel.noDocumentPanel.panel.reveal(column);
+        return;
+      }
+
+      const panel = vscode.window.createWebviewPanel(
+        "btreeTool.preview",
+        "BTreeTool",
+        column,
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true,
+          localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")]
+        }
+      );
+
+      const previewPanel = new BehaviorTreePreviewPanel(panel, extensionUri, globalStorageUri, undefined);
+      BehaviorTreePreviewPanel.noDocumentPanel = previewPanel;
+      return;
+    }
+
+    const documentKey = document.uri.toString();
     const title = `BTreeTool: ${BehaviorTreePreviewPanel.toBaseName(document.fileName)}`;
 
     const existingPanel = BehaviorTreePreviewPanel.panelsByDocument.get(documentKey);
     if (existingPanel) {
       existingPanel.panel.reveal(column);
       existingPanel.refreshIfAttachedDocument(document);
+      if (BehaviorTreePreviewPanel.noDocumentPanel) {
+        BehaviorTreePreviewPanel.noDocumentPanel.dispose();
+      }
+      return;
+    }
+
+    if (BehaviorTreePreviewPanel.noDocumentPanel) {
+      const previewPanel = BehaviorTreePreviewPanel.noDocumentPanel;
+      previewPanel.attachDocument(document);
+      previewPanel.panel.reveal(column);
       return;
     }
 
@@ -302,7 +345,11 @@ export class BehaviorTreePreviewPanel {
     for (const panel of Array.from(BehaviorTreePreviewPanel.panelsByDocument.values())) {
       panel.dispose();
     }
+    if (BehaviorTreePreviewPanel.noDocumentPanel) {
+      BehaviorTreePreviewPanel.noDocumentPanel.dispose();
+    }
     BehaviorTreePreviewPanel.panelsByDocument.clear();
+    BehaviorTreePreviewPanel.noDocumentPanel = null;
   }
 
   private static toBaseName(fileName: string): string {
@@ -329,15 +376,18 @@ export class BehaviorTreePreviewPanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     globalStorageUri: vscode.Uri,
-    document: vscode.TextDocument
+    document?: vscode.TextDocument
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.globalStorageUri = globalStorageUri;
-    this.latestDocumentUri = document.uri;
+    this.latestDocumentUri = document?.uri || null;
     this.latestPayload = this.toPayload(document);
 
-    this.panel.webview.html = this.getHtml(this.panel.webview);
+    this.panel.webview.html = this.getHtml(this.panel.webview, Boolean(document));
+    if (document?.fileName) {
+      this.updatePanelTitle(document.fileName);
+    }
     void this.initializeSettings();
 
     this.panel.onDidDispose(() => this.cleanup(), null, this.disposables);
@@ -414,8 +464,18 @@ export class BehaviorTreePreviewPanel {
           return;
         }
 
-        if (message.type === "importPlaybackLog") {
-          void this.handleImportPlaybackLog();
+        if (message.type === "createNewBehaviorTreeDocument") {
+          void this.handleCreateNewBehaviorTreeDocument();
+          return;
+        }
+
+        if (message.type === "openExistingBehaviorTreeDocument") {
+          void this.handleOpenExistingBehaviorTreeDocument();
+          return;
+        }
+
+        if (message.type === "choosePlaybackLogFile") {
+          void this.handleChoosePlaybackLogFile();
           return;
         }
       },
@@ -443,6 +503,10 @@ export class BehaviorTreePreviewPanel {
     });
   }
 
+  private updatePanelTitle(fileName: string): void {
+    this.panel.title = `BTreeTool: ${BehaviorTreePreviewPanel.toBaseName(fileName)}`;
+  }
+
   private postEditResult(ok: boolean, message: string, dirtyState?: "dirty" | "saved"): void {
     this.panel.webview.postMessage({
       type: "editResult",
@@ -450,17 +514,6 @@ export class BehaviorTreePreviewPanel {
         ok,
         message,
         dirtyState
-      }
-    });
-  }
-
-  private postPlaybackLogResult(ok: boolean, payload: unknown, message = ""): void {
-    this.panel.webview.postMessage({
-      type: "playbackLogResult",
-      payload: {
-        ok,
-        message,
-        log: ok ? payload : null
       }
     });
   }
@@ -477,6 +530,26 @@ export class BehaviorTreePreviewPanel {
     const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
     this.latestPayload = this.toPayload(document);
 
+    if (this.webviewReady) {
+      this.postLatestPayload();
+    }
+  }
+
+  private attachDocument(document: vscode.TextDocument): void {
+    if (this.latestDocumentUri) {
+      const previousKey = this.latestDocumentUri.toString();
+      if (BehaviorTreePreviewPanel.panelsByDocument.get(previousKey) === this) {
+        BehaviorTreePreviewPanel.panelsByDocument.delete(previousKey);
+      }
+    }
+
+    this.latestDocumentUri = document.uri;
+    this.latestPayload = this.toPayload(document);
+    this.updatePanelTitle(document.fileName);
+    BehaviorTreePreviewPanel.panelsByDocument.set(document.uri.toString(), this);
+    if (BehaviorTreePreviewPanel.noDocumentPanel === this) {
+      BehaviorTreePreviewPanel.noDocumentPanel = null;
+    }
     if (this.webviewReady) {
       this.postLatestPayload();
     }
@@ -883,6 +956,120 @@ export class BehaviorTreePreviewPanel {
     }
   }
 
+  private async handleCreateNewBehaviorTreeDocument(): Promise<void> {
+    const copy = this.getCopy();
+    const template = serializeBehaviorTreeDocument({
+      xmlDeclaration: {
+        attributes: {
+          version: "1.0"
+        }
+      },
+      rootTagName: "root",
+      rootAttributes: {
+        BTCPP_format: "4"
+      },
+      mainTreeToExecute: "MainTree",
+      includes: [],
+      behaviorTrees: [
+        {
+          id: "MainTree",
+          node: {
+            tagName: "AlwaysSuccess",
+            attributes: {},
+            children: []
+          }
+        }
+      ],
+      nodeModels: [],
+      topLevelOrder: ["behaviorTree"],
+      warnings: []
+    });
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const defaultUri = workspaceFolder ? vscode.Uri.joinPath(workspaceFolder, "MainTree.xml") : undefined;
+    const targetUri = await vscode.window.showSaveDialog({
+      title: copy.newXmlNameTitle,
+      defaultUri,
+      filters: {
+        "BehaviorTree XML": ["xml"],
+        "All Files": ["*"]
+      }
+    });
+
+    if (!targetUri) {
+      return;
+    }
+
+    await vscode.workspace.fs.writeFile(targetUri, Buffer.from(template, "utf8"));
+    const document = await vscode.workspace.openTextDocument(targetUri);
+
+    await vscode.window.showTextDocument(document, {
+      preview: false,
+      preserveFocus: false
+    });
+    BehaviorTreePreviewPanel.createOrShow(this.extensionUri, this.globalStorageUri, document);
+  }
+
+  private async handleOpenExistingBehaviorTreeDocument(): Promise<void> {
+    const copy = this.getCopy();
+    const files = await vscode.window.showOpenDialog({
+      title: copy.openExistingXmlTitle,
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      filters: {
+        "BehaviorTree XML": ["xml"],
+        "All Files": ["*"]
+      }
+    });
+
+    const file = files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const document = await vscode.workspace.openTextDocument(file);
+    await vscode.window.showTextDocument(document, {
+      preview: false,
+      preserveFocus: false
+    });
+    BehaviorTreePreviewPanel.createOrShow(this.extensionUri, this.globalStorageUri, document);
+  }
+
+  private async handleChoosePlaybackLogFile(): Promise<void> {
+    const copy = this.getCopy();
+    const files = await vscode.window.showOpenDialog({
+      title: copy.importPlaybackLogTitle,
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      filters: {
+        "BehaviorTree Logs": ["btlog", "json", "jsonl", "gz", "log", "txt"],
+        "All Files": ["*"]
+      }
+    });
+    const file = files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const playbackLog = decodeBtlogFile(file.fsPath, this.currentSettings);
+      this.panel.title = `BTreeTool: ${playbackLog.fileName}`;
+      this.panel.webview.postMessage({
+        type: "playbackLog",
+        payload: playbackLog
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.panel.webview.postMessage({
+        type: "playbackLogError",
+        payload: { message }
+      });
+      void vscode.window.showErrorMessage(`BTreeTool: ${message}`);
+    }
+  }
+
   private async normalizeDocumentBeforeSave(document: vscode.TextDocument): Promise<vscode.TextDocument> {
     const currentText = document.getText();
     const parsed = parseBehaviorTreeDocument(currentText);
@@ -910,37 +1097,6 @@ export class BehaviorTreePreviewPanel {
       return parsed.warnings.some(isBlockingWarning);
     } catch (_error) {
       return true;
-    }
-  }
-
-  private async handleImportPlaybackLog(): Promise<void> {
-    const copy = this.getCopy();
-    try {
-      const files = await vscode.window.showOpenDialog({
-        title: copy.playbackOpenTitle,
-        canSelectFiles: true,
-        canSelectFolders: false,
-        canSelectMany: false,
-        filters: {
-          "BehaviorTree Logs": ["btlog", "json", "jsonl", "gz", "log", "txt"],
-          "All Files": ["*"]
-        }
-      });
-
-      const file = files?.[0];
-      if (!file) {
-        return;
-      }
-
-      const bytes = await vscode.workspace.fs.readFile(file);
-      const buffer = Buffer.from(bytes);
-      const source = file.fsPath.endsWith(".gz")
-        ? zlib.gunzipSync(buffer).toString("utf8")
-        : buffer.toString("utf8");
-      this.postPlaybackLogResult(true, parsePlaybackLogText(source, BehaviorTreePreviewPanel.toBaseName(file.fsPath)));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postPlaybackLogResult(false, null, copy.playbackOpenFailed(message));
     }
   }
 
@@ -1016,14 +1172,13 @@ export class BehaviorTreePreviewPanel {
     }
   }
 
-  private getHtml(webview: vscode.Webview): string {
+  private getHtml(webview: vscode.Webview, hasDocument: boolean): string {
     const styleUris = [
       "tokens.css",
       "chrome.css",
       "tree-surface.css",
       "workspace.css",
       "catalog.css",
-      "inspector.css",
       "canvas.css",
       "menus.css",
       "settings.css",
@@ -1035,7 +1190,6 @@ export class BehaviorTreePreviewPanel {
       vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "mode-rules.js")
     );
     const catalogScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "catalog.js"));
-    const inspectorScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "inspector.js"));
     const overlayPartScriptUris = [
       "shared.js",
       "context-menus.js",
@@ -1049,7 +1203,6 @@ export class BehaviorTreePreviewPanel {
       webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "overlays", fileName))
     );
     const overlaysScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "overlays.js"));
-    const playbackScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "playback.js"));
     const treeNavigationScriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "tree-navigation.js")
     );
@@ -1083,6 +1236,9 @@ export class BehaviorTreePreviewPanel {
 ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n")}
   </head>
   <body>
+    <script nonce="${nonce}">
+      window.BTreeToolInitialMode = ${JSON.stringify(hasDocument ? "edit" : "playback")};
+    </script>
     <main class="app-shell">
       <section class="card tree-card">
         <div class="card-title-row tree-topbar">
@@ -1122,6 +1278,9 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
           <div class="tree-actions">
             <button id="add-behavior-tree" class="canvas-btn icon-btn" type="button" title="Add BehaviorTree" aria-label="Add BehaviorTree">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+            </button>
+            <button id="toggle-split-view" class="canvas-btn icon-btn" type="button" title="Split view" aria-label="Split view">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4zm2 2v12h5V6H6zm7 0v12h5V6h-5z"/></svg>
             </button>
             <button id="open-settings" class="canvas-btn icon-btn" type="button" title="Open BTreeTool settings" aria-label="Open BTreeTool settings">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94a7.96 7.96 0 0 0 .06-.94 7.96 7.96 0 0 0-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.28 7.28 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 1h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 7.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.62-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .49.42h3.8a.5.5 0 0 0 .49-.42l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4Z"/></svg>
@@ -1208,52 +1367,15 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
               <p class="empty-state">Open an XML file and run the preview command.</p>
             </div>
             <aside id="main-tree-locator" class="main-tree-locator" hidden></aside>
-            <div id="playback-timeline" class="playback-timeline" hidden>
-              <div class="playback-timeline-main">
-                <button id="playback-import" class="canvas-btn subtle" type="button">Import Log</button>
-                <button id="playback-prev-frame" class="canvas-btn icon-btn" type="button" aria-label="Previous frame">‹</button>
-                <input id="playback-range" class="playback-range" type="range" min="0" max="0" value="0" />
-                <button id="playback-next-frame" class="canvas-btn icon-btn" type="button" aria-label="Next frame">›</button>
-              </div>
-              <div id="playback-time" class="playback-time">No log loaded</div>
-            </div>
           </div>
-          <div id="inspector-resizer" class="panel-resizer" hidden></div>
-          <aside id="inspector-panel" class="inspector-card" hidden>
-            <div class="inspector-header">
-              <span id="inspector-eyebrow" class="eyebrow">Node Inspector</span>
-              <div class="inspector-title-row">
-                <strong id="inspector-title" class="inspector-title">No node selected</strong>
-                <span id="inspector-kind" class="badge subtle">none</span>
-              </div>
-              <p id="inspector-summary" class="inspector-summary">
-                Select a node in the canvas to inspect and edit its XML attributes.
-              </p>
-            </div>
-            <div id="inspector-status" class="inspector-status" hidden></div>
-            <div id="inspector-warnings" class="inspector-warning-list"></div>
-            <div id="attribute-list" class="attribute-list"></div>
-            <div class="inspector-actions">
-              <button id="apply-attributes" class="canvas-btn accent" type="button">Apply</button>
-            </div>
-          </aside>
-          <button
-            id="toggle-inspector"
-            class="panel-edge-toggle panel-edge-toggle-right"
-            type="button"
-            title="Show or hide the node inspector"
-            aria-label="Show or hide the node inspector"
-          ></button>
         </div>
       </section>
     </main>
     <script nonce="${nonce}" src="${i18nScriptUri}"></script>
     <script nonce="${nonce}" src="${modeRulesScriptUri}"></script>
     <script nonce="${nonce}" src="${catalogScriptUri}"></script>
-    <script nonce="${nonce}" src="${inspectorScriptUri}"></script>
 ${overlayPartScriptUris.map((uri) => `    <script nonce="${nonce}" src="${uri}"></script>`).join("\n")}
     <script nonce="${nonce}" src="${overlaysScriptUri}"></script>
-    <script nonce="${nonce}" src="${playbackScriptUri}"></script>
     <script nonce="${nonce}" src="${treeNavigationScriptUri}"></script>
     <script nonce="${nonce}" src="${treeSwitcherScriptUri}"></script>
     <script nonce="${nonce}" src="${mainTreeLocatorScriptUri}"></script>
@@ -1276,6 +1398,10 @@ ${overlayPartScriptUris.map((uri) => `    <script nonce="${nonce}" src="${uri}">
       if (BehaviorTreePreviewPanel.panelsByDocument.get(documentKey) === this) {
         BehaviorTreePreviewPanel.panelsByDocument.delete(documentKey);
       }
+    }
+
+    if (BehaviorTreePreviewPanel.noDocumentPanel === this) {
+      BehaviorTreePreviewPanel.noDocumentPanel = null;
     }
 
     while (this.disposables.length > 0) {

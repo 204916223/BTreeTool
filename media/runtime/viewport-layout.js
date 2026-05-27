@@ -2,6 +2,11 @@
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
 
   let measureHost = null;
+  let dragPreviewViewport = null;
+  let dragPreviewTransitionTimer = null;
+  const DRAG_PREVIEW_ZOOM_FACTOR = 0.86;
+  const DRAG_PREVIEW_ZOOM_MARGIN = 72;
+  const DRAG_PREVIEW_MIN_ZOOM = 0.28;
 
   function init() {
     enableHorizontalWheelScroll(runtime.refs.treeSwitcher, {
@@ -174,26 +179,32 @@
     };
 
     const measuredNodes = new Map();
-    const measured = measureSubtree(rootNode);
+    const dropTargetReferenceSize = measureDropTargetReferenceSize();
+    const measured = measureSubtree(rootNode, false);
+    const expandedMeasured = measureSubtree(rootNode, true);
     const positioned = positionSubtree(measured, config.paddingX, config.paddingY);
+    const expandedPositioned = positionSubtree(expandedMeasured, config.paddingX, config.paddingY);
+    const expandedByPath = new Map();
     const nodes = [];
     const edges = [];
     let maxX = 0;
     let maxY = 0;
 
+    indexExpanded(expandedPositioned);
     collect(positioned);
 
     return {
       width: maxX + config.paddingX,
       height: Math.max(maxY + config.paddingY, 640),
       rootCenterX: nodes[0]?.centerX || 450,
+      dropTargetReferenceSize,
       nodes,
       edges
     };
 
-    function measureSubtree(node) {
-      const box = measureNodeBox(node);
-      const children = node.children.map(measureSubtree);
+    function measureSubtree(node, expanded) {
+      const box = measureNodeBox(node, expanded);
+      const children = node.children.map((child) => measureSubtree(child, expanded));
 
       if (children.length === 0) {
         return {
@@ -253,36 +264,59 @@
     }
 
     function collect(entry, parent) {
+      const expandedEntry = expandedByPath.get(entry.node.nodePath) || entry;
       const descriptor = {
         node: entry.node,
         x: entry.x,
         y: entry.y,
         width: entry.width,
         height: entry.height,
+        dropTargetX: expandedEntry.x,
+        dropTargetY: expandedEntry.y,
+        dropTargetWidth: expandedEntry.width,
+        dropTargetHeight: expandedEntry.height,
+        dropTargetReferenceSize,
+        expandForDropTarget:
+          !entry.node.isVirtualRoot &&
+          (expandedEntry.width > entry.width || expandedEntry.height > entry.height),
         centerX: entry.x + entry.width / 2
       };
 
       nodes.push(descriptor);
       maxX = Math.max(maxX, descriptor.x + descriptor.width);
       maxY = Math.max(maxY, descriptor.y + descriptor.height);
+      maxX = Math.max(maxX, expandedEntry.x + expandedEntry.width);
+      maxY = Math.max(maxY, expandedEntry.y + expandedEntry.height);
 
       if (parent) {
+        const expandedParent = expandedByPath.get(parent.node?.nodePath) || parent;
         edges.push({
+          parentNodePath: parent.node?.nodePath || "",
+          childNodePath: descriptor.node.nodePath,
           startX: parent.centerX,
           startY: parent.y + parent.height,
           endX: descriptor.centerX,
-          endY: descriptor.y
+          endY: descriptor.y,
+          dropStartX: expandedParent.x + expandedParent.width / 2,
+          dropStartY: expandedParent.y + expandedParent.height,
+          dropEndX: expandedEntry.x + expandedEntry.width / 2,
+          dropEndY: expandedEntry.y
         });
       }
 
       entry.children.forEach((child) => collect(child, descriptor));
     }
 
-    function measureNodeBox(node) {
+    function indexExpanded(entry) {
+      expandedByPath.set(entry.node.nodePath, entry);
+      entry.children.forEach(indexExpanded);
+    }
+
+    function measureNodeBox(node, expanded) {
       const hiddenSections = runtime.state.forceHideNodeDetails
         ? "all"
         : (runtime.state.currentSettings?.simplifyHiddenSections || []).join(",");
-      const cacheKey = `${hiddenSections}::${node.nodePath}`;
+      const cacheKey = `${hiddenSections}::${expanded ? "expanded" : "base"}::${node.nodePath}`;
       if (measuredNodes.has(cacheKey)) {
         return measuredNodes.get(cacheKey);
       }
@@ -298,24 +332,140 @@
         height: Math.ceil(rect.height)
       };
 
+      if (expanded && !node.isVirtualRoot) {
+        measured.width = Math.max(measured.width, dropTargetReferenceSize.width);
+        measured.height = Math.max(measured.height, dropTargetReferenceSize.height);
+      }
+
       measuredNodes.set(cacheKey, measured);
       return measured;
     }
+
+    function measureDropTargetReferenceSize() {
+      const host = ensureMeasureHost();
+      host.replaceChildren();
+      const card = runtime.canvas.buildNodeCard(createDropTargetReferenceNode(), result, {
+        interactive: false,
+        measuring: true
+      });
+      host.appendChild(card);
+
+      const rect = card.getBoundingClientRect();
+      return {
+        width: Math.ceil(rect.width),
+        height: Math.ceil(rect.height)
+      };
+    }
+
+    function createDropTargetReferenceNode() {
+      return {
+        nodePath: "__drop_target_reference__",
+        title: "Parallel",
+        instanceName: "",
+        kind: "Parallel",
+        category: "Control",
+        targetTreeId: "",
+        description: "",
+        code: "",
+        summary: "",
+        attributes: {
+          failure_count: "1",
+          success_count: "1"
+        },
+        ioGroups: {
+          inputs: [],
+          outputs: [],
+          params: [
+            { key: "failure_count", value: "1" },
+            { key: "success_count", value: "1" }
+          ]
+        },
+        attributeFields: [
+          createDropTargetReferenceField("failure_count", "1"),
+          createDropTargetReferenceField("success_count", "1")
+        ],
+        editorFields: [],
+        modelKind: "Control",
+        warningCount: 0,
+        hasError: false,
+        warnings: [],
+        children: []
+      };
+    }
+
+    function createDropTargetReferenceField(key, value) {
+      return {
+        key,
+        value,
+        role: "param",
+        editableKey: false,
+        editableValue: true,
+        removable: false,
+        required: true,
+        source: "builtin"
+      };
+    }
   }
 
-  function setupCanvas(shell, stage, layout, viewportState = null) {
-    runtime.state.currentCanvasState = { shell, stage, layout, panX: 0, panY: 0 };
+  function setupCanvas(shell, stage, layout, viewportState = null, options = {}) {
+    const paneId = options.paneId || "main";
+    const canvasState = {
+      shell,
+      stage,
+      layout,
+      paneId,
+      panX: 0,
+      panY: 0,
+      zoom: viewportState?.zoom || 1
+    };
+    shell.__btreeCanvasState = canvasState;
+    runtime.state.canvasStatesByPane = {
+      ...(runtime.state.canvasStatesByPane || {}),
+      [paneId]: canvasState
+    };
+    if (options.active !== false) {
+      activateCanvasState(canvasState);
+    }
     syncCanvasInteractionMode();
-    runtime.state.currentZoom = viewportState?.zoom || 1;
-    updateZoomLabel();
     enableCanvasPan(shell);
 
     requestAnimationFrame(() => {
       if (viewportState) {
-        setCanvasPan(viewportState.panX, viewportState.panY);
+        setCanvasPan(viewportState.panX, viewportState.panY, canvasState);
+        if (options.active !== false) {
+          activateCanvasState(canvasState);
+        }
         return;
       }
-      fitCanvas();
+      fitCanvasWhenReady(canvasState, options.active !== false);
+    });
+  }
+
+  function fitCanvasWhenReady(canvasState, activateAfterFit, previousSize = null, frame = 0) {
+    if (!canvasState?.shell) {
+      return;
+    }
+
+    const size = {
+      width: canvasState.shell.clientWidth,
+      height: canvasState.shell.clientHeight
+    };
+    const stable =
+      size.width > 0 &&
+      size.height > 0 &&
+      previousSize?.width === size.width &&
+      previousSize?.height === size.height;
+
+    if (stable || frame >= 5) {
+      fitCanvas(canvasState);
+      if (activateAfterFit) {
+        activateCanvasState(canvasState);
+      }
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      fitCanvasWhenReady(canvasState, activateAfterFit, size, frame + 1);
     });
   }
 
@@ -327,7 +477,12 @@
     let initialPanX = 0;
     let initialPanY = 0;
 
+    shell.addEventListener("pointerenter", () => {
+      activateCanvasState(shell.__btreeCanvasState);
+    });
+
     shell.addEventListener("pointerdown", (event) => {
+      activateCanvasState(shell.__btreeCanvasState);
       if (event.button !== 0 || event.target.closest("button")) {
         return;
       }
@@ -341,8 +496,8 @@
       didPan = false;
       startX = event.clientX;
       startY = event.clientY;
-      initialPanX = runtime.state.currentCanvasState?.panX || 0;
-      initialPanY = runtime.state.currentCanvasState?.panY || 0;
+      initialPanX = shell.__btreeCanvasState?.panX || 0;
+      initialPanY = shell.__btreeCanvasState?.panY || 0;
       shell.classList.add("is-dragging");
       shell.setPointerCapture(event.pointerId);
       event.preventDefault();
@@ -353,6 +508,7 @@
         return;
       }
 
+      activateCanvasState(shell.__btreeCanvasState);
       const deltaX = event.clientX - startX;
       const deltaY = event.clientY - startY;
       if (!didPan && (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8)) {
@@ -381,6 +537,7 @@
     shell.addEventListener(
       "wheel",
       (event) => {
+        activateCanvasState(shell.__btreeCanvasState);
         event.preventDefault();
         if (event.deltaY !== 0) {
           const delta = event.deltaY < 0 ? 0.08 : -0.08;
@@ -396,74 +553,163 @@
       return;
     }
 
+    const canvasState = runtime.state.currentCanvasState;
     const nextZoom = clamp(
-      Number((runtime.state.currentZoom + delta).toFixed(2)),
+      Number(((canvasState.zoom || runtime.state.currentZoom || 1) + delta).toFixed(2)),
       runtime.state.MIN_ZOOM,
       runtime.state.MAX_ZOOM
     );
-    applyZoom(nextZoom, true, origin);
+    applyZoom(nextZoom, true, origin, canvasState);
   }
 
-  function fitCanvas() {
-    if (!runtime.state.currentCanvasState) {
+  function activateCanvasState(canvasState) {
+    if (!canvasState) {
       return;
     }
 
-    const { shell, layout } = runtime.state.currentCanvasState;
+    runtime.state.currentCanvasState = canvasState;
+    runtime.state.currentZoom = canvasState.zoom || 1;
+    updateZoomLabel();
+    syncCanvasInteractionMode();
+  }
+
+  function beginDragPreviewViewport() {
+    if (!runtime.state.currentCanvasState || dragPreviewViewport) {
+      return;
+    }
+
+    const canvasState = runtime.state.currentCanvasState;
+    const { shell, panX, panY } = canvasState;
+    dragPreviewViewport = {
+      canvasState,
+      zoom: canvasState.zoom || runtime.state.currentZoom || 1,
+      panX,
+      panY
+    };
+    enableDragPreviewTransition(shell);
+
+    const nextZoom = getDragPreviewZoom();
+    if (nextZoom < (canvasState.zoom || runtime.state.currentZoom || 1) - 0.01) {
+      applyZoom(nextZoom, true, null, canvasState);
+    }
+  }
+
+  function endDragPreviewViewport() {
+    if (!dragPreviewViewport) {
+      return;
+    }
+
+    const snapshot = dragPreviewViewport;
+    dragPreviewViewport = null;
+    if (!snapshot.canvasState) {
+      return;
+    }
+
+    const { shell } = snapshot.canvasState;
+    activateCanvasState(snapshot.canvasState);
+    enableDragPreviewTransition(shell);
+    snapshot.canvasState.zoom = snapshot.zoom;
+    setCanvasPan(snapshot.panX, snapshot.panY, snapshot.canvasState);
+    activateCanvasState(snapshot.canvasState);
+    dragPreviewTransitionTimer = window.setTimeout(() => {
+      shell.classList.remove("is-drag-preview-zooming");
+    }, 160);
+  }
+
+  function getDragPreviewZoom() {
+    const canvasState = runtime.state.currentCanvasState;
+    if (!canvasState) {
+      return runtime.state.currentZoom;
+    }
+
+    const { shell, layout } = canvasState;
+    const availableWidth = Math.max(shell.clientWidth - DRAG_PREVIEW_ZOOM_MARGIN, 1);
+    const availableHeight = Math.max(shell.clientHeight - DRAG_PREVIEW_ZOOM_MARGIN, 1);
+    const fittedZoom = Math.min(availableWidth / layout.width, availableHeight / layout.height, 1);
+    const currentZoom = canvasState.zoom || runtime.state.currentZoom || 1;
+    const targetZoom = Math.min(
+      currentZoom * DRAG_PREVIEW_ZOOM_FACTOR,
+      fittedZoom * 0.98,
+      currentZoom
+    );
+    return clamp(Number(targetZoom.toFixed(2)), DRAG_PREVIEW_MIN_ZOOM, currentZoom);
+  }
+
+  function enableDragPreviewTransition(shell) {
+    if (dragPreviewTransitionTimer) {
+      window.clearTimeout(dragPreviewTransitionTimer);
+      dragPreviewTransitionTimer = null;
+    }
+    shell.classList.add("is-drag-preview-zooming");
+  }
+
+  function fitCanvas(canvasState = runtime.state.currentCanvasState) {
+    if (!canvasState) {
+      return;
+    }
+
+    const { shell, layout } = canvasState;
     const fitX = (shell.clientWidth - 40) / layout.width;
     const fitY = (shell.clientHeight - 40) / layout.height;
     const strictFit = Math.min(fitX, fitY, 1);
     const widthBiasedFit = Math.min(fitX, fitY * 1.35, 1);
     const targetZoom = clamp(Math.max(strictFit, widthBiasedFit), runtime.state.MIN_ZOOM, 1);
-    applyZoom(targetZoom, false);
+    applyZoom(targetZoom, false, null, canvasState);
   }
 
-  function applyZoom(nextZoom, preserveCenter, origin) {
-    if (!runtime.state.currentCanvasState) {
+  function applyZoom(nextZoom, preserveCenter, origin, canvasState = runtime.state.currentCanvasState) {
+    if (!canvasState) {
       return;
     }
 
-    const { shell, layout } = runtime.state.currentCanvasState;
-    const previousZoom = runtime.state.currentZoom;
-    runtime.state.currentZoom = nextZoom;
-    updateZoomLabel();
+    const { shell, layout } = canvasState;
+    const previousZoom = canvasState.zoom || runtime.state.currentZoom || 1;
+    canvasState.zoom = nextZoom;
+    if (runtime.state.currentCanvasState === canvasState) {
+      runtime.state.currentZoom = nextZoom;
+      updateZoomLabel();
+    }
 
     if (!preserveCenter) {
-      const fittedPan = getFittedPan(shell, layout, runtime.state.currentZoom);
-      setCanvasPan(fittedPan.panX, fittedPan.panY);
+      const fittedPan = getFittedPan(shell, layout, canvasState.zoom);
+      setCanvasPan(fittedPan.panX, fittedPan.panY, canvasState);
       return;
     }
 
     const rect = shell.getBoundingClientRect();
     const pointerX = origin ? origin.originX - rect.left : shell.clientWidth / 2;
     const pointerY = origin ? origin.originY - rect.top : shell.clientHeight / 2;
-    const worldX = (pointerX - runtime.state.currentCanvasState.panX) / previousZoom;
-    const worldY = (pointerY - runtime.state.currentCanvasState.panY) / previousZoom;
-    const nextPanX = pointerX - worldX * runtime.state.currentZoom;
-    const nextPanY = pointerY - worldY * runtime.state.currentZoom;
-    setCanvasPan(nextPanX, nextPanY);
+    const worldX = (pointerX - canvasState.panX) / previousZoom;
+    const worldY = (pointerY - canvasState.panY) / previousZoom;
+    const nextPanX = pointerX - worldX * canvasState.zoom;
+    const nextPanY = pointerY - worldY * canvasState.zoom;
+    setCanvasPan(nextPanX, nextPanY, canvasState);
   }
 
-  function setCanvasPan(nextPanX, nextPanY) {
-    if (!runtime.state.currentCanvasState) {
+  function setCanvasPan(nextPanX, nextPanY, canvasState = runtime.state.currentCanvasState) {
+    if (!canvasState) {
       return;
     }
 
     const clamped = clampCanvasPan(
       nextPanX,
       nextPanY,
-      runtime.state.currentCanvasState.shell,
-      runtime.state.currentCanvasState.layout,
-      runtime.state.currentZoom
+      canvasState.shell,
+      canvasState.layout,
+      canvasState.zoom || runtime.state.currentZoom || 1
     );
     const snappedPanX = Math.round(clamped.panX);
     const snappedPanY = Math.round(clamped.panY);
 
-    runtime.state.currentCanvasState.panX = snappedPanX;
-    runtime.state.currentCanvasState.panY = snappedPanY;
-    runtime.state.currentCanvasState.stage.style.transform =
-      `translate(${snappedPanX}px, ${snappedPanY}px) scale(${runtime.state.currentZoom})`;
-    runtime.state.currentCanvasState.stage.style.transformOrigin = "top left";
+    canvasState.panX = snappedPanX;
+    canvasState.panY = snappedPanY;
+    canvasState.stage.style.transform =
+      `translate(${snappedPanX}px, ${snappedPanY}px) scale(${canvasState.zoom || runtime.state.currentZoom || 1})`;
+    canvasState.stage.style.transformOrigin = "top left";
+    if (runtime.state.currentCanvasState === canvasState) {
+      runtime.state.currentZoom = canvasState.zoom || runtime.state.currentZoom || 1;
+      updateZoomLabel();
+    }
   }
 
   function clampCanvasPan(nextPanX, nextPanY, shell, layout, zoom) {
@@ -512,6 +758,9 @@
   }
 
   function updateZoomLabel() {
+    if (runtime.state.currentCanvasState) {
+      runtime.state.currentZoom = runtime.state.currentCanvasState.zoom || runtime.state.currentZoom || 1;
+    }
     if (runtime.refs.zoomLevelLabel) {
       runtime.refs.zoomLevelLabel.textContent = `${Math.round(runtime.state.currentZoom * 100)}%`;
     }
@@ -528,9 +777,10 @@
     }
 
     const { shell } = runtime.state.currentCanvasState;
-    const targetPanX = shell.clientWidth / 2 - (entry.x + entry.width / 2) * runtime.state.currentZoom;
-    const targetPanY = shell.clientHeight / 2 - (entry.y + entry.height / 2) * runtime.state.currentZoom;
-    setCanvasPan(targetPanX, targetPanY);
+    const zoom = runtime.state.currentCanvasState.zoom || runtime.state.currentZoom || 1;
+    const targetPanX = shell.clientWidth / 2 - (entry.x + entry.width / 2) * zoom;
+    const targetPanY = shell.clientHeight / 2 - (entry.y + entry.height / 2) * zoom;
+    setCanvasPan(targetPanX, targetPanY, runtime.state.currentCanvasState);
   }
 
   function refreshViewport() {
@@ -538,14 +788,18 @@
       return;
     }
 
-    setCanvasPan(runtime.state.currentCanvasState.panX, runtime.state.currentCanvasState.panY);
+    setCanvasPan(
+      runtime.state.currentCanvasState.panX,
+      runtime.state.currentCanvasState.panY,
+      runtime.state.currentCanvasState
+    );
     updateZoomLabel();
   }
 
   function syncCanvasInteractionMode() {
-    if (runtime.state.currentCanvasState?.shell) {
-      runtime.state.currentCanvasState.shell.classList.toggle("is-hand-mode", runtime.state.isSpacePressed);
-    }
+    document.querySelectorAll(".canvas-shell").forEach((shell) => {
+      shell.classList.toggle("is-hand-mode", runtime.state.isSpacePressed);
+    });
   }
 
   function clamp(value, min, max) {
@@ -557,11 +811,14 @@
     clampNumber,
     buildTreeLayout,
     setupCanvas,
+    activateCanvasState,
     enableHorizontalWheelScroll,
     fitCanvas,
     updateZoomLabel,
     syncCanvasInteractionMode,
     zoomCanvas,
+    beginDragPreviewViewport,
+    endDragPreviewViewport,
     setCanvasPan,
     focusNodePath,
     refreshViewport

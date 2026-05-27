@@ -25,109 +25,111 @@
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
-    closeButton.className = "canvas-btn subtle";
-    closeButton.textContent = "Close";
+    closeButton.className = "settings-close-button";
+    closeButton.textContent = "X";
     closeButton.addEventListener("click", hideSettingsDialog);
 
     const form = document.createElement("div");
     form.className = "settings-form";
 
-    const languageRow = shared.createSettingsField("Language");
+    const commonSection = createSettingsSection("General Mode");
+    const commonRow = document.createElement("div");
+    commonRow.className = "settings-inline-row";
+
+    const languageRow = createInlineField("Language");
     const languageSelect = document.createElement("select");
     languageSelect.className = "attribute-input";
     languageRow.control.appendChild(languageSelect);
+    commonRow.appendChild(languageRow.element);
 
-    const themeRow = shared.createSettingsField("Theme");
+    const themeRow = createInlineField("Theme");
     const themeSelect = document.createElement("select");
     themeSelect.className = "attribute-input";
     themeRow.control.appendChild(themeSelect);
+    commonRow.appendChild(themeRow.element);
+    commonSection.body.appendChild(commonRow);
 
-    const mainTreeLocatorRow = shared.createSettingsField("MainTree Locator");
-    const mainTreeLocatorLabel = document.createElement("label");
-    mainTreeLocatorLabel.className = "settings-checkbox";
-    const mainTreeLocatorInput = document.createElement("input");
-    mainTreeLocatorInput.type = "checkbox";
-    const mainTreeLocatorText = document.createElement("span");
-    mainTreeLocatorText.textContent = "Show locator";
-    mainTreeLocatorLabel.appendChild(mainTreeLocatorInput);
-    mainTreeLocatorLabel.appendChild(mainTreeLocatorText);
-    mainTreeLocatorRow.control.appendChild(mainTreeLocatorLabel);
+    const nodeLayoutRow = createInlineField("Node Layout");
+    const nodeLayoutControl = createSegmentedControl([
+      { value: "stacked", label: "上下" },
+      { value: "inline", label: "左右" }
+    ]);
+    nodeLayoutRow.control.appendChild(nodeLayoutControl.element);
+    commonSection.body.appendChild(nodeLayoutRow.element);
 
-    const behaviorTreeRootRow = shared.createSettingsField("BehaviorTree Root");
-    const behaviorTreeRootLabel = document.createElement("label");
-    behaviorTreeRootLabel.className = "settings-checkbox";
-    const behaviorTreeRootInput = document.createElement("input");
-    behaviorTreeRootInput.type = "checkbox";
-    const behaviorTreeRootText = document.createElement("span");
-    behaviorTreeRootText.textContent = "Show virtual root";
-    behaviorTreeRootLabel.appendChild(behaviorTreeRootInput);
-    behaviorTreeRootLabel.appendChild(behaviorTreeRootText);
-    behaviorTreeRootRow.control.appendChild(behaviorTreeRootLabel);
+    const editSection = createSettingsSection("Edit Mode");
+    const editRow = document.createElement("div");
+    editRow.className = "settings-toggle-row";
 
-    const simplifyRow = shared.createSettingsField("Node Details");
-    const simplifyHint = document.createElement("div");
-    simplifyHint.className = "settings-section-hint";
-    const simplifyOptions = document.createElement("div");
-    simplifyOptions.className = "settings-checkbox-list";
-    simplifyRow.control.appendChild(simplifyHint);
-    simplifyRow.control.appendChild(simplifyOptions);
+    const mainTreeLocatorSwitch = createSettingsSwitch("MainTree Locator");
+    const mainTreeLocatorInput = mainTreeLocatorSwitch.input;
+    const mainTreeLocatorText = mainTreeLocatorSwitch.text;
+    editRow.appendChild(mainTreeLocatorSwitch.element);
 
-    const fileRow = shared.createSettingsField("Config File");
-    const fileHint = document.createElement("div");
-    fileHint.className = "settings-file-hint";
-    fileRow.control.appendChild(fileHint);
+    const behaviorTreeRootSwitch = createSettingsSwitch("ROOT");
+    const behaviorTreeRootInput = behaviorTreeRootSwitch.input;
+    const behaviorTreeRootText = behaviorTreeRootSwitch.text;
+    editRow.appendChild(behaviorTreeRootSwitch.element);
+
+    const deleteConfirmSwitch = createSettingsSwitch("Delete Confirm");
+    const deleteConfirmInput = deleteConfirmSwitch.input;
+    const deleteConfirmText = deleteConfirmSwitch.text;
+    editRow.appendChild(deleteConfirmSwitch.element);
+    editSection.body.appendChild(editRow);
+
+    const detailTitle = document.createElement("div");
+    detailTitle.className = "settings-detail-title";
+    detailTitle.textContent = "Node Details";
+    const detailGrid = document.createElement("div");
+    detailGrid.className = "settings-detail-grid";
+    const detailSwitches = createDetailSwitches();
+    detailSwitches.forEach((entry) => {
+      detailGrid.appendChild(entry.switchControl.element);
+    });
+    editSection.body.appendChild(detailTitle);
+    editSection.body.appendChild(detailGrid);
+
+    const playbackSection = createSettingsSection("Playback Mode");
+    playbackSection.element.classList.add("settings-section-playback");
 
     const actions = document.createElement("div");
     actions.className = "settings-actions";
-
-    const importButton = document.createElement("button");
-    importButton.type = "button";
-    importButton.className = "canvas-btn subtle";
-    importButton.textContent = "Import Presets";
-    importButton.addEventListener("click", () => {
-      runtime.vscode.postMessage({ type: "importRecommendedPresets" });
-      hideSettingsDialog();
-    });
-
-    const openFileButton = document.createElement("button");
-    openFileButton.type = "button";
-    openFileButton.className = "canvas-btn subtle";
-    openFileButton.textContent = "Open Config";
-    openFileButton.addEventListener("click", () => {
-      runtime.vscode.postMessage({ type: "openUserSettingsFile" });
-    });
 
     const saveButton = document.createElement("button");
     saveButton.type = "button";
     saveButton.className = "canvas-btn accent";
     saveButton.textContent = "Save";
     saveButton.addEventListener("click", () => {
+      const nextSettings = {
+        ...runtime.state.currentSettings,
+        language: languageSelect.value,
+        themePreset: themeSelect.value,
+        nodeAttributeLayout: nodeLayoutControl.getValue(),
+        showMainTreeLocator: mainTreeLocatorInput.checked,
+        showBehaviorTreeRoot: behaviorTreeRootInput.checked,
+        requireNodeDeleteConfirmation: deleteConfirmInput.checked,
+        simplifyHiddenSections: detailSwitches.filter((entry) => !entry.switchControl.input.checked).map((entry) => entry.key)
+      };
+      runtime.state.currentSettings = nextSettings;
+      runtime.app.applyUserSettings();
+      if (runtime.modeRules?.isPlaybackMode?.() && runtime.state.playbackLog) {
+        runtime.app.renderPlaybackLog({ preserveViewport: true });
+      } else if (runtime.state.currentPreview) {
+        runtime.app.renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
+      }
       runtime.vscode.postMessage({
         type: "saveUserSettings",
-        payload: {
-          ...runtime.state.currentSettings,
-          language: languageSelect.value,
-          themePreset: themeSelect.value,
-          showMainTreeLocator: mainTreeLocatorInput.checked,
-          showBehaviorTreeRoot: behaviorTreeRootInput.checked,
-          simplifyHiddenSections: getHiddenNodeDetailSections(simplifyOptions)
-        }
+        payload: nextSettings
       });
       hideSettingsDialog();
     });
-
-    actions.appendChild(importButton);
-    actions.appendChild(openFileButton);
     actions.appendChild(saveButton);
 
     header.appendChild(title);
     header.appendChild(closeButton);
-    form.appendChild(languageRow.element);
-    form.appendChild(themeRow.element);
-    form.appendChild(mainTreeLocatorRow.element);
-    form.appendChild(behaviorTreeRootRow.element);
-    form.appendChild(simplifyRow.element);
-    form.appendChild(fileRow.element);
+    form.appendChild(commonSection.element);
+    form.appendChild(editSection.element);
+    form.appendChild(playbackSection.element);
     dialog.appendChild(header);
     dialog.appendChild(form);
     dialog.appendChild(actions);
@@ -138,33 +140,121 @@
       element,
       title,
       closeButton,
+      commonSectionTitle: commonSection.title,
       languageRow,
       languageSelect,
       themeRow,
       themeSelect,
-      mainTreeLocatorRow,
+      nodeLayoutRow,
+      nodeLayoutControl,
+      editSectionTitle: editSection.title,
       mainTreeLocatorInput,
       mainTreeLocatorText,
-      behaviorTreeRootRow,
       behaviorTreeRootInput,
       behaviorTreeRootText,
-      simplifyRow,
-      simplifyHint,
-      simplifyOptions,
-      fileRow,
-      fileHint,
-      importButton,
-      openFileButton,
+      deleteConfirmInput,
+      deleteConfirmText,
+      detailTitle,
+      detailSwitches,
+      playbackSectionTitle: playbackSection.title,
       saveButton
     };
   }
 
-  function getHiddenNodeDetailSections(container) {
-    const allSections = ["description", "code", "inputs", "outputs", "params", "subtreeJump"];
-    const visibleSections = new Set(
-      Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value)
-    );
-    return allSections.filter((sectionKey) => !visibleSections.has(sectionKey));
+  function createSettingsSection(titleText) {
+    const element = document.createElement("section");
+    element.className = "settings-section";
+    const title = document.createElement("div");
+    title.className = "settings-section-title";
+    title.textContent = titleText;
+    const body = document.createElement("div");
+    body.className = "settings-section-body";
+    element.appendChild(title);
+    element.appendChild(body);
+    return { element, title, body };
+  }
+
+  function createInlineField(labelText) {
+    const element = document.createElement("label");
+    element.className = "settings-inline-field";
+    const text = document.createElement("span");
+    text.className = "settings-inline-label";
+    text.textContent = labelText;
+    const control = document.createElement("div");
+    control.className = "settings-inline-control";
+    element.appendChild(text);
+    element.appendChild(control);
+    return { element, control, text };
+  }
+
+  function createSettingsSwitch(labelText) {
+    const element = document.createElement("label");
+    element.className = "settings-toggle-item";
+    const text = document.createElement("span");
+    text.className = "settings-toggle-label";
+    text.textContent = labelText;
+    const control = document.createElement("div");
+    control.className = "settings-switch";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    const track = document.createElement("span");
+    track.className = "settings-switch-track";
+    control.appendChild(input);
+    control.appendChild(track);
+    element.appendChild(text);
+    element.appendChild(control);
+    return { element, input, text };
+  }
+
+  function createDetailSwitches() {
+    return ["description", "code", "inputs", "outputs", "params", "subtreeJump"].map((key) => ({
+      key,
+      switchControl: createSettingsSwitch(key)
+    }));
+  }
+
+  function createSegmentedControl(options) {
+    const element = document.createElement("div");
+    element.className = "settings-segmented";
+    const buttons = new Map();
+    let currentValue = options[0]?.value || "";
+
+    options.forEach((option) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "settings-segmented-button";
+      button.textContent = option.label;
+      button.addEventListener("click", () => {
+        setValue(option.value);
+      });
+      buttons.set(option.value, button);
+      element.appendChild(button);
+    });
+
+    function setValue(value) {
+      currentValue = value;
+      buttons.forEach((button, buttonValue) => {
+        const active = buttonValue === value;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    }
+
+    setValue(currentValue);
+
+    return {
+      element,
+      buttons,
+      getValue: () => currentValue,
+      setValue,
+      setLabels(labelsByValue) {
+        buttons.forEach((button, value) => {
+          if (labelsByValue?.[value]) {
+            button.textContent = labelsByValue[value];
+          }
+        });
+      }
+    };
   }
 
   function showSettingsDialog() {
@@ -174,19 +264,22 @@
 
     const copy = runtime.i18n.getSettingsCopy();
     overlayState.settingsDialog.title.textContent = copy.title;
-    overlayState.settingsDialog.closeButton.textContent = copy.close;
+    overlayState.settingsDialog.closeButton.textContent = "X";
+    overlayState.settingsDialog.closeButton.title = copy.close;
+    overlayState.settingsDialog.closeButton.setAttribute("aria-label", copy.close);
+    overlayState.settingsDialog.commonSectionTitle.textContent = copy.generalMode;
     overlayState.settingsDialog.languageRow.text.textContent = copy.language;
     overlayState.settingsDialog.themeRow.text.textContent = copy.theme;
-    overlayState.settingsDialog.mainTreeLocatorRow.text.textContent = copy.mainTreeLocator;
-    overlayState.settingsDialog.mainTreeLocatorText.textContent = copy.showMainTreeLocator;
-    overlayState.settingsDialog.behaviorTreeRootRow.text.textContent = copy.behaviorTreeRoot;
-    overlayState.settingsDialog.behaviorTreeRootText.textContent = copy.showBehaviorTreeRoot;
-    overlayState.settingsDialog.simplifyRow.text.textContent = copy.simplifyView;
-    overlayState.settingsDialog.fileRow.text.textContent = copy.configFile;
-    overlayState.settingsDialog.importButton.textContent = copy.importPresets;
-    overlayState.settingsDialog.openFileButton.textContent = copy.openConfig;
+    overlayState.settingsDialog.editSectionTitle.textContent = copy.editMode;
+    overlayState.settingsDialog.mainTreeLocatorText.textContent = copy.locatorShort;
+    overlayState.settingsDialog.behaviorTreeRootText.textContent = copy.rootShort;
+    overlayState.settingsDialog.deleteConfirmText.textContent = copy.deleteConfirmShort;
+    overlayState.settingsDialog.detailTitle.textContent = copy.nodeDetails;
+    overlayState.settingsDialog.detailSwitches.forEach((entry) => {
+      entry.switchControl.text.textContent = copy.nodeDetailOptions[entry.key];
+    });
+    overlayState.settingsDialog.playbackSectionTitle.textContent = copy.playbackMode;
     overlayState.settingsDialog.saveButton.textContent = copy.save;
-    overlayState.settingsDialog.simplifyHint.textContent = copy.simplifyHint;
     overlayState.settingsDialog.languageSelect.replaceChildren();
     [
       ["en-US", copy.languageOptions.english],
@@ -200,28 +293,22 @@
     overlayState.settingsDialog.languageSelect.value = runtime.state.currentSettings?.language || "en-US";
     overlayState.settingsDialog.themeSelect.replaceChildren(...runtime.i18n.getThemeOptions());
     overlayState.settingsDialog.themeSelect.value = runtime.state.currentSettings?.themePreset || "midnight";
+    overlayState.settingsDialog.nodeLayoutRow.text.textContent = copy.nodeAttributeLayout;
+    overlayState.settingsDialog.nodeLayoutControl.setLabels({
+      inline: copy.nodeAttributeLayoutOptions.inline,
+      stacked: copy.nodeAttributeLayoutOptions.stacked
+    });
+    overlayState.settingsDialog.nodeLayoutControl.setValue(
+      runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline"
+    );
     overlayState.settingsDialog.mainTreeLocatorInput.checked = runtime.state.currentSettings?.showMainTreeLocator !== false;
     overlayState.settingsDialog.behaviorTreeRootInput.checked = runtime.state.currentSettings?.showBehaviorTreeRoot !== false;
-    overlayState.settingsDialog.simplifyOptions.replaceChildren();
+    overlayState.settingsDialog.deleteConfirmInput.checked =
+      runtime.state.currentSettings?.requireNodeDeleteConfirmation === true;
     const hiddenSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);
-    ["description", "code", "inputs", "outputs", "params", "subtreeJump"].forEach((sectionKey) => {
-      const label = document.createElement("label");
-      label.className = "settings-checkbox";
-
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.value = sectionKey;
-      input.checked = !hiddenSections.has(sectionKey);
-
-      const text = document.createElement("span");
-      text.textContent = copy.simplifyOptions[sectionKey];
-
-      label.appendChild(input);
-      label.appendChild(text);
-      overlayState.settingsDialog.simplifyOptions.appendChild(label);
+    overlayState.settingsDialog.detailSwitches.forEach((entry) => {
+      entry.switchControl.input.checked = !hiddenSections.has(entry.key);
     });
-    overlayState.settingsDialog.fileHint.textContent = runtime.state.settingsFilePath || copy.settingsFileAutoHint;
-    overlayState.settingsDialog.fileHint.title = runtime.state.settingsFilePath || copy.settingsFileAutoHint;
     overlayState.settingsDialog.element.hidden = false;
     shared.syncBlockingOverlay();
   }

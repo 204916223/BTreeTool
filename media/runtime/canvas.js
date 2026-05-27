@@ -2,16 +2,51 @@
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
   const VIRTUAL_ROOT_PATH = "__btree_root__";
 
-  function getNodeRole(kind, childCount) {
+  function getNodeRole(nodeOrKind, childCount = 0) {
+    const node = typeof nodeOrKind === "object" && nodeOrKind !== null ? nodeOrKind : null;
+    const kind = node ? node.kind : nodeOrKind;
+    const resolvedCategory = node?.category || node?.modelKind || "";
+    const resolvedChildCount = node ? (node.children || []).length : childCount;
+
+    if (kind === "__BehaviorTreeRoot") {
+      return "root";
+    }
+
+    if (resolvedCategory === "SubTree" || kind === "SubTree") {
+      return "subtree";
+    }
+
+    if (resolvedCategory === "Control") {
+      return "control";
+    }
+
+    if (resolvedCategory === "Decorator") {
+      return "decorator";
+    }
+
+    if (resolvedCategory === "Action" || resolvedCategory === "Condition") {
+      return "action";
+    }
+
     const controlKinds = new Set([
+      "AsyncFallback",
+      "AsyncSequence",
       "Sequence",
       "SequenceWithMemory",
       "ReactiveSequence",
       "Fallback",
+      "ReactiveFallback",
       "Parallel",
+      "ParallelAll",
       "IfThenElse",
       "WhileDoElse",
-      "Switch"
+      "Switch",
+      "Switch2",
+      "Switch3",
+      "Switch4",
+      "Switch5",
+      "Switch6",
+      "TryCatch"
     ]);
 
     const decoratorKinds = new Set([
@@ -23,22 +58,22 @@
       "ForceSuccess",
       "ForceFailure",
       "Timeout",
-      "Delay"
+      "Delay",
+      "KeepRunningUntilFailure",
+      "LoopBool",
+      "LoopDouble",
+      "LoopInt",
+      "LoopString",
+      "RunOnce",
+      "SkipUnlessUpdated",
+      "WaitValueUpdate"
     ]);
 
-    if (kind === "SubTree") {
-      return "subtree";
-    }
-
-    if (kind === "__BehaviorTreeRoot") {
-      return "root";
-    }
-
-    if (controlKinds.has(kind) || childCount > 1) {
+    if (controlKinds.has(kind) || resolvedChildCount > 1) {
       return "control";
     }
 
-    if (decoratorKinds.has(kind) || childCount === 1) {
+    if (decoratorKinds.has(kind) || resolvedChildCount === 1) {
       return "decorator";
     }
 
@@ -56,14 +91,14 @@
     return hiddenSections.includes(section);
   }
 
-  function renderTree(tree, result, viewportState = null) {
+  function renderTree(tree, result, viewportState = null, options = {}) {
     const section = document.createElement("section");
     section.className = "tree-section";
-    section.appendChild(renderCanvasTree(tree, result, viewportState));
+    section.appendChild(renderCanvasTree(tree, result, viewportState, options));
     return section;
   }
 
-  function renderCanvasTree(tree, result, viewportState = null) {
+  function renderCanvasTree(tree, result, viewportState = null, options = {}) {
     const canvasRootNode = getCanvasRootNode(tree, result);
     if (!canvasRootNode) {
       const shell = document.createElement("div");
@@ -84,6 +119,7 @@
       }
 
       event.preventDefault();
+      runtime.app.activateTreePane(options.paneId, tree.id, null);
       runtime.overlays.showCanvasContextMenu(event.clientX, event.clientY);
     });
 
@@ -101,23 +137,44 @@
     svg.setAttribute("height", String(layout.height));
 
     layout.edges.forEach((edge) => {
+      const playbackClass = getPlaybackStatusClassForPath(tree.id, edge.childNodePath, true);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", renderZEdgePath(edge));
-      path.setAttribute("class", "canvas-edge-path");
+      path.setAttribute("class", `canvas-edge-path canvas-edge-path-base ${playbackClass}`.trim());
+      if (edge.childNodePath) {
+        path.dataset.nodePath = edge.childNodePath;
+      }
+      const edgeUid = runtime.state.playbackUidByTreePath?.[`${tree.id}::${edge.childNodePath}`];
+      if (edgeUid) {
+        path.dataset.playbackUid = String(edgeUid);
+      }
       svg.appendChild(path);
+
+      const dropPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      dropPath.setAttribute("d", renderZEdgePath({
+        startX: edge.dropStartX,
+        startY: edge.dropStartY,
+        endX: edge.dropEndX,
+        endY: edge.dropEndY
+      }));
+      dropPath.setAttribute("class", "canvas-edge-path canvas-edge-path-drop");
+      svg.appendChild(dropPath);
     });
 
     const nodesLayer = document.createElement("div");
     nodesLayer.className = "canvas-nodes";
     layout.nodes.forEach((entry) => {
-      nodesLayer.appendChild(renderCanvasNode(entry, result, tree.id));
+      nodesLayer.appendChild(renderCanvasNode(entry, result, tree.id, options));
     });
 
     stage.appendChild(svg);
     stage.appendChild(nodesLayer);
     shell.appendChild(stage);
 
-    runtime.viewport.setupCanvas(shell, stage, layout, viewportState);
+    runtime.viewport.setupCanvas(shell, stage, layout, viewportState, {
+      paneId: options.paneId || "main",
+      active: options.active !== false
+    });
     return shell;
   }
 
@@ -131,19 +188,37 @@
     ].join(" ");
   }
 
-  function renderCanvasNode(entry, result, currentTreeId) {
+  function renderCanvasNode(entry, result, currentTreeId, options = {}) {
     const wrapper = document.createElement("div");
     wrapper.className = "canvas-node";
     wrapper.dataset.nodePath = entry.node.nodePath;
+    wrapper.dataset.treeId = currentTreeId;
+    if (entry.node.attributes?._uid) {
+      wrapper.dataset.playbackUid = String(entry.node.attributes._uid);
+    }
     wrapper.style.left = `${entry.x}px`;
     wrapper.style.top = `${entry.y}px`;
     wrapper.style.width = `${entry.width}px`;
     wrapper.style.height = `${entry.height}px`;
+    wrapper.style.setProperty("--node-base-width", `${entry.width}px`);
+    wrapper.style.setProperty("--node-base-height", `${entry.height}px`);
+    wrapper.style.setProperty("--drop-target-left", `${entry.dropTargetX ?? entry.x}px`);
+    wrapper.style.setProperty("--drop-target-top", `${entry.dropTargetY ?? entry.y}px`);
+    wrapper.style.setProperty("--drop-target-width", `${entry.dropTargetWidth || entry.width}px`);
+    wrapper.style.setProperty("--drop-target-height", `${entry.dropTargetHeight || entry.height}px`);
+    wrapper.style.setProperty(
+      "--drop-target-source-left",
+      `${(entry.dropTargetX ?? entry.x) + ((entry.dropTargetWidth || entry.width) - entry.width) / 2}px`
+    );
+    if (entry.expandForDropTarget) {
+      wrapper.classList.add("is-drop-target-expandable");
+    }
 
     const card = buildNodeCard(entry.node, result, {
       interactive: true,
-      selected: entry.node.nodePath === runtime.state.selectedNodePath,
-      currentTreeId
+      selected: entry.node.nodePath === (options.selectedNodePath || runtime.state.selectedNodePath),
+      currentTreeId,
+      paneId: options.paneId
     });
     wrapper.appendChild(card);
     return wrapper;
@@ -154,7 +229,7 @@
     const measuring = Boolean(options.measuring);
     const isVirtualRoot = node.isVirtualRoot === true;
     const children = node.children || [];
-    const role = getNodeRole(node.kind, children.length);
+    const role = getNodeRole(node);
     const card = document.createElement("div");
     card.className = `flow-card flow-card-${role}`;
     if (isVirtualRoot) {
@@ -162,6 +237,9 @@
     }
     if (runtime.state.forceHideNodeDetails) {
       card.classList.add("is-details-hidden");
+    }
+    if (runtime.state.currentSettings?.nodeAttributeLayout === "stacked") {
+      card.classList.add("is-attribute-layout-stacked");
     }
     if (measuring) {
       card.classList.add("is-measuring");
@@ -172,21 +250,15 @@
     const dragParentPath = getDragParentNodePath(node, parentPath);
     const dragSiblingIndex = getDragSiblingIndex(node, siblingIndex);
     const acceptsAppendDrop = isVirtualRoot ? children.length === 0 : canAppendChildren(node);
-
-    if (interactive && !isVirtualRoot && dragParentPath !== null) {
-      card.draggable = runtime.app.canPerformAction("dragCanvasNode", {
+    const canDragNode =
+      interactive &&
+      !isVirtualRoot &&
+      runtime.app.canPerformAction("dragCanvasNode", {
         parentPath: dragParentPath,
         siblingIndex: dragSiblingIndex
       });
-    }
     if (options.selected) {
       card.classList.add("is-selected");
-    }
-    const playbackStatus = runtime.playback?.getNodeStatus(node) || "";
-    const playbackStatusClass = runtime.playback?.getStatusClass(playbackStatus) || "";
-    if (playbackStatusClass) {
-      card.classList.add(playbackStatusClass);
-      card.dataset.playbackStatus = playbackStatus;
     }
     const searchMatchKey = `${options.currentTreeId || ""}::${node.nodePath}`;
     if (runtime.state.searchMatchedNodePaths?.has(searchMatchKey)) {
@@ -208,6 +280,10 @@
     if (node.warnings.length > 0) {
       card.title = node.warnings.map((warning) => warning.message).join("\n");
     }
+    const playbackClass = getPlaybackStatusClass(node);
+    if (playbackClass) {
+      card.classList.add("is-playback-status", playbackClass);
+    }
 
     if (interactive && isVirtualRoot) {
       card.addEventListener("click", () => {
@@ -215,6 +291,7 @@
           return;
         }
 
+        runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
         runtime.overlays.hideNodeContextMenu();
         runtime.app.navigateToParentTree(result, options.currentTreeId);
       });
@@ -224,8 +301,10 @@
         if (!runtime.app.canPerformAction("openNodeContextMenu", { node })) {
           return;
         }
+        runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
         runtime.overlays.showNodeContextMenu(event.clientX, event.clientY, {
-          treeId: runtime.state.selectedTreeId,
+          treeId: options.currentTreeId,
+          paneId: options.paneId,
           nodePath: node.nodePath,
           parentPath: null,
           siblingIndex: null,
@@ -237,39 +316,15 @@
         });
       });
     } else if (interactive) {
-      card.addEventListener("click", () => {
-        if (Date.now() < runtime.state.suppressNodeClickUntil) {
-          return;
-        }
-
-        runtime.overlays.hideNodeContextMenu();
-        runtime.state.selectedNodePath = node.nodePath;
-        runtime.app.persistUiState();
-        runtime.app.renderCurrentTree(result, { preserveViewport: true });
-      });
-
-      card.addEventListener("dblclick", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!runtime.app.canPerformAction("openNodeEditor", { node })) {
-          return;
-        }
-        runtime.overlays.hideNodeContextMenu();
-        runtime.state.selectedNodePath = node.nodePath;
-        runtime.app.persistUiState();
-        runtime.inspector.renderInspector();
-        runtime.overlays.showNodeEditorDialog({
-          nodePath: node.nodePath
-        });
-      });
-
       card.addEventListener("contextmenu", (event) => {
         event.preventDefault();
         if (!runtime.app.canPerformAction("openNodeContextMenu", { node })) {
           return;
         }
+        runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
         runtime.overlays.showNodeContextMenu(event.clientX, event.clientY, {
-          treeId: runtime.state.selectedTreeId,
+          treeId: options.currentTreeId,
+          paneId: options.paneId,
           nodePath: node.nodePath,
           parentPath,
           siblingIndex,
@@ -282,39 +337,6 @@
           childCount: node.children.length,
           allowDelete: canDeleteNode(node)
         });
-      });
-
-      card.addEventListener("dragstart", (event) => {
-        if (
-          !runtime.app.canPerformAction("dragCanvasNode", {
-            node,
-            parentPath: dragParentPath,
-            siblingIndex: dragSiblingIndex
-          })
-        ) {
-          event.preventDefault();
-          return;
-        }
-
-        runtime.state.currentDragState = {
-          kind: "move",
-          treeId: runtime.state.selectedTreeId,
-          sourceNodePath: node.nodePath,
-          sourceParentPath: dragParentPath,
-          sourceIndex: dragSiblingIndex,
-          nodeTitle: node.title,
-          targetNodePath: null,
-          targetParentPath: null,
-          targetIndex: null
-        };
-        document.body.classList.add("is-reordering-nodes");
-        card.classList.add("is-dragging-node");
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", node.nodePath);
-      });
-
-      card.addEventListener("dragend", () => {
-        clearDragState();
       });
     }
 
@@ -339,6 +361,79 @@
       heading.appendChild(warningBadge);
     }
 
+    if (interactive && !isVirtualRoot) {
+      heading.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (Date.now() < runtime.state.suppressNodeClickUntil) {
+          return;
+        }
+
+        runtime.overlays.hideNodeContextMenu();
+        runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
+        runtime.state.selectedNodePath = node.nodePath;
+        runtime.app.persistUiState();
+        if (runtime.modeRules?.isPlaybackMode?.() && runtime.app.renderPlaybackLog) {
+          runtime.app.renderPlaybackLog({ preserveViewport: true });
+          return;
+        }
+        runtime.app.renderCurrentTree(result, { preserveViewport: true });
+      });
+
+      heading.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!runtime.app.canPerformAction("openNodeEditor", { node })) {
+          return;
+        }
+        runtime.overlays.hideNodeContextMenu();
+        runtime.state.selectedNodePath = node.nodePath;
+        runtime.app.persistUiState();
+        runtime.overlays.showNodeEditorDialog({
+          nodePath: node.nodePath
+        });
+      });
+
+      if (canDragNode) {
+        heading.draggable = true;
+        heading.classList.add("is-drag-handle");
+        heading.addEventListener("dragstart", (event) => {
+          if (
+            !runtime.app.canPerformAction("dragCanvasNode", {
+              node,
+              parentPath: dragParentPath,
+              siblingIndex: dragSiblingIndex
+            })
+          ) {
+            event.preventDefault();
+            return;
+          }
+
+          runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
+          runtime.state.currentDragState = {
+            kind: "move",
+            treeId: options.currentTreeId,
+            sourceNodePath: node.nodePath,
+            sourceParentPath: dragParentPath,
+            sourceIndex: dragSiblingIndex,
+            nodeTitle: node.title,
+            targetNodePath: null,
+            targetParentPath: null,
+            targetIndex: null
+          };
+          document.body.classList.add("is-reordering-nodes");
+          card.classList.add("is-dragging-node");
+          card.closest(".canvas-node")?.classList.add("is-drag-source");
+          runtime.viewport.beginDragPreviewViewport();
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", node.nodePath);
+        });
+
+        heading.addEventListener("dragend", () => {
+          clearDragState();
+        });
+      }
+    }
+
     card.appendChild(heading);
     let hasRenderedDetails = false;
     if (!isVirtualRoot) {
@@ -346,18 +441,18 @@
         hasRenderedDetails = renderDescriptionSection(card, node.description) || hasRenderedDetails;
       }
 
-      if (!shouldHideNodeSection("code") && node.code) {
-        hasRenderedDetails = renderTextSection(card, "Code", node.code, "code") || hasRenderedDetails;
+      if (!shouldHideNodeSection("code")) {
+        hasRenderedDetails = renderCodeSection(card, node, options) || hasRenderedDetails;
       }
 
       if (!shouldHideNodeSection("inputs")) {
-        hasRenderedDetails = renderIoSection(card, "Inputs", node.ioGroups.inputs, "input") || hasRenderedDetails;
+        hasRenderedDetails = renderAttributeSection(card, node, "Inputs", "input", options) || hasRenderedDetails;
       }
       if (!shouldHideNodeSection("outputs")) {
-        hasRenderedDetails = renderIoSection(card, "Outputs", node.ioGroups.outputs, "output") || hasRenderedDetails;
+        hasRenderedDetails = renderAttributeSection(card, node, "Outputs", "output", options) || hasRenderedDetails;
       }
       if (!shouldHideNodeSection("params")) {
-        hasRenderedDetails = renderIoSection(card, "Params", node.ioGroups.params, "param") || hasRenderedDetails;
+        hasRenderedDetails = renderAttributeSection(card, node, "Params", "param", options) || hasRenderedDetails;
       }
 
       if (
@@ -373,6 +468,7 @@
         if (interactive) {
           jumpButton.addEventListener("click", (event) => {
             event.stopPropagation();
+            runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
             runtime.app.navigateToSubTree(result, options.currentTreeId, node.nodePath, node.targetTreeId);
             document.querySelector(".tree-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
           });
@@ -393,10 +489,10 @@
       const hasSideSlots = !isVirtualRoot;
       if (hasSideSlots) {
         const beforeSlot = createDropSlot("Insert before", "drop-slot-before", () =>
-          getSideDropTarget(node.nodePath, "before")
+          getSideDropTarget(node.nodePath, "before", options.currentTreeId, options.paneId)
         );
         const afterSlot = createDropSlot("Insert after", "drop-slot-after", () =>
-          getSideDropTarget(node.nodePath, "after")
+          getSideDropTarget(node.nodePath, "after", options.currentTreeId, options.paneId)
         );
         slotOverlay.appendChild(beforeSlot);
         slotOverlay.appendChild(afterSlot);
@@ -408,7 +504,7 @@
           slotOverlay.classList.add("has-append-only");
         }
         const appendSlot = createDropSlot("Append child here", "drop-slot-append", () =>
-          getAppendDropTarget(node)
+          getAppendDropTarget(node, options.currentTreeId, options.paneId)
         );
         slotOverlay.appendChild(appendSlot);
       }
@@ -428,6 +524,45 @@
     }
 
     return parts.slice(0, -1).join(".");
+  }
+
+  function getPlaybackStatusClass(node) {
+    if (!runtime.modeRules?.isPlaybackMode?.()) {
+      return "";
+    }
+    const uid = node?.attributes?._uid;
+    if (!uid) {
+      return "";
+    }
+    return getPlaybackStatusClassForUid(String(uid), false);
+  }
+
+  function getPlaybackStatusClassForPath(treeId, nodePath, edge) {
+    if (!runtime.modeRules?.isPlaybackMode?.()) {
+      return "";
+    }
+    const uid = runtime.state.playbackUidByTreePath?.[`${treeId}::${nodePath}`];
+    if (!uid) {
+      return "";
+    }
+    return getPlaybackStatusClassForUid(String(uid), edge);
+  }
+
+  function getPlaybackStatusClassForUid(uid, edge) {
+    const status = runtime.state.playbackStatusByUid?.[uid] || "IDLE";
+    const lastTerminalStatus = runtime.state.playbackLastTerminalStatusByUid?.[uid] || "";
+    const normalized = String(status || "IDLE").toLowerCase();
+    const prefix = edge ? "playback-edge-status" : "playback-status";
+    if (status === "IDLE" && lastTerminalStatus === "SUCCESS") {
+      return `${prefix}-success-idle`;
+    }
+    if (status === "IDLE" && lastTerminalStatus === "FAILURE") {
+      return `${prefix}-failure-idle`;
+    }
+    if (["idle", "running", "success", "failure"].includes(normalized)) {
+      return `${prefix}-${normalized}`;
+    }
+    return `${prefix}-unknown`;
   }
 
   function getNodeIndex(nodePath) {
@@ -460,9 +595,13 @@
     return node?.nodePath === "0" && runtime.state.currentSettings?.showBehaviorTreeRoot !== false;
   }
 
-  function getSideDropTarget(nodePath, position) {
+  function getSideDropTarget(nodePath, position, targetTreeId, targetPaneId) {
     const dragState = runtime.state.currentDragState;
     if (!dragState) {
+      return null;
+    }
+
+    if (dragState.kind === "move" && targetTreeId !== dragState.treeId) {
       return null;
     }
 
@@ -477,6 +616,8 @@
     }
 
     return {
+      targetTreeId,
+      targetPaneId,
       nodePath,
       position,
       targetParentPath: parentPath,
@@ -484,9 +625,13 @@
     };
   }
 
-  function getAppendDropTarget(node) {
+  function getAppendDropTarget(node, targetTreeId, targetPaneId) {
     const dragState = runtime.state.currentDragState;
     if (!dragState) {
+      return null;
+    }
+
+    if (dragState.kind === "move" && targetTreeId !== dragState.treeId) {
       return null;
     }
 
@@ -499,6 +644,8 @@
     }
 
     return {
+      targetTreeId,
+      targetPaneId,
       targetParentPath,
       targetIndex: node.children.length
     };
@@ -514,11 +661,15 @@
   function clearDragState() {
     runtime.state.currentDragState = null;
     document.body.classList.remove("is-reordering-nodes");
+    runtime.viewport.endDragPreviewViewport();
     clearDropMarkers();
     runtime.catalog.clearCatalogDeleteTarget();
     runtime.overlays.hideNodeContextMenu();
     document.querySelectorAll(".flow-card.is-dragging-node").forEach((node) => {
       node.classList.remove("is-dragging-node");
+    });
+    document.querySelectorAll(".canvas-node.is-drag-source").forEach((node) => {
+      node.classList.remove("is-drag-source");
     });
     document.querySelectorAll(".catalog-item.is-dragging-palette").forEach((node) => {
       node.classList.remove("is-dragging-palette");
@@ -531,22 +682,22 @@
     });
   }
 
-  function applyDropMarker(nodePath, position) {
+  function applyDropMarker(nodePath, position, treeId = runtime.state.selectedTreeId) {
     clearDropMarkers();
     runtime.catalog.clearCatalogDeleteTarget();
     const node = document.querySelector(
-      `.canvas-node[data-node-path="${CSS.escape(nodePath)}"] .drop-slot-${position}`
+      `.canvas-node[data-tree-id="${CSS.escape(treeId || "")}"][data-node-path="${CSS.escape(nodePath)}"] .drop-slot-${position}`
     );
     if (node) {
       node.classList.add("is-active");
     }
   }
 
-  function applyAppendMarker(nodePath) {
+  function applyAppendMarker(nodePath, treeId = runtime.state.selectedTreeId) {
     clearDropMarkers();
     runtime.catalog.clearCatalogDeleteTarget();
     const node = document.querySelector(
-      `.canvas-node[data-node-path="${CSS.escape(nodePath)}"] .drop-slot-append`
+      `.canvas-node[data-tree-id="${CSS.escape(treeId || "")}"][data-node-path="${CSS.escape(nodePath)}"] .drop-slot-append`
     );
     if (node) {
       node.classList.add("is-active");
@@ -554,7 +705,7 @@
   }
 
   function canAppendChildren(node) {
-    const role = getNodeRole(node.kind, node.children.length);
+    const role = getNodeRole(node);
     if (role === "control") {
       return true;
     }
@@ -584,20 +735,20 @@
     slot.textContent = label;
 
     slot.addEventListener("dragover", (event) => {
-      if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: runtime.state.selectedTreeId })) {
-        return;
-      }
       const dropTarget = resolveDropTarget();
       if (!dropTarget) {
+        return;
+      }
+      if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: dropTarget.targetTreeId || runtime.state.selectedTreeId })) {
         return;
       }
 
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       if (className === "drop-slot-append") {
-        applyAppendMarker(dropTarget.targetParentPath);
+        applyAppendMarker(dropTarget.targetParentPath, dropTarget.targetTreeId);
       } else {
-        applyDropMarker(dropTarget.nodePath, dropTarget.position);
+        applyDropMarker(dropTarget.nodePath, dropTarget.position, dropTarget.targetTreeId);
       }
     });
 
@@ -610,12 +761,12 @@
     });
 
     slot.addEventListener("drop", (event) => {
-      if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: runtime.state.selectedTreeId })) {
-        return;
-      }
       const dropTarget = resolveDropTarget();
       const dragState = runtime.state.currentDragState;
       if (!dropTarget || !dragState) {
+        return;
+      }
+      if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: dropTarget.targetTreeId || runtime.state.selectedTreeId })) {
         return;
       }
 
@@ -637,14 +788,20 @@
         return;
       }
 
+      const targetTreeId = dropTarget.targetTreeId || dragState.treeId;
       runtime.state.selectedNodePath = toInsertedNodePath(dropTarget.targetParentPath, nextIndex);
+      if (dropTarget.targetPaneId) {
+        runtime.app.activateTreePane(dropTarget.targetPaneId, targetTreeId, runtime.state.selectedNodePath);
+      } else {
+        runtime.app.activateTreePaneByTreeId(targetTreeId, runtime.state.selectedNodePath);
+      }
       runtime.app.persistUiState();
 
       if (dragState.kind === "create") {
         runtime.vscode.postMessage({
           type: "createNode",
           payload: {
-            treeId: dragState.treeId,
+            treeId: targetTreeId,
             targetParentPath: dropTarget.targetParentPath,
             targetIndex: dropTarget.targetIndex,
             nodeKey: dragState.nodeKey,
@@ -652,6 +809,10 @@
           }
         });
       } else {
+        if (targetTreeId !== dragState.treeId) {
+          clearDragState();
+          return;
+        }
         runtime.vscode.postMessage({
           type: "moveNode",
           payload: {
@@ -673,11 +834,11 @@
     if (node.isVirtualRoot === true) {
       return "ROOT";
     }
-    if (node.title === node.kind) {
-      return getNodeRole(node.kind, node.children.length).toUpperCase();
-    }
     if (node.modelKind) {
       return node.modelKind;
+    }
+    if (node.title === node.kind) {
+      return getNodeRole(node).toUpperCase();
     }
     return node.kind;
   }
@@ -718,7 +879,7 @@
         outputs: [],
         params: []
       },
-      inspectorFields: [],
+      attributeFields: [],
       editorFields: [],
       modelKind: "",
       warningCount: warnings.length,
@@ -729,8 +890,9 @@
     };
   }
 
-  function renderIoSection(card, title, entries, tone) {
-    if (!entries || entries.length === 0) {
+  function renderAttributeSection(card, node, title, tone, options) {
+    const fields = getCardFieldsByTone(node, tone);
+    if (fields.length === 0) {
       return false;
     }
 
@@ -745,20 +907,16 @@
     const list = document.createElement("div");
     list.className = "flow-node-attributes";
 
-    entries.forEach(({ key, value }) => {
+    fields.forEach((field) => {
       const pair = document.createElement("span");
       pair.className = `flow-attribute-pair tone-${tone}`;
 
       const keyChip = document.createElement("span");
       keyChip.className = "flow-attribute-chip flow-attribute-chip-key";
-      keyChip.textContent = key;
-
-      const valueChip = document.createElement("span");
-      valueChip.className = "flow-attribute-chip flow-attribute-chip-value";
-      valueChip.textContent = value;
+      keyChip.textContent = field.key;
 
       pair.appendChild(keyChip);
-      pair.appendChild(valueChip);
+      pair.appendChild(renderAttributeValueControl(node, field, tone, options));
       list.appendChild(pair);
     });
 
@@ -767,8 +925,214 @@
     return true;
   }
 
+  function getCardFieldsByTone(node, tone) {
+    const fields = Array.isArray(node.attributeFields) && node.attributeFields.length > 0
+      ? node.attributeFields
+      : getLegacyCardFields(node);
+    const visibleFields = fields.filter((field) => field.key !== "_uid");
+    if (tone === "input") {
+      return visibleFields.filter((field) => field.role === "input" || field.role === "inout");
+    }
+    if (tone === "output") {
+      return visibleFields.filter((field) => field.role === "output" || field.role === "inout");
+    }
+    return visibleFields.filter((field) => field.role === "param" && !isDedicatedCodeField(node, field));
+  }
+
+  function getLegacyCardFields(node) {
+    const fieldsByKey = new Map();
+    const addField = (entry, role) => {
+      if (!entry?.key) {
+        return;
+      }
+
+      const existing = fieldsByKey.get(entry.key);
+      if (existing) {
+        existing.role = existing.role !== role ? "inout" : existing.role;
+        if (!existing.value && entry.value) {
+          existing.value = entry.value;
+        }
+        return;
+      }
+
+      fieldsByKey.set(entry.key, {
+        key: entry.key,
+        value: entry.value || "",
+        role,
+        editableKey: false,
+        editableValue: true,
+        removable: false,
+        required: false,
+        source: "extra"
+      });
+    };
+
+    (node.ioGroups?.inputs || []).forEach((entry) => addField(entry, "input"));
+    (node.ioGroups?.outputs || []).forEach((entry) => addField(entry, "output"));
+    (node.ioGroups?.params || []).forEach((entry) => addField(entry, "param"));
+    return Array.from(fieldsByKey.values());
+  }
+
+  function renderAttributeValueControl(node, field, tone, options) {
+    const editable =
+      options.interactive !== false &&
+      field.editableValue &&
+      runtime.app.canPerformAction("editNodeAttributes", {
+        node,
+        hasEditableFields: true
+      });
+
+    if (!editable) {
+      const valueChip = document.createElement("span");
+      valueChip.className = "flow-attribute-chip flow-attribute-chip-value";
+      valueChip.textContent = field.value || "-";
+      if (!field.value) {
+        valueChip.classList.add("is-empty");
+      }
+      return valueChip;
+    }
+
+    const input = document.createElement("input");
+    input.className = `flow-attribute-input tone-${tone}`;
+    input.type = "text";
+    input.draggable = false;
+    input.value = field.value || "";
+    input.placeholder = runtime.i18n.getAttributeCopy().valuePlaceholder;
+    input.spellcheck = false;
+    input.dataset.originalValue = field.value || "";
+    input.addEventListener("pointerdown", stopInputEvent);
+    input.addEventListener("click", stopInputEvent);
+    input.addEventListener("dblclick", stopInputEvent);
+    input.addEventListener("contextmenu", stopInputEvent);
+    input.addEventListener("copy", stopInputEvent);
+    input.addEventListener("cut", stopInputEvent);
+    input.addEventListener("paste", stopInputEvent);
+    input.addEventListener("dragstart", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    input.addEventListener("change", () => {
+      commitNodeAttributeValue(node, field, input, options.currentTreeId);
+    });
+    input.addEventListener("keydown", (event) => {
+      if (isTextEditingShortcut(event)) {
+        return;
+      }
+
+      event.stopPropagation();
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+        commitNodeAttributeValue(node, field, input, options.currentTreeId);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        input.value = input.dataset.originalValue || "";
+        input.blur();
+      }
+    });
+
+    return input;
+  }
+
+  function isTextEditingShortcut(event) {
+    if (!event.metaKey && !event.ctrlKey) {
+      return false;
+    }
+
+    return ["a", "c", "v", "x", "y", "z"].includes(String(event.key || "").toLowerCase());
+  }
+
+  function stopInputEvent(event) {
+    event.stopPropagation();
+  }
+
+  function commitNodeAttributeValue(node, field, input, treeId) {
+    const nextValue = input.value || "";
+    const originalValue = input.dataset.originalValue || "";
+    if (nextValue === originalValue) {
+      return;
+    }
+
+    if (field.required && !nextValue) {
+      input.classList.add("is-invalid");
+      input.title = runtime.i18n.getAttributeCopy().requiredAttributeValue(field.key);
+      return;
+    }
+
+    const attributes = { ...(node.attributes || {}) };
+    if (!nextValue && !field.required) {
+      delete attributes[field.key];
+    } else {
+      attributes[field.key] = nextValue;
+    }
+
+    input.classList.remove("is-invalid");
+    input.classList.add("is-saving");
+    input.dataset.originalValue = nextValue;
+    runtime.vscode.postMessage({
+      type: "updateNodeAttributes",
+      payload: {
+        treeId,
+        nodePath: node.nodePath,
+        attributes
+      }
+    });
+  }
+
   function renderDescriptionSection(card, text) {
     return renderTextSection(card, "Description", text, "description", true);
+  }
+
+  function renderCodeSection(card, node, options) {
+    if (!isCodeNode(node)) {
+      return false;
+    }
+
+    const field = getDedicatedCodeField(node);
+    if (!field && !node.code) {
+      return false;
+    }
+
+    const section = document.createElement("div");
+    section.className = "flow-text flow-text-code";
+
+    const label = document.createElement("span");
+    label.className = "flow-io-label";
+    label.textContent = "Code";
+    section.appendChild(label);
+
+    section.appendChild(
+      renderAttributeValueControl(
+        node,
+        field || {
+          key: "code",
+          value: node.code || "",
+          role: "param",
+          editableKey: false,
+          editableValue: false,
+          removable: false,
+          required: true,
+          source: "builtin"
+        },
+        "code",
+        options
+      )
+    );
+
+    card.appendChild(section);
+    return true;
+  }
+
+  function getDedicatedCodeField(node) {
+    return (node.attributeFields || []).find((field) => isDedicatedCodeField(node, field)) || null;
+  }
+
+  function isDedicatedCodeField(node, field) {
+    return isCodeNode(node) && field?.key === "code";
+  }
+
+  function isCodeNode(node) {
+    return node?.kind === "Script" || node?.kind === "ScriptCondition";
   }
 
   function renderTextSection(card, title, text, tone, alwaysVisible = false) {

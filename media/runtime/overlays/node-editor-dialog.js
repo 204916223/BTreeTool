@@ -65,7 +65,7 @@
     tabs.appendChild(descriptionTab.button);
 
     const status = document.createElement("div");
-    status.className = "inspector-status";
+    status.className = "editor-status";
     status.hidden = true;
 
     const panels = document.createElement("div");
@@ -235,13 +235,13 @@
 
     if (!message) {
       overlayState.nodeEditorDialog.status.hidden = true;
-      overlayState.nodeEditorDialog.status.className = "inspector-status";
+      overlayState.nodeEditorDialog.status.className = "editor-status";
       overlayState.nodeEditorDialog.status.textContent = "";
       return;
     }
 
     overlayState.nodeEditorDialog.status.hidden = false;
-    overlayState.nodeEditorDialog.status.className = `inspector-status is-${tone || "info"}`;
+    overlayState.nodeEditorDialog.status.className = `editor-status is-${tone || "info"}`;
     overlayState.nodeEditorDialog.status.textContent = message;
   }
 
@@ -273,7 +273,7 @@
   }
 
   function createNodeEditorFieldRow(field) {
-    const copy = runtime.i18n.getInspectorCopy();
+    const copy = runtime.i18n.getAttributeCopy();
     const row = document.createElement("div");
     row.className = "attribute-row";
     row.dataset.role = field.role || "param";
@@ -343,7 +343,7 @@
       return;
     }
 
-    const copy = runtime.i18n.getInspectorCopy();
+    const copy = runtime.i18n.getAttributeCopy();
     const treeId = overlayState.nodeEditorDialog.state.treeId;
     const nodePath = overlayState.nodeEditorDialog.state.nodePath;
     if (!treeId || !nodePath) {

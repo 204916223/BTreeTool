@@ -70,11 +70,15 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
-  const openDocumentForResource = async (
+  const resolveBehaviorTreeDocument = async (
     resource: vscode.Uri | undefined
   ): Promise<vscode.TextDocument | undefined> => {
     if (resource) {
       const document = await vscode.workspace.openTextDocument(resource);
+      if (!isBehaviorTreeDocument(document)) {
+        return undefined;
+      }
+
       await vscode.window.showTextDocument(document, {
         preview: false,
         preserveFocus: false
@@ -87,14 +91,15 @@ export function activate(context: vscode.ExtensionContext): void {
       return undefined;
     }
 
-    return editor.document;
+    return isBehaviorTreeDocument(editor.document) ? editor.document : undefined;
   };
 
   context.subscriptions.push(
     vscode.commands.registerCommand("btreeTool.openPreview", async (resource?: vscode.Uri) => {
-      const document = await openDocumentForResource(resource);
+      const document = await resolveBehaviorTreeDocument(resource);
 
-      if (!document || !isBehaviorTreeDocument(document)) {
+      if (!document) {
+        BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, undefined);
         return;
       }
 

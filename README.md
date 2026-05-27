@@ -13,7 +13,6 @@ BTreeTool 是一个在 VS Code 里查看、定位和轻量编辑 `BehaviorTree.C
 - 拖拽调整同一棵树里的节点顺序和层级
 - 从节点目录新增内建节点、模型节点和 SubTree 引用
 - 编辑 `TreeNodesModel` 节点定义
-- 导入回放日志，查看节点运行状态
 
 ## 安装
 
@@ -50,7 +49,7 @@ npm run package:vsix
 ### 顶部工具栏
 
 - `Edit`：编辑模式，可修改 XML
-- `Playback`：回放模式，可导入日志查看节点状态
+- `Playback`：回放模式入口，可切换到只读状态
 - 保存按钮：把预览里的修改保存回当前 XML
 - 子树列表：切换当前 XML 中的不同 `BehaviorTree`
 - 设置按钮：打开 BTreeTool 设置
@@ -85,26 +84,11 @@ npm run package:vsix
 
 你可以搜索节点，也可以把节点拖到画布插槽中创建新节点。
 
-### Node Inspector
-
-右侧 Inspector 用于查看和编辑当前选中节点的 XML 属性。
-
-- 常见端口会按输入、输出、参数分类展示
-- `_description` 会作为描述单独显示
-- `Script` / `ScriptCondition` 的 `code` 会单独显示
-- SubTree 引用节点本身是跳转引用，内部内容需要打开目标子树后编辑
-
 ### 搜索
 
 在预览窗口内按 `Cmd/Ctrl + F` 可以搜索节点。
 
 搜索默认匹配节点名、类型、实例名和摘要。展开筛选后，也可以搜索描述和属性。
-
-### 回放模式
-
-切换到 `Playback` 后，可以导入行为树运行日志。当前支持常见的 `btlog`、`json`、`jsonl`、`gz`、`log`、`txt` 文件。
-
-导入后，画布会用状态颜色标记节点执行结果。
 
 ## 设置
 
@@ -120,7 +104,7 @@ npm run package:vsix
 - `Import Presets`：导入推荐节点预设
 - `Open Config`：直接打开配置文件
 
-用户预设节点会参与 Node Palette、右键新增、Inspector 字段约束和新建节点默认值。
+用户预设节点会参与 Node Palette、右键新增、节点字段约束和新建节点默认值。
 
 ## XML 兼容性
 

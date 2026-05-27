@@ -163,6 +163,11 @@
           runtime.state.selectedNodePath = state.targetParentPath === "__btree_root__"
             ? "0"
             : `${state.targetParentPath}.${state.targetIndex}`;
+          if (state.paneId) {
+            runtime.app.activateTreePane(state.paneId, state.treeId, runtime.state.selectedNodePath);
+          } else {
+            runtime.app.activateTreePaneByTreeId(state.treeId, runtime.state.selectedNodePath);
+          }
           runtime.app.persistUiState();
           runtime.vscode.postMessage({
             type: "createNode",

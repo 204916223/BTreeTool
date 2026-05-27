@@ -27,11 +27,6 @@
     const { catalogList, catalogSearchInput } = refs;
     const copy = runtime.i18n.getCatalogCopy();
 
-    if (runtime.modeRules.isPlaybackMode()) {
-      runtime.playback?.renderPlaybackBlackboard();
-      return;
-    }
-
     refs.catalogSearchInput.hidden = false;
     refs.addNodeModelButton.hidden = false;
     refs.editNodeDefinitionsButton.hidden = false;
@@ -61,18 +56,17 @@
     const fragment = document.createDocumentFragment();
 
     filteredGroups.forEach((group) => {
+      const collapsed = isCatalogGroupCollapsed(group.category);
       const section = document.createElement("section");
       section.className = "catalog-group";
 
       const header = document.createElement("button");
       header.type = "button";
       header.className = "catalog-group-header";
-      header.setAttribute("aria-expanded", state.collapsedCatalogGroups?.[group.category] ? "false" : "true");
+      header.setAttribute("aria-expanded", collapsed ? "false" : "true");
 
       const arrow = document.createElement("span");
-      arrow.className = state.collapsedCatalogGroups?.[group.category]
-        ? "catalog-group-arrow is-collapsed"
-        : "catalog-group-arrow";
+      arrow.className = collapsed ? "catalog-group-arrow is-collapsed" : "catalog-group-arrow";
       arrow.textContent = "▾";
 
       const title = document.createElement("span");
@@ -84,7 +78,7 @@
       header.addEventListener("click", () => {
         state.collapsedCatalogGroups = {
           ...(state.collapsedCatalogGroups || {}),
-          [group.category]: !state.collapsedCatalogGroups?.[group.category]
+          [group.category]: !isCatalogGroupCollapsed(group.category)
         };
         app.persistUiState();
         renderCatalog(state.currentCatalogGroups);
@@ -92,18 +86,36 @@
       section.appendChild(header);
 
       const list = document.createElement("div");
-      list.className = state.collapsedCatalogGroups?.[group.category] ? "catalog-items is-collapsed" : "catalog-items";
+      list.className = collapsed ? "catalog-items is-collapsed" : "catalog-items";
 
       group.items.forEach((item) => {
         const row = document.createElement("div");
-        row.className = item.editableModelId ? "catalog-item is-editable" : "catalog-item";
-        row.title = `${item.category}: ${item.title}`;
+        const rowClasses = ["catalog-item"];
+        if (item.editableModelId) {
+          rowClasses.push("is-editable");
+        }
+        if (item.isDetachedTree) {
+          rowClasses.push("is-detached-subtree");
+        }
+        row.className = rowClasses.join(" ");
+        row.title = item.isDetachedTree
+          ? `${item.category}: ${item.title} - ${copy.detachedSubTreeTitle(item.title)}`
+          : `${item.category}: ${item.title}`;
         row.draggable = canDragPaletteNode;
 
         const label = document.createElement("span");
         label.className = "catalog-item-label";
         label.textContent = item.title;
         row.appendChild(label);
+
+        if (item.isDetachedTree) {
+          const marker = document.createElement("span");
+          marker.className = "catalog-item-detached-marker";
+          const markerTitle = copy.detachedSubTreeTitle(item.title);
+          marker.title = markerTitle;
+          marker.setAttribute("aria-label", markerTitle);
+          row.appendChild(marker);
+        }
 
         if (item.editableModelId) {
           const editButton = document.createElement("button");
@@ -176,6 +188,7 @@
           };
           document.body.classList.add("is-reordering-nodes");
           row.classList.add("is-dragging-palette");
+          runtime.viewport.beginDragPreviewViewport();
           event.dataTransfer.effectAllowed = "copyMove";
           event.dataTransfer.setData("text/plain", item.key);
         });
@@ -190,6 +203,14 @@
     });
 
     catalogList.replaceChildren(fragment);
+  }
+
+  function isCatalogGroupCollapsed(category) {
+    const collapsedGroups = runtime.state.collapsedCatalogGroups || {};
+    if (Object.prototype.hasOwnProperty.call(collapsedGroups, category)) {
+      return collapsedGroups[category] !== false;
+    }
+    return true;
   }
 
   function enableCatalogDeleteTarget() {
@@ -264,6 +285,7 @@
     init,
     renderCatalog,
     filterCatalogGroups,
+    isCatalogGroupCollapsed,
     enableCatalogDeleteTarget,
     clearCatalogDeleteTarget
   };

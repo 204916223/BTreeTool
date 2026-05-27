@@ -12,6 +12,7 @@ export type BtThemePreset =
   | "rose";
 export type BtSettingsNodeCategory = "Action" | "Condition" | "Control" | "Decorator" | "SubTree";
 export type BtSettingsFieldRole = "input" | "output" | "inout" | "param";
+export type BtNodeAttributeLayout = "inline" | "stacked";
 export type BtSimplifySection = "description" | "code" | "inputs" | "outputs" | "params" | "subtreeJump";
 
 export interface BtPresetFieldSettings {
@@ -38,6 +39,8 @@ export interface BtUserSettings {
   themePreset: BtThemePreset;
   showMainTreeLocator: boolean;
   showBehaviorTreeRoot: boolean;
+  requireNodeDeleteConfirmation: boolean;
+  nodeAttributeLayout: BtNodeAttributeLayout;
   simplifyHiddenSections: BtSimplifySection[];
   presetNodes: BtPresetNodeSettings[];
 }
@@ -49,6 +52,8 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   themePreset: "midnight",
   showMainTreeLocator: true,
   showBehaviorTreeRoot: true,
+  requireNodeDeleteConfirmation: false,
+  nodeAttributeLayout: "inline",
   simplifyHiddenSections: [],
   presetNodes: []
 };
@@ -162,6 +167,8 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     themePreset: settings.themePreset,
     showMainTreeLocator: settings.showMainTreeLocator !== false,
     showBehaviorTreeRoot: settings.showBehaviorTreeRoot !== false,
+    requireNodeDeleteConfirmation: settings.requireNodeDeleteConfirmation === true,
+    nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
     simplifyHiddenSections: [...settings.simplifyHiddenSections],
     presetNodes: settings.presetNodes.map(clonePresetNodeSettings)
   };
@@ -184,6 +191,8 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const themePreset = toThemePreset(input.themePreset, input.treeBackgroundColor);
   const showMainTreeLocator = input.showMainTreeLocator !== false;
   const showBehaviorTreeRoot = input.showBehaviorTreeRoot !== false;
+  const requireNodeDeleteConfirmation = input.requireNodeDeleteConfirmation === true;
+  const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
   const simplifyHiddenSections = Array.isArray(input.simplifyHiddenSections)
     ? input.simplifyHiddenSections.map(normalizeSimplifySection).filter((value): value is BtSimplifySection => Boolean(value))
     : [...DEFAULT_USER_SETTINGS.simplifyHiddenSections];
@@ -197,9 +206,15 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     themePreset,
     showMainTreeLocator,
     showBehaviorTreeRoot,
+    requireNodeDeleteConfirmation,
+    nodeAttributeLayout,
     simplifyHiddenSections: Array.from(new Set(simplifyHiddenSections)),
     presetNodes
   };
+}
+
+function normalizeNodeAttributeLayout(value: unknown): BtNodeAttributeLayout {
+  return value === "stacked" ? "stacked" : "inline";
 }
 
 function normalizeSimplifySection(value: unknown): BtSimplifySection | null {

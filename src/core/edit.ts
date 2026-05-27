@@ -2,6 +2,20 @@ import { BtDocumentAst, BtNodeAst, BtNodeModel, BtPortModel } from "./btAst";
 import { BtUserSettings } from "../userSettings";
 
 const VIRTUAL_ROOT_PATH = "__btree_root__";
+const EXPLICIT_MODEL_TAGS = new Set(["Action", "Condition", "Control", "Decorator"]);
+const EDITOR_ONLY_ATTRIBUTES = new Set([
+  "ID",
+  "name",
+  "_description",
+  "_skipIf",
+  "_failureIf",
+  "_while",
+  "_successIf",
+  "_onSuccess",
+  "_onFailure",
+  "_onHalted",
+  "_post"
+]);
 
 export function createBehaviorTree(document: BtDocumentAst, treeId: string): void {
   const normalizedTreeId = treeId.trim();
@@ -251,7 +265,11 @@ export function deleteNode(document: BtDocumentAst, treeId: string, nodePath: st
 }
 
 export function replaceNodeModels(document: BtDocumentAst, nextNodeModels: BtNodeModel[]): void {
-  document.nodeModels = nextNodeModels.map(cloneNodeModel);
+  const previousModels = new Map(document.nodeModels.map((model) => [model.id, model]));
+  const clonedNodeModels = nextNodeModels.map(cloneNodeModel);
+
+  removeDeletedModelPorts(document, previousModels, clonedNodeModels);
+  document.nodeModels = clonedNodeModels;
 
   if (document.nodeModels.length > 0) {
     if (!document.topLevelOrder.includes("treeNodesModel")) {
@@ -261,6 +279,65 @@ export function replaceNodeModels(document: BtDocumentAst, nextNodeModels: BtNod
   }
 
   document.topLevelOrder = document.topLevelOrder.filter((item) => item !== "treeNodesModel");
+}
+
+function removeDeletedModelPorts(
+  document: BtDocumentAst,
+  previousModels: Map<string, BtNodeModel>,
+  nextNodeModels: BtNodeModel[]
+): void {
+  for (const nextModel of nextNodeModels) {
+    const previousModel = previousModels.get(nextModel.id);
+    if (!previousModel) {
+      continue;
+    }
+
+    const nextPortNames = new Set(nextModel.ports.map(getPortName).filter(Boolean));
+    const deletedPortNames = previousModel.ports
+      .map(getPortName)
+      .filter((name): name is string => Boolean(name) && !EDITOR_ONLY_ATTRIBUTES.has(name) && !nextPortNames.has(name));
+
+    if (deletedPortNames.length === 0) {
+      continue;
+    }
+
+    removeAttributesFromModelInstances(document, nextModel.id, new Set(deletedPortNames));
+  }
+}
+
+function getPortName(port: BtPortModel): string {
+  return port.attributes.name || "";
+}
+
+function removeAttributesFromModelInstances(document: BtDocumentAst, modelId: string, attributeNames: Set<string>): void {
+  for (const tree of document.behaviorTrees) {
+    visitNode(tree.node, (node) => {
+      if (!isNodeInstanceOfModel(node, modelId)) {
+        return;
+      }
+
+      for (const attributeName of attributeNames) {
+        delete node.attributes[attributeName];
+      }
+    });
+  }
+}
+
+function isNodeInstanceOfModel(node: BtNodeAst, modelId: string): boolean {
+  if (EXPLICIT_MODEL_TAGS.has(node.tagName)) {
+    return node.attributes.ID === modelId;
+  }
+
+  return node.tagName === modelId;
+}
+
+function visitNode(node: BtNodeAst | null, visitor: (node: BtNodeAst) => void): void {
+  if (!node) {
+    return;
+  }
+
+  visitor(node);
+  node.children.forEach((child) => visitNode(child, visitor));
 }
 
 function nodeReferencesBehaviorTree(node: BtNodeAst, treeId: string): boolean {
