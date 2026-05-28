@@ -91,6 +91,32 @@
     transform: none;
   }
 
+  .playback-right-panel-header {
+    align-items: flex-start;
+  }
+
+  .playback-right-tabs {
+    justify-content: flex-start;
+  }
+
+  .playback-trace-composer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .playback-trace-composer-footer {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .playback-trace-send {
+    justify-self: end;
+  }
+
+  .playback-trace-statusbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .panel-edge-toggle:active {
     transform: scale(0.97);
   }

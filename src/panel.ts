@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { existsSync, readFileSync } from "node:fs";
 import { BtNodeModel } from "./core/btAst";
 import {
   createBehaviorTree,
@@ -11,7 +12,7 @@ import {
   replaceNodeModels
 } from "./core/edit";
 import { isBlockingWarning } from "./core/issueRules";
-import { decodeBtlogFile } from "./core/btlog";
+import { BtPlaybackLog, decodeBtlogFile } from "./core/btlog";
 import {
   importTreeNodesModelToNodeLibrary,
   NodeLibraryImportConflict,
@@ -28,6 +29,7 @@ import {
   mergeRecommendedPresets,
   saveUserSettings
 } from "./userSettings";
+import { addTraceProvider, callTraceChat, getTraceConfigState, loadTraceConfig } from "./traceConfig";
 
 type PreviewPayload = {
   fileName: string;
@@ -148,6 +150,37 @@ type WebviewMessage =
     }
   | {
       type: "choosePlaybackLogFile";
+    }
+  | {
+      type: "openTraceConfigFile";
+    }
+  | {
+      type: "refreshTraceConfig";
+    }
+  | {
+      type: "addTraceProvider";
+    }
+  | {
+      type: "traceAsk";
+      payload?: {
+        requestId?: string;
+        logFilePath?: string;
+        question?: string;
+        context?: string;
+      };
+    }
+  | {
+      type: "traceCancel";
+      payload?: {
+        requestId?: string;
+      };
+    }
+  | {
+      type: "traceAnswerChunk";
+      payload?: {
+        requestId?: string;
+        delta?: string;
+      };
     };
 
 type XmlMutation = {
@@ -191,11 +224,53 @@ function mergePresetNodeSets(
   };
 }
 
+function readInitialThemeSettings(globalStorageUri: vscode.Uri): Pick<BtUserSettings, "language" | "themePreset"> {
+  const configPath = vscode.Uri.joinPath(globalStorageUri, "user-settings.json").fsPath;
+  if (!existsSync(configPath)) {
+    return {
+      language: "en-US",
+      themePreset: "midnight"
+    };
+  }
+
+  try {
+    const raw = readFileSync(configPath, "utf8");
+    const parsed = JSON.parse(raw) as Partial<Pick<BtUserSettings, "language" | "themePreset">>;
+    return {
+      language: parsed.language === "zh-CN" ? "zh-CN" : "en-US",
+      themePreset:
+        parsed.themePreset === "graphite" ||
+        parsed.themePreset === "ocean" ||
+        parsed.themePreset === "forest" ||
+        parsed.themePreset === "paper" ||
+        parsed.themePreset === "sand" ||
+        parsed.themePreset === "mist" ||
+        parsed.themePreset === "rose"
+          ? parsed.themePreset
+          : "midnight"
+    };
+  } catch (_error) {
+    return {
+      language: "en-US",
+      themePreset: "midnight"
+    };
+  }
+}
+
 function formatImportConflictNames(conflicts: NodeLibraryImportConflict[]): string {
   const names = conflicts.map((conflict) => `${conflict.category}/${conflict.nodeId}`);
   const visibleNames = names.slice(0, 20);
   const suffix = names.length > visibleNames.length ? `, +${names.length - visibleNames.length}` : "";
   return `${visibleNames.join(", ")}${suffix}`;
+}
+
+function isAbortError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "name" in error &&
+      (error as { name?: string }).name === "AbortError"
+  );
 }
 
 function getPanelCopy(language: string) {
@@ -402,6 +477,7 @@ export class BehaviorTreePreviewPanel {
     }
 
     const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
+    const initialSettings = readInitialThemeSettings(globalStorageUri);
 
     if (!document) {
       const panel = vscode.window.createWebviewPanel(
@@ -415,7 +491,13 @@ export class BehaviorTreePreviewPanel {
         }
       );
 
-      const previewPanel = new BehaviorTreePreviewPanel(panel, extensionUri, globalStorageUri, undefined);
+      const previewPanel = new BehaviorTreePreviewPanel(
+        panel,
+        extensionUri,
+        globalStorageUri,
+        undefined,
+        initialSettings
+      );
       BehaviorTreePreviewPanel.noDocumentPanels.add(previewPanel);
       return;
     }
@@ -432,7 +514,13 @@ export class BehaviorTreePreviewPanel {
       }
     );
 
-    const previewPanel = new BehaviorTreePreviewPanel(panel, extensionUri, globalStorageUri, document);
+    const previewPanel = new BehaviorTreePreviewPanel(
+      panel,
+      extensionUri,
+      globalStorageUri,
+      document,
+      initialSettings
+    );
     BehaviorTreePreviewPanel.addPanelForDocument(document.uri, previewPanel);
   }
 
@@ -528,7 +616,10 @@ export class BehaviorTreePreviewPanel {
   private readonly disposables: vscode.Disposable[] = [];
   private latestPayload: PreviewPayload = BehaviorTreePreviewPanel.emptyPayload;
   private latestDocumentUri: vscode.Uri | null = null;
+  private latestPlaybackLog: BtPlaybackLog | null = null;
   private settingsFileUri: vscode.Uri | null = null;
+  private traceConfigFileUri: vscode.Uri | null = null;
+  private readonly traceRequestControllers = new Map<string, AbortController>();
   private currentSettings: BtUserSettings = cloneUserSettings(BehaviorTreePreviewPanel.emptyPayload.settings);
   private nodeLibraryPresets: BtUserSettings["presetNodes"] = [];
   private webviewReady = false;
@@ -548,7 +639,8 @@ export class BehaviorTreePreviewPanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     globalStorageUri: vscode.Uri,
-    document?: vscode.TextDocument
+    document?: vscode.TextDocument,
+    initialSettings?: Pick<BtUserSettings, "language" | "themePreset">
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
@@ -557,7 +649,7 @@ export class BehaviorTreePreviewPanel {
     this.latestPayload = this.toPayload(document);
     BehaviorTreePreviewPanel.activePanel = this;
 
-    this.panel.webview.html = this.getHtml(this.panel.webview, Boolean(document));
+    this.panel.webview.html = this.getHtml(this.panel.webview, Boolean(document), initialSettings);
     if (document?.fileName) {
       this.updatePanelTitle(document.fileName);
     }
@@ -569,11 +661,17 @@ export class BehaviorTreePreviewPanel {
         BehaviorTreePreviewPanel.activePanel = this;
       }
     }, null, this.disposables);
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      if (this.traceConfigFileUri && document.uri.toString() === this.traceConfigFileUri.toString()) {
+        void this.postTraceConfigState();
+      }
+    }, null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewMessage) => {
         if (message.type === "ready") {
           this.webviewReady = true;
           this.postLatestPayload();
+          void this.postTraceConfigState();
           return;
         }
 
@@ -671,6 +769,31 @@ export class BehaviorTreePreviewPanel {
           void this.handleChoosePlaybackLogFile();
           return;
         }
+
+        if (message.type === "openTraceConfigFile") {
+          void this.openTraceConfigFile();
+          return;
+        }
+
+        if (message.type === "refreshTraceConfig") {
+          void this.postTraceConfigState();
+          return;
+        }
+
+        if (message.type === "addTraceProvider") {
+          void this.handleAddTraceProvider();
+          return;
+        }
+
+        if (message.type === "traceAsk" && "payload" in message) {
+          void this.handleTraceAsk(message.payload);
+          return;
+        }
+
+        if (message.type === "traceCancel" && "payload" in message) {
+          void this.handleTraceCancel(message.payload);
+          return;
+        }
       },
       null,
       this.disposables
@@ -706,6 +829,33 @@ export class BehaviorTreePreviewPanel {
       type: "btreeDocument",
       payload: this.latestPayload
     });
+  }
+
+  private async postTraceConfigState(): Promise<void> {
+    try {
+      const { config, configUri } = await loadTraceConfig(this.globalStorageUri);
+      this.traceConfigFileUri = configUri;
+      this.panel.webview.postMessage({
+        type: "traceConfigState",
+        payload: getTraceConfigState(config, configUri.fsPath)
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.panel.webview.postMessage({
+        type: "traceConfigState",
+        payload: {
+          ready: false,
+          configFilePath: "",
+          configDirectoryPath: "",
+          activeProvider: "",
+          activeProviderLabel: "",
+          activeModel: "",
+          missing: [message],
+          notice: message,
+          providers: []
+        }
+      });
+    }
   }
 
   private updatePanelTitle(fileName: string): void {
@@ -1406,12 +1556,14 @@ export class BehaviorTreePreviewPanel {
 
     try {
       const playbackLog = decodeBtlogFile(file.fsPath, this.currentSettings);
+      this.latestPlaybackLog = playbackLog;
       this.panel.title = `BTreeTool: ${playbackLog.fileName}`;
       this.panel.webview.postMessage({
         type: "playbackLog",
         payload: playbackLog
       });
     } catch (error) {
+      this.latestPlaybackLog = null;
       const message = error instanceof Error ? error.message : String(error);
       this.panel.webview.postMessage({
         type: "playbackLogError",
@@ -1419,6 +1571,122 @@ export class BehaviorTreePreviewPanel {
       });
       void vscode.window.showErrorMessage(`BTreeTool: ${message}`);
     }
+  }
+
+  private async openTraceConfigFile(): Promise<void> {
+    if (!this.traceConfigFileUri) {
+      const { configUri } = await loadTraceConfig(this.globalStorageUri);
+      this.traceConfigFileUri = configUri;
+    }
+
+    const document = await vscode.workspace.openTextDocument(this.traceConfigFileUri);
+    await vscode.window.showTextDocument(document, {
+      preview: false,
+      preserveFocus: false
+    });
+  }
+
+  private async handleAddTraceProvider(): Promise<void> {
+    const { config, configUri } = await loadTraceConfig(this.globalStorageUri);
+    const updated = await addTraceProvider(configUri, config);
+    this.traceConfigFileUri = configUri;
+    this.panel.webview.postMessage({
+      type: "traceConfigState",
+      payload: getTraceConfigState(updated.config, configUri.fsPath)
+    });
+    const document = await vscode.workspace.openTextDocument(configUri);
+    await vscode.window.showTextDocument(document, {
+      preview: false,
+      preserveFocus: false
+    });
+  }
+
+  private async handleTraceAsk(
+    payload:
+      | {
+          requestId?: string;
+          logFilePath?: string;
+          question?: string;
+          context?: string;
+        }
+      | undefined
+  ): Promise<void> {
+    const requestId = payload?.requestId || "";
+    const question = payload?.question?.trim() || "";
+    const context = payload?.context?.trim() || "";
+    const logFilePath = payload?.logFilePath || "";
+
+    try {
+      if (!requestId || !question || !context) {
+        throw new Error("Trace request is incomplete.");
+      }
+      if (!this.latestPlaybackLog || this.latestPlaybackLog.filePath !== logFilePath) {
+        throw new Error("Trace only works with the currently opened btlog file.");
+      }
+
+      const controller = new AbortController();
+      this.traceRequestControllers.set(requestId, controller);
+      const result = await callTraceChat(
+        this.globalStorageUri,
+        { question, context, signal: controller.signal },
+        {
+          onDelta: (delta) => {
+            if (!delta || controller.signal.aborted) {
+              return;
+            }
+            this.panel.webview.postMessage({
+              type: "traceAnswerChunk",
+              payload: {
+                requestId,
+                delta
+              }
+            });
+          }
+        }
+      );
+      if (controller.signal.aborted) {
+        return;
+      }
+      this.panel.webview.postMessage({
+        type: "traceAnswer",
+        payload: {
+          requestId,
+          ok: true,
+          answer: result.answer,
+          provider: result.providerLabel,
+          model: result.model
+        }
+      });
+    } catch (error) {
+      const controller = requestId ? this.traceRequestControllers.get(requestId) : null;
+      const cancelled = controller?.signal.aborted === true || isAbortError(error);
+      const message = error instanceof Error ? error.message : String(error);
+      this.panel.webview.postMessage({
+        type: "traceAnswer",
+        payload: {
+          requestId,
+          ok: false,
+          cancelled,
+          error: cancelled ? "" : message
+        }
+      });
+      if (!cancelled) {
+        void this.postTraceConfigState();
+      }
+    } finally {
+      if (requestId) {
+        this.traceRequestControllers.delete(requestId);
+      }
+    }
+  }
+
+  private async handleTraceCancel(payload: { requestId?: string } | undefined): Promise<void> {
+    const requestId = payload?.requestId || "";
+    const controller = requestId ? this.traceRequestControllers.get(requestId) : null;
+    if (!controller || controller.signal.aborted) {
+      return;
+    }
+    controller.abort();
   }
 
   private async normalizeDocumentBeforeSave(document: vscode.TextDocument): Promise<vscode.TextDocument> {
@@ -1617,7 +1885,11 @@ export class BehaviorTreePreviewPanel {
     }
   }
 
-  private getHtml(webview: vscode.Webview, hasDocument: boolean): string {
+  private getHtml(
+    webview: vscode.Webview,
+    hasDocument: boolean,
+    initialSettings?: Pick<BtUserSettings, "language" | "themePreset">
+  ): string {
     const styleUris = [
       "tokens.css",
       "chrome.css",
@@ -1670,9 +1942,11 @@ export class BehaviorTreePreviewPanel {
     );
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "main.js"));
     const nonce = getNonce();
+    const initialTheme = initialSettings?.themePreset || "midnight";
+    const initialLanguage = initialSettings?.language || "en-US";
 
     return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${initialLanguage}" data-btree-theme="${initialTheme}">
   <head>
     <meta charset="UTF-8" />
     <meta

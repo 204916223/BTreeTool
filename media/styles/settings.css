@@ -120,6 +120,10 @@
   min-height: 64px;
 }
 
+.settings-section-trace .settings-section-body {
+  min-height: 48px;
+}
+
 .settings-inline-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -246,6 +250,25 @@
 .settings-field-control {
   display: grid;
   gap: 6px;
+}
+
+.settings-trace-control {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.settings-trace-directory {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-dialog-panel .attribute-input {

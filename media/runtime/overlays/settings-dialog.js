@@ -105,6 +105,30 @@
     playbackRow.appendChild(playbackAutoNavigateSwitch.element);
     playbackSection.body.appendChild(playbackRow);
 
+    const traceSection = createSettingsSection("Trace Mode");
+    traceSection.element.classList.add("settings-section-trace");
+    const traceField = document.createElement("div");
+    traceField.className = "settings-field";
+    const traceFieldLabel = document.createElement("div");
+    traceFieldLabel.className = "settings-field-label";
+    traceFieldLabel.textContent = "Trace Config";
+    const traceFieldControl = document.createElement("div");
+    traceFieldControl.className = "settings-field-control settings-trace-control";
+    const traceDirectoryValue = document.createElement("div");
+    traceDirectoryValue.className = "settings-trace-directory";
+    const traceOpenButton = document.createElement("button");
+    traceOpenButton.type = "button";
+    traceOpenButton.className = "canvas-btn";
+    traceOpenButton.addEventListener("click", () => {
+      runtime.vscode.postMessage({ type: "openTraceConfigFile" });
+      hideSettingsDialog();
+    });
+    traceFieldControl.appendChild(traceDirectoryValue);
+    traceFieldControl.appendChild(traceOpenButton);
+    traceField.appendChild(traceFieldLabel);
+    traceField.appendChild(traceFieldControl);
+    traceSection.body.appendChild(traceField);
+
     const actions = document.createElement("div");
     actions.className = "settings-actions";
 
@@ -131,8 +155,9 @@
     saveButton.className = "canvas-btn accent";
     saveButton.textContent = "Save";
     saveButton.addEventListener("click", () => {
+      const currentSettings = runtime.state.currentSettings || {};
       const nextSettings = {
-        ...runtime.state.currentSettings,
+        ...currentSettings,
         language: languageSelect.value,
         themePreset: themeSelect.value,
         nodeAttributeLayout: nodeLayoutControl.getValue(),
@@ -143,12 +168,17 @@
         playbackAutoNavigateToTree: playbackAutoNavigateInput.checked,
         simplifyHiddenSections: detailSwitches.filter((entry) => !entry.switchControl.input.checked).map((entry) => entry.key)
       };
+      const preserveViewport =
+        currentSettings.nodeAttributeLayout === nextSettings.nodeAttributeLayout &&
+        currentSettings.showBehaviorTreeRoot === nextSettings.showBehaviorTreeRoot &&
+        JSON.stringify(currentSettings.simplifyHiddenSections || []) ===
+          JSON.stringify(nextSettings.simplifyHiddenSections || []);
       runtime.state.currentSettings = nextSettings;
       runtime.app.applyUserSettings();
       if (runtime.modeRules?.isPlaybackMode?.() && runtime.state.playbackLog) {
-        runtime.app.renderPlaybackLog({ preserveViewport: true });
+        runtime.app.renderPlaybackLog({ preserveViewport });
       } else if (runtime.state.currentPreview) {
-        runtime.app.renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
+        runtime.app.renderCurrentTree(runtime.state.currentPreview, { preserveViewport });
       }
       runtime.vscode.postMessage({
         type: "saveUserSettings",
@@ -165,6 +195,7 @@
     form.appendChild(commonSection.element);
     form.appendChild(editSection.element);
     form.appendChild(playbackSection.element);
+    form.appendChild(traceSection.element);
     dialog.appendChild(header);
     dialog.appendChild(form);
     dialog.appendChild(actions);
@@ -196,6 +227,10 @@
       playbackSectionTitle: playbackSection.title,
       playbackAutoNavigateInput,
       playbackAutoNavigateText,
+      traceSectionTitle: traceSection.title,
+      traceFieldLabel,
+      traceDirectoryValue,
+      traceOpenButton,
       clearImportedNodesButton,
       importNodesButton,
       saveButton
@@ -351,6 +386,15 @@
     });
     overlayState.settingsDialog.playbackSectionTitle.textContent = copy.playbackMode;
     overlayState.settingsDialog.playbackAutoNavigateText.textContent = copy.playbackAutoNavigateShort;
+    overlayState.settingsDialog.traceSectionTitle.textContent = copy.traceMode;
+    overlayState.settingsDialog.traceFieldLabel.textContent = copy.traceConfigDirectory;
+    overlayState.settingsDialog.traceOpenButton.textContent = copy.traceOpenConfig;
+    overlayState.settingsDialog.traceOpenButton.title = copy.traceOpenConfig;
+    overlayState.settingsDialog.traceOpenButton.setAttribute("aria-label", copy.traceOpenConfig);
+    const traceConfig = runtime.state.traceConfig;
+    const traceDirectory = traceConfig?.configDirectoryPath || "";
+    overlayState.settingsDialog.traceDirectoryValue.textContent = traceDirectory || copy.traceConfigDirectoryUnavailable;
+    overlayState.settingsDialog.traceDirectoryValue.title = traceDirectory || copy.traceConfigDirectoryUnavailable;
     overlayState.settingsDialog.clearImportedNodesButton.textContent = copy.clearImportedNodes;
     overlayState.settingsDialog.importNodesButton.textContent = copy.importNodes;
     overlayState.settingsDialog.saveButton.textContent = copy.save;

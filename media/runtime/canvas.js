@@ -83,7 +83,11 @@
   const NODE_DETAIL_SECTIONS = ["description", "code", "inputs", "outputs", "params", "subtreeJump"];
 
   function shouldHideNodeSection(section) {
-    if (runtime.state.forceHideNodeDetails && NODE_DETAIL_SECTIONS.includes(section)) {
+    if (
+      runtime.modeRules?.isPlaybackMode?.() !== true &&
+      runtime.state.forceHideNodeDetails &&
+      NODE_DETAIL_SECTIONS.includes(section)
+    ) {
       return true;
     }
 
@@ -235,7 +239,7 @@
     if (isVirtualRoot) {
       card.classList.add("is-virtual-root");
     }
-    if (runtime.state.forceHideNodeDetails) {
+    if (runtime.modeRules?.isPlaybackMode?.() !== true && runtime.state.forceHideNodeDetails) {
       card.classList.add("is-details-hidden");
     }
     if (runtime.state.currentSettings?.nodeAttributeLayout === "stacked") {
@@ -244,6 +248,8 @@
     if (measuring) {
       card.classList.add("is-measuring");
     }
+    const body = document.createElement("div");
+    body.className = "flow-card-body";
 
     const parentPath = getParentNodePath(node.nodePath);
     const siblingIndex = getNodeIndex(node.nodePath);
@@ -432,24 +438,25 @@
     }
 
     card.appendChild(heading);
+    card.appendChild(body);
     let hasRenderedDetails = false;
     if (!isVirtualRoot) {
       if (!shouldHideNodeSection("description")) {
-        hasRenderedDetails = renderDescriptionSection(card, node.description) || hasRenderedDetails;
+        hasRenderedDetails = renderDescriptionSection(body, node.description) || hasRenderedDetails;
       }
 
       if (!shouldHideNodeSection("code")) {
-        hasRenderedDetails = renderCodeSection(card, node, options) || hasRenderedDetails;
+        hasRenderedDetails = renderCodeSection(body, node, options) || hasRenderedDetails;
       }
 
       if (!shouldHideNodeSection("inputs")) {
-        hasRenderedDetails = renderAttributeSection(card, node, "Inputs", "input", options) || hasRenderedDetails;
+        hasRenderedDetails = renderAttributeSection(body, node, "Inputs", "input", options) || hasRenderedDetails;
       }
       if (!shouldHideNodeSection("outputs")) {
-        hasRenderedDetails = renderAttributeSection(card, node, "Outputs", "output", options) || hasRenderedDetails;
+        hasRenderedDetails = renderAttributeSection(body, node, "Outputs", "output", options) || hasRenderedDetails;
       }
       if (!shouldHideNodeSection("params")) {
-        hasRenderedDetails = renderAttributeSection(card, node, "Params", "param", options) || hasRenderedDetails;
+        hasRenderedDetails = renderAttributeSection(body, node, "Params", "param", options) || hasRenderedDetails;
       }
 
       if (
@@ -470,7 +477,7 @@
             document.querySelector(".tree-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
           });
         }
-        card.appendChild(jumpButton);
+        body.appendChild(jumpButton);
         hasRenderedDetails = true;
       }
     }
@@ -895,7 +902,7 @@
     };
   }
 
-  function renderAttributeSection(card, node, title, tone, options) {
+  function renderAttributeSection(container, node, title, tone, options) {
     const fields = getCardFieldsByTone(node, tone);
     if (fields.length === 0) {
       return false;
@@ -926,7 +933,7 @@
     });
 
     section.appendChild(list);
-    card.appendChild(section);
+    container.appendChild(section);
     return true;
   }
 
@@ -979,17 +986,21 @@
   }
 
   function renderAttributeValueControl(node, field, tone, options) {
+    const measuring = Boolean(options.measuring);
+    const playbackMode = runtime.modeRules?.isPlaybackMode?.() === true;
     const editable =
-      options.interactive !== false &&
       field.editableValue &&
-      runtime.app.canPerformAction("editNodeAttributes", {
-        node,
-        hasEditableFields: true
-      });
+      !playbackMode &&
+      (measuring ||
+        (options.interactive !== false &&
+          runtime.app.canPerformAction("editNodeAttributes", {
+            node,
+            hasEditableFields: true
+          })));
 
     if (!editable) {
       const valueChip = document.createElement("span");
-      valueChip.className = "flow-attribute-chip flow-attribute-chip-value";
+      valueChip.className = "flow-attribute-chip flow-attribute-chip-value is-readonly-value";
       valueChip.textContent = field.value || "-";
       if (!field.value) {
         valueChip.classList.add("is-empty");
@@ -1005,36 +1016,41 @@
     input.placeholder = runtime.i18n.getAttributeCopy().valuePlaceholder;
     input.spellcheck = false;
     input.dataset.originalValue = field.value || "";
-    input.addEventListener("pointerdown", stopInputEvent);
-    input.addEventListener("click", stopInputEvent);
-    input.addEventListener("dblclick", stopInputEvent);
-    input.addEventListener("contextmenu", stopInputEvent);
-    input.addEventListener("copy", stopInputEvent);
-    input.addEventListener("cut", stopInputEvent);
-    input.addEventListener("paste", stopInputEvent);
-    input.addEventListener("dragstart", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    });
-    input.addEventListener("change", () => {
-      commitNodeAttributeValue(node, field, input, options.currentTreeId);
-    });
-    input.addEventListener("keydown", (event) => {
-      if (isTextEditingShortcut(event)) {
-        return;
-      }
-
-      event.stopPropagation();
-      if (event.key === "Enter") {
+    if (measuring) {
+      input.readOnly = true;
+      input.tabIndex = -1;
+    } else {
+      input.addEventListener("pointerdown", stopInputEvent);
+      input.addEventListener("click", stopInputEvent);
+      input.addEventListener("dblclick", stopInputEvent);
+      input.addEventListener("contextmenu", stopInputEvent);
+      input.addEventListener("copy", stopInputEvent);
+      input.addEventListener("cut", stopInputEvent);
+      input.addEventListener("paste", stopInputEvent);
+      input.addEventListener("dragstart", (event) => {
         event.preventDefault();
-        input.blur();
+        event.stopPropagation();
+      });
+      input.addEventListener("change", () => {
         commitNodeAttributeValue(node, field, input, options.currentTreeId);
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        input.value = input.dataset.originalValue || "";
-        input.blur();
-      }
-    });
+      });
+      input.addEventListener("keydown", (event) => {
+        if (isTextEditingShortcut(event)) {
+          return;
+        }
+
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          input.blur();
+          commitNodeAttributeValue(node, field, input, options.currentTreeId);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          input.value = input.dataset.originalValue || "";
+          input.blur();
+        }
+      });
+    }
 
     return input;
   }
@@ -1084,11 +1100,11 @@
     });
   }
 
-  function renderDescriptionSection(card, text) {
-    return renderTextSection(card, "Description", text, "description", true);
+  function renderDescriptionSection(container, text) {
+    return renderTextSection(container, "Description", text, "description", true);
   }
 
-  function renderCodeSection(card, node, options) {
+  function renderCodeSection(container, node, options) {
     if (!isCodeNode(node)) {
       return false;
     }
@@ -1124,7 +1140,7 @@
       )
     );
 
-    card.appendChild(section);
+    container.appendChild(section);
     return true;
   }
 
@@ -1140,7 +1156,7 @@
     return node?.kind === "Script" || node?.kind === "ScriptCondition";
   }
 
-  function renderTextSection(card, title, text, tone, alwaysVisible = false) {
+  function renderTextSection(container, title, text, tone, alwaysVisible = false) {
     if (!alwaysVisible && !text) {
       return false;
     }
@@ -1160,7 +1176,7 @@
     }
     body.textContent = text || " ";
     section.appendChild(body);
-    card.appendChild(section);
+    container.appendChild(section);
     return true;
   }
 

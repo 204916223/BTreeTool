@@ -313,7 +313,7 @@
     }
 
     function measureNodeBox(node, expanded) {
-      const hiddenSections = runtime.state.forceHideNodeDetails
+      const hiddenSections = runtime.modeRules?.isPlaybackMode?.() !== true && runtime.state.forceHideNodeDetails
         ? "all"
         : (runtime.state.currentSettings?.simplifyHiddenSections || []).join(",");
       const cacheKey = `${hiddenSections}::${expanded ? "expanded" : "base"}::${node.nodePath}`;
@@ -322,15 +322,7 @@
       }
 
       const host = ensureMeasureHost();
-      host.replaceChildren();
-      const card = runtime.canvas.buildNodeCard(node, result, { interactive: false, measuring: true });
-      host.appendChild(card);
-
-      const rect = card.getBoundingClientRect();
-      const measured = {
-        width: Math.ceil(rect.width),
-        height: Math.ceil(rect.height)
-      };
+      const measured = measureCardSize(node, host);
 
       if (expanded && !node.isVirtualRoot) {
         measured.width = Math.max(measured.width, dropTargetReferenceSize.width);
@@ -343,17 +335,28 @@
 
     function measureDropTargetReferenceSize() {
       const host = ensureMeasureHost();
-      host.replaceChildren();
-      const card = runtime.canvas.buildNodeCard(createDropTargetReferenceNode(), result, {
-        interactive: false,
-        measuring: true
-      });
-      host.appendChild(card);
+      return measureCardSize(createDropTargetReferenceNode(), host);
+    }
 
-      const rect = card.getBoundingClientRect();
+    function measureCardSize(node, host) {
+      host.style.width = "auto";
+      host.replaceChildren();
+      const previewCard = runtime.canvas.buildNodeCard(node, result, { interactive: false, measuring: true });
+      host.appendChild(previewCard);
+
+      const previewRect = previewCard.getBoundingClientRect();
+      const previewWidth = Math.ceil(previewRect.width);
+
+      host.style.width = `${previewWidth}px`;
+      host.replaceChildren();
+      const lockedCard = runtime.canvas.buildNodeCard(node, result, { interactive: false, measuring: true });
+      host.appendChild(lockedCard);
+
+      const lockedRect = lockedCard.getBoundingClientRect();
+      host.style.width = "auto";
       return {
-        width: Math.ceil(rect.width),
-        height: Math.ceil(rect.height)
+        width: Math.ceil(lockedRect.width),
+        height: Math.ceil(lockedRect.height)
       };
     }
 
@@ -472,6 +475,7 @@
   function enableCanvasPan(shell) {
     let dragging = false;
     let didPan = false;
+    let clearSelectionOnRelease = false;
     let startX = 0;
     let startY = 0;
     let initialPanX = 0;
@@ -488,6 +492,11 @@
       }
 
       const onNodeCard = Boolean(event.target.closest(".flow-card"));
+      const onEditableControl = Boolean(event.target.closest("input, textarea, select, [contenteditable='true']"));
+      if (!onEditableControl) {
+        blurActiveCanvasInput();
+      }
+      clearSelectionOnRelease = !onNodeCard && !onEditableControl;
       if (onNodeCard && !runtime.state.isSpacePressed) {
         return;
       }
@@ -518,7 +527,12 @@
     });
 
     const stopDragging = () => {
+      const shouldClearSelection = clearSelectionOnRelease && !didPan;
       if (!dragging) {
+        if (shouldClearSelection) {
+          clearCanvasSelection();
+        }
+        clearSelectionOnRelease = false;
         return;
       }
 
@@ -529,6 +543,10 @@
       dragging = false;
       didPan = false;
       shell.classList.remove("is-dragging");
+      if (shouldClearSelection) {
+        clearCanvasSelection();
+      }
+      clearSelectionOnRelease = false;
     };
 
     shell.addEventListener("pointerup", stopDragging);
@@ -546,6 +564,32 @@
       },
       { passive: false }
     );
+  }
+
+  function blurActiveCanvasInput() {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement)) {
+      return;
+    }
+
+    if (
+      activeElement.matches("input, textarea, select") ||
+      activeElement.isContentEditable
+    ) {
+      activeElement.blur();
+    }
+  }
+
+  function clearCanvasSelection() {
+    if (runtime.state.selectedNodePath === null) {
+      return;
+    }
+
+    runtime.state.selectedNodePath = null;
+    runtime.app.persistUiState?.();
+    if (runtime.state.latestPayload) {
+      runtime.app.renderCurrentTree(runtime.state.latestPayload, { preserveViewport: true });
+    }
   }
 
   function zoomCanvas(delta, origin) {

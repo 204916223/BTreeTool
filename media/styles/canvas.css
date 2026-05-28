@@ -133,7 +133,9 @@ body.is-reordering-nodes .canvas-node.is-drag-source {
   --slot-accent: var(--accent);
   --slot-bg: color-mix(in srgb, var(--color-accent) 12%, transparent);
   --slot-border: color-mix(in srgb, var(--color-accent) 46%, transparent);
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   width: 100%;
   height: 100%;
@@ -206,7 +208,7 @@ body.is-reordering-nodes .canvas-node.is-drop-target-expandable:not(.is-drag-sou
   height: auto;
   min-width: 240px;
   max-width: 400px;
-  display: inline-grid;
+  display: inline-flex;
 }
 
 .flow-card-heading.is-drag-handle {
@@ -384,9 +386,19 @@ body.is-reordering-nodes .drop-slot-overlay {
 }
 
 .flow-card.is-virtual-root {
-  align-content: center;
+  justify-content: center;
   gap: 0;
   padding: 9px 12px;
+}
+
+.flow-card-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.flow-card.is-details-hidden .flow-card-body {
+  display: none;
 }
 
 .flow-card.is-measuring.is-virtual-root {
@@ -400,7 +412,6 @@ body.is-reordering-nodes .drop-slot-overlay {
 
 .flow-card.is-virtual-root .flow-node-kind {
   color: var(--accent);
-  background: var(--accent-soft);
 }
 
 .flow-card.is-virtual-root .flow-node-name {
@@ -435,9 +446,9 @@ body.is-reordering-nodes .drop-slot-overlay {
 .flow-node-kind {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--color-kind-badge-bg);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
@@ -522,7 +533,7 @@ body.is-reordering-nodes .drop-slot-overlay {
   align-items: stretch;
   width: 100%;
   min-width: 0;
-  gap: 4px;
+  gap: 6px;
 }
 
 [data-node-attribute-layout="stacked"] .flow-attribute-pair {
@@ -550,11 +561,11 @@ body.is-reordering-nodes .drop-slot-overlay {
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  padding: 5px 8px;
-  border-radius: 8px;
-  background: var(--color-surface-subtle);
-  border: 1px solid var(--line);
-  color: var(--muted);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -564,6 +575,7 @@ body.is-reordering-nodes .drop-slot-overlay {
 
 .flow-attribute-chip-key {
   font-weight: 600;
+  color: var(--muted);
 }
 
 .flow-attribute-chip-value {
@@ -573,6 +585,17 @@ body.is-reordering-nodes .drop-slot-overlay {
 .flow-attribute-chip-value.is-empty {
   color: var(--muted);
   opacity: 0.72;
+}
+
+body.is-playback-mode .flow-attribute-chip-value.is-readonly-value {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-bg-card-strong) 80%, var(--color-surface-subtle));
+  color: var(--text);
+  font-weight: 500;
 }
 
 .flow-attribute-input {
@@ -608,49 +631,45 @@ body.is-reordering-nodes .drop-slot-overlay {
 }
 
 .flow-attribute-pair.tone-input .flow-attribute-chip {
-  border-color: var(--color-role-input-border-strong);
-  background: var(--color-role-input-bg);
   color: var(--color-role-input-text);
 }
 
 .flow-attribute-pair.tone-input .flow-attribute-chip-key {
-  background: color-mix(in srgb, var(--color-role-input-bg) 72%, var(--color-bg-card-strong));
-  color: color-mix(in srgb, var(--color-role-input-text) 82%, var(--text));
+  color: var(--color-role-input-text);
 }
 
 .flow-attribute-pair.tone-input .flow-attribute-chip-value {
-  background: color-mix(in srgb, var(--color-role-input-bg) 44%, var(--color-bg-card-strong));
   color: var(--text);
 }
 
 .flow-attribute-pair.tone-output .flow-attribute-chip {
-  border-color: var(--color-role-output-border-strong);
-  background: var(--color-role-output-bg);
   color: var(--color-role-output-text);
 }
 
 .flow-attribute-pair.tone-output .flow-attribute-chip-key {
-  background: color-mix(in srgb, var(--color-role-output-bg) 72%, var(--color-bg-card-strong));
-  color: color-mix(in srgb, var(--color-role-output-text) 82%, var(--text));
+  color: var(--color-role-output-text);
+  font-weight: 700;
 }
 
 .flow-attribute-pair.tone-output .flow-attribute-chip-value {
-  background: color-mix(in srgb, var(--color-role-output-bg) 44%, var(--color-bg-card-strong));
+  color: var(--color-role-output-text);
+  font-weight: 700;
+}
+
+body.is-playback-mode .flow-attribute-pair.tone-output .flow-attribute-chip-value.is-readonly-value {
   color: var(--text);
+  font-weight: 500;
 }
 
 .flow-attribute-pair.tone-param .flow-attribute-chip {
-  border-color: var(--color-role-param-border);
-  background: var(--color-role-param-bg);
+  color: var(--muted);
 }
 
 .flow-attribute-pair.tone-param .flow-attribute-chip-key {
-  background: color-mix(in srgb, var(--color-role-param-bg) 72%, var(--color-bg-card-strong));
   color: var(--muted);
 }
 
 .flow-attribute-pair.tone-param .flow-attribute-chip-value {
-  background: color-mix(in srgb, var(--color-role-param-bg) 42%, var(--color-bg-card-strong));
   color: var(--text);
 }
 

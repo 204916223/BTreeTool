@@ -49,6 +49,7 @@
     playbackFrameIndex: Number.isInteger(persistedState.playbackFrameIndex) ? persistedState.playbackFrameIndex : 0,
     playbackLeftVisible: persistedState.playbackLeftVisible !== false,
     playbackRightVisible: persistedState.playbackRightVisible !== false,
+    playbackRightTab: persistedState.playbackRightTab === "trace" || persistedState.playbackRightTab === "ai" ? "trace" : "blackboard",
     playbackLeftWidth: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
       persistedState.playbackLeftWidth,
       220,
@@ -78,6 +79,10 @@
     playbackBlackboardScrollTop: Number.isFinite(persistedState.playbackBlackboardScrollTop)
       ? persistedState.playbackBlackboardScrollTop
       : 0,
+    traceConfig: null,
+    traceMessages: [],
+    tracePendingRequestId: "",
+    tracePendingAnswer: "",
     playbackIsPlaying: false,
     playbackPlaybackSpeed: Number.isFinite(persistedState.playbackPlaybackSpeed)
       ? persistedState.playbackPlaybackSpeed
@@ -220,7 +225,12 @@
 
     if (message?.type === "playbackLog") {
       pausePlayback();
+      const previousLogPath = runtime.state.playbackLog?.filePath || "";
       runtime.state.playbackLog = message.payload || null;
+      const nextLogPath = runtime.state.playbackLog?.filePath || "";
+      if (previousLogPath !== nextLogPath) {
+        clearTraceMessages();
+      }
       runtime.state.playbackFrameIndex = 0;
       runtime.state.editModeEnabled = false;
       runtime.state.playbackIsPlaying = false;
@@ -236,7 +246,26 @@
     if (message?.type === "playbackLogError") {
       pausePlayback();
       runtime.state.playbackLog = null;
+      clearTraceMessages();
       runtime.refs.treeContent.replaceChildren(emptyState(message.payload?.message || "Failed to load playback log."));
+    }
+
+    if (message?.type === "traceConfigState") {
+      runtime.state.traceConfig = message.payload || null;
+      const log = runtime.state.playbackLog;
+      const snapshot = log ? buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex) : null;
+      updatePlaybackTracePanel(log, snapshot);
+      return;
+    }
+
+    if (message?.type === "traceAnswer") {
+      handleTraceAnswer(message.payload);
+      return;
+    }
+
+    if (message?.type === "traceAnswerChunk") {
+      handleTraceAnswerChunk(message.payload);
+      return;
     }
 
   });
@@ -877,6 +906,7 @@
       renderPlaybackState();
       return;
     }
+    const playbackCopy = runtime.i18n.getPlaybackCopy();
     const viewportState = options.preserveViewport && runtime.state.currentCanvasState
       ? getCanvasViewportState(runtime.state.currentCanvasState)
       : null;
@@ -918,7 +948,7 @@
     shell.appendChild(leftToggle);
     shell.appendChild(rightToggle);
 
-    const leftPanel = renderPlaybackTransitionPanel(log);
+    const leftPanel = renderPlaybackTransitionPanel(log, playbackCopy);
     const leftResizer = createPlaybackResizer("left");
     const center = document.createElement("div");
     center.className = "playback-canvas-pane";
@@ -931,7 +961,7 @@
       runtime.mainTreeLocator.clear();
     }
     const rightResizer = createPlaybackResizer("right");
-    const rightPanel = renderPlaybackBlackboardPanel(log, playbackSnapshot);
+    const rightPanel = renderPlaybackRightPanel(log, playbackSnapshot, playbackCopy);
 
     shell.appendChild(leftPanel);
     shell.appendChild(leftResizer);
@@ -958,14 +988,14 @@
     });
   }
 
-  function renderPlaybackTransitionPanel(log) {
+  function renderPlaybackTransitionPanel(log, playbackCopy = runtime.i18n.getPlaybackCopy()) {
     const panel = document.createElement("aside");
     panel.className = "playback-side-panel playback-transition-panel";
 
     const header = document.createElement("div");
     header.className = "playback-panel-header";
     const title = document.createElement("strong");
-    title.textContent = "Transitions";
+    title.textContent = playbackCopy.transitions;
     const count = document.createElement("span");
     count.className = "playback-transition-count";
     count.textContent = formatTransitionCount(log);
@@ -977,7 +1007,7 @@
     const filterInput = document.createElement("input");
     filterInput.className = "playback-transition-filter";
     filterInput.type = "search";
-    filterInput.placeholder = "Filter by Node Name";
+    filterInput.placeholder = playbackCopy.filterByNodeName;
     filterInput.spellcheck = false;
     filterInput.value = runtime.state.playbackTransitionFilter || "";
     filterInput.addEventListener("input", () => {
@@ -997,7 +1027,12 @@
     table.className = "playback-transition-table";
     const tableHeader = document.createElement("div");
     tableHeader.className = "playback-transition-table-header";
-    ["Time", "Node Name", "Prev", "Status"].forEach((label) => {
+    [
+      playbackCopy.transitionColumns.time,
+      playbackCopy.transitionColumns.nodeName,
+      playbackCopy.transitionColumns.prev,
+      playbackCopy.transitionColumns.status
+    ].forEach((label) => {
       const cell = document.createElement("span");
       cell.textContent = label;
       tableHeader.appendChild(cell);
@@ -1156,26 +1191,59 @@
     return `${model.visibleCount}/${total}`;
   }
 
-  function renderPlaybackBlackboardPanel(log, snapshot) {
+  function renderPlaybackRightPanel(log, snapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
     const panel = document.createElement("aside");
-    panel.className = "playback-side-panel playback-blackboard-panel";
+    panel.className = "playback-side-panel playback-right-panel";
+    panel.dataset.activeTab = normalizePlaybackRightTab(runtime.state.playbackRightTab);
 
     const header = document.createElement("div");
-    header.className = "playback-panel-header";
-    const title = document.createElement("strong");
-    title.textContent = "Blackboard";
-    const count = document.createElement("span");
-    count.className = "playback-blackboard-count";
-    count.textContent = formatBlackboardCount(snapshot);
-    header.appendChild(title);
-    header.appendChild(count);
+    header.className = "playback-panel-header playback-right-panel-header";
 
-    const filterRow = document.createElement("div");
-    filterRow.className = "playback-blackboard-filter-row";
+    const tabs = document.createElement("div");
+    tabs.className = "playback-right-tabs";
+    tabs.setAttribute("role", "tablist");
+    tabs.appendChild(createPlaybackRightTabButton("blackboard", playbackCopy.blackboard, panel));
+    tabs.appendChild(createPlaybackRightTabButton("trace", getPlaybackTraceLabel(playbackCopy), panel));
+    header.appendChild(tabs);
+
+    const panels = document.createElement("div");
+    panels.className = "playback-right-panels";
+
+    const blackboardPanel = renderPlaybackBlackboardPanel(log, snapshot, playbackCopy);
+    const tracePanel = renderPlaybackTracePanel(log, snapshot, playbackCopy);
+    panels.appendChild(blackboardPanel);
+    panels.appendChild(tracePanel);
+
+    panel.appendChild(header);
+    panel.appendChild(panels);
+    updatePlaybackRightPanelTabs(panel);
+    return panel;
+  }
+
+  function createPlaybackRightTabButton(tabId, label, panel) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "playback-right-tab-button";
+    button.dataset.tabId = tabId;
+    button.setAttribute("role", "tab");
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      setPlaybackRightTab(tabId, panel);
+    });
+    return button;
+  }
+
+  function renderPlaybackBlackboardPanel(log, snapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const panel = document.createElement("section");
+    panel.className = "playback-right-tab-panel playback-blackboard-panel";
+    panel.dataset.playbackTab = "blackboard";
+
+    const filterInputRow = document.createElement("div");
+    filterInputRow.className = "playback-blackboard-filter-row";
     const filterInput = document.createElement("input");
     filterInput.className = "playback-blackboard-filter";
     filterInput.type = "search";
-    filterInput.placeholder = "Filter blackboard";
+    filterInput.placeholder = playbackCopy.filterBlackboard;
     filterInput.spellcheck = false;
     filterInput.value = runtime.state.playbackBlackboardFilter || "";
     filterInput.addEventListener("input", () => {
@@ -1183,22 +1251,28 @@
       updatePlaybackBlackboardPanel(log, buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex));
       persistUiState();
     });
-    filterRow.appendChild(filterInput);
+    const count = document.createElement("span");
+    count.className = "playback-blackboard-count";
+    count.textContent = formatBlackboardCount(snapshot);
+    filterInputRow.appendChild(filterInput);
+    filterInputRow.appendChild(count);
 
-    panel.appendChild(header);
-    panel.appendChild(filterRow);
-    panel.appendChild(renderPlaybackBlackboardBody(log, snapshot));
+    panel.appendChild(filterInputRow);
+    panel.appendChild(renderPlaybackBlackboardBody(log, snapshot, playbackCopy));
     panel.dataset.blackboardRenderKey = getPlaybackBlackboardRenderKey(snapshot);
     return panel;
   }
 
-  function renderPlaybackBlackboardBody(log, snapshot) {
+  function renderPlaybackBlackboardBody(log, snapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
     const table = document.createElement("div");
     table.className = "playback-blackboard-table";
 
     const tableHeader = document.createElement("div");
     tableHeader.className = "playback-blackboard-table-header";
-    ["Key", "Value"].forEach((label) => {
+    [
+      playbackCopy.blackboardColumns.key,
+      playbackCopy.blackboardColumns.value
+    ].forEach((label) => {
       const cell = document.createElement("span");
       cell.textContent = label;
       tableHeader.appendChild(cell);
@@ -1210,7 +1284,9 @@
     if (rows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "playback-blackboard-empty";
-      empty.textContent = snapshot.latestBlackboardEvent ? "No matching blackboard values." : "No blackboard values before this frame.";
+      empty.textContent = snapshot.latestBlackboardEvent
+        ? playbackCopy.noMatchingBlackboardValues
+        : playbackCopy.noBlackboardValuesBeforeFrame;
       list.appendChild(empty);
     } else {
       const fragment = document.createDocumentFragment();
@@ -1238,6 +1314,56 @@
     table.appendChild(tableHeader);
     table.appendChild(list);
     return table;
+  }
+
+    function renderPlaybackTracePanel(log, snapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+      const panel = document.createElement("section");
+      panel.className = "playback-right-tab-panel playback-trace-panel";
+      panel.dataset.playbackTab = "trace";
+      updatePlaybackTracePanel(log, snapshot, panel);
+      return panel;
+    }
+
+  function updatePlaybackRightPanelTabs(panel = document.querySelector(".playback-right-panel")) {
+    if (!panel) {
+      return;
+    }
+
+    const activeTab = normalizePlaybackRightTab(runtime.state.playbackRightTab);
+    runtime.state.playbackRightTab = activeTab;
+    panel.dataset.activeTab = activeTab;
+
+    panel.querySelectorAll(".playback-right-tab-button").forEach((button) => {
+      const isActive = button.dataset.tabId === activeTab;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+      button.setAttribute("tabindex", isActive ? "0" : "-1");
+    });
+
+    panel.querySelectorAll(".playback-right-tab-panel").forEach((tabPanel) => {
+      const isActive = tabPanel.dataset.playbackTab === activeTab;
+      tabPanel.hidden = !isActive;
+    });
+  }
+
+  function setPlaybackRightTab(tabId, panel = null) {
+    const nextTab = normalizePlaybackRightTab(tabId);
+    if (runtime.state.playbackRightTab === nextTab) {
+      updatePlaybackRightPanelTabs(panel || document.querySelector(".playback-right-panel"));
+      return;
+    }
+
+    runtime.state.playbackRightTab = nextTab;
+    updatePlaybackRightPanelTabs(panel || document.querySelector(".playback-right-panel"));
+    persistUiState();
+  }
+
+  function normalizePlaybackRightTab(value) {
+    return value === "trace" || value === "ai" ? "trace" : "blackboard";
+  }
+
+  function getPlaybackTraceLabel(playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    return playbackCopy.trace;
   }
 
   function createBlackboardCell(kind, text, title = "") {
@@ -1290,6 +1416,7 @@
   }
 
   function renderPlaybackTimeline(log) {
+    const playbackCopy = runtime.i18n.getPlaybackCopy();
     const footer = document.createElement("div");
     footer.className = "playback-timeline";
 
@@ -1321,8 +1448,8 @@
 
     const speedSelect = document.createElement("select");
     speedSelect.className = "playback-speed-select";
-    speedSelect.setAttribute("aria-label", "Playback speed");
-    speedSelect.title = "Playback speed";
+    speedSelect.setAttribute("aria-label", playbackCopy.playbackSpeed);
+    speedSelect.title = playbackCopy.playbackSpeed;
     PLAYBACK_SPEED_OPTIONS.forEach((option) => {
       const item = document.createElement("option");
       item.value = String(option.value);
@@ -1347,7 +1474,7 @@
     prevButton.type = "button";
     prevButton.className = "canvas-btn icon-btn playback-step-btn";
     prevButton.textContent = "<";
-    prevButton.title = "Previous node status change";
+    prevButton.title = playbackCopy.previousNodeStatusChange;
     prevButton.addEventListener("click", () => {
       stepPlaybackTransition(log, -1);
     });
@@ -1356,7 +1483,7 @@
     nextButton.type = "button";
     nextButton.className = "canvas-btn icon-btn playback-step-btn";
     nextButton.textContent = ">";
-    nextButton.title = "Next node status change";
+    nextButton.title = playbackCopy.nextNodeStatusChange;
     nextButton.addEventListener("click", () => {
       stepPlaybackTransition(log, 1);
     });
@@ -1390,7 +1517,7 @@
     const time = document.createElement("div");
     time.className = "playback-current-time";
     const frame = log.frames?.[runtime.state.playbackFrameIndex] || null;
-    time.textContent = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : "No frames";
+    time.textContent = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : playbackCopy.noFrames;
 
     rightControls.appendChild(prevButton);
     rightControls.appendChild(nextButton);
@@ -1478,13 +1605,14 @@
   }
 
   function updatePlaybackTimelineControls(log) {
+    const playbackCopy = runtime.i18n.getPlaybackCopy();
     const playButton = document.querySelector(".playback-play-btn");
     if (playButton) {
       const isPlaying = runtime.state.playbackIsPlaying === true;
       const nextIconKind = isPlaying ? "pause" : "play";
       playButton.classList.toggle("is-active", isPlaying);
       playButton.setAttribute("aria-pressed", isPlaying ? "true" : "false");
-      playButton.title = isPlaying ? "Pause playback" : "Play playback";
+      playButton.title = isPlaying ? playbackCopy.pausePlayback : playbackCopy.playPlayback;
       playButton.setAttribute("aria-label", playButton.title);
       if (playButton.dataset.playbackIcon !== nextIconKind) {
         playButton.replaceChildren(createPlaybackTransportIcon(nextIconKind));
@@ -1516,12 +1644,13 @@
   }
 
   function createPlaybackPanelToggle(side) {
+    const playbackCopy = runtime.i18n.getPlaybackCopy();
     const button = document.createElement("button");
     button.type = "button";
     button.className = `panel-edge-toggle playback-edge-toggle playback-edge-toggle-${side}`;
     const isLeft = side === "left";
     const visibleKey = isLeft ? "playbackLeftVisible" : "playbackRightVisible";
-    button.title = isLeft ? "Show or hide transitions" : "Show or hide blackboard";
+    button.title = isLeft ? playbackCopy.showHideTransitions : playbackCopy.showHideRightPanel;
     button.setAttribute("aria-label", button.title);
     button.addEventListener("click", () => {
       runtime.state[visibleKey] = runtime.state[visibleKey] === false;
@@ -1661,6 +1790,7 @@
     if (options.updateBlackboard !== false) {
       updatePlaybackBlackboardPanel(log, playbackSnapshot);
     }
+    updatePlaybackTracePanel(log, playbackSnapshot, null, { refreshContent: false });
     if (options.focusNode) {
       schedulePlaybackFocus();
     }
@@ -1705,6 +1835,7 @@
   }
 
   function updatePlaybackTimeline(log) {
+    const playbackCopy = runtime.i18n.getPlaybackCopy();
     const slider = document.querySelector(".playback-slider");
     if (slider) {
       slider.value = String(runtime.state.playbackFrameIndex);
@@ -1712,7 +1843,7 @@
     const time = document.querySelector(".playback-current-time");
     if (time) {
       const frame = log.frames?.[runtime.state.playbackFrameIndex] || null;
-      time.textContent = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : "No frames";
+      time.textContent = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : playbackCopy.noFrames;
     }
     updatePlaybackTimelineControls(log);
   }
@@ -1791,6 +1922,409 @@
       restoreBlackboardScrollSnapshot(nextList, scrollSnapshot);
     }
     panel.scrollTop = previousPanelScrollTop;
+  }
+
+  function updatePlaybackTracePanel(log, snapshot, targetPanel = null, options = {}) {
+    const panel = targetPanel || document.querySelector(".playback-trace-panel");
+    if (!panel) {
+      return;
+    }
+
+    if (options.refreshContent === false) {
+      return;
+    }
+
+    const playbackCopy = runtime.i18n.getPlaybackCopy();
+    const config = runtime.state.traceConfig;
+    const nextMode = config?.ready ? "chat" : "setup";
+    if (panel.dataset.traceMode !== nextMode) {
+      panel.dataset.traceMode = nextMode;
+      panel.replaceChildren(nextMode === "chat"
+        ? renderPlaybackTraceChat(log, playbackCopy)
+        : renderPlaybackTraceSetup(config, playbackCopy));
+    }
+
+    if (nextMode === "chat") {
+      updatePlaybackTraceChat(panel, log, playbackCopy);
+    } else {
+      updatePlaybackTraceSetup(panel, config, playbackCopy);
+    }
+  }
+
+  function renderPlaybackTraceSetup(config, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "playback-trace-setup";
+
+    const body = document.createElement("div");
+    body.className = "playback-trace-setup-body";
+
+    const title = document.createElement("strong");
+    title.className = "playback-trace-setup-title";
+    title.textContent = playbackCopy.traceConfigTitle;
+
+    const description = document.createElement("p");
+    description.className = "playback-trace-note";
+    description.textContent = playbackCopy.traceConfigDescription;
+
+    const missing = document.createElement("div");
+    missing.className = "playback-trace-missing";
+    missing.dataset.traceMissing = "true";
+    const missingMessage = document.createElement("div");
+    missingMessage.dataset.traceMissingMessage = "true";
+    const addProviderButton = createTraceButton(playbackCopy.traceAddProvider, () => {
+      vscode.postMessage({ type: "addTraceProvider" });
+    }, "accent");
+    missing.appendChild(missingMessage);
+    missing.appendChild(addProviderButton);
+
+    const providers = document.createElement("div");
+    providers.className = "playback-trace-provider-list";
+    providers.dataset.traceProviders = "true";
+
+    body.appendChild(title);
+    body.appendChild(description);
+    body.appendChild(missing);
+    body.appendChild(providers);
+
+    wrapper.appendChild(body);
+    updatePlaybackTraceSetup(wrapper, config, playbackCopy);
+    return wrapper;
+  }
+
+  function updatePlaybackTraceSetup(panel, config, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const missingMessage = panel.querySelector("[data-trace-missing-message]");
+    if (missingMessage) {
+      missingMessage.textContent = config
+        ? config.notice || playbackCopy.traceNoAvailableProviders
+        : playbackCopy.traceConfigLoading;
+    }
+
+    const providerList = panel.querySelector("[data-trace-providers]");
+    if (providerList) {
+      providerList.replaceChildren();
+      (config?.providers || []).forEach((provider) => {
+        const item = document.createElement("div");
+        item.className = "playback-trace-provider-row";
+        item.classList.toggle("is-ready", provider.configured === true);
+        item.classList.toggle("is-active", provider.id === config?.activeProvider);
+
+        const name = document.createElement("strong");
+        name.textContent = provider.label;
+        const status = document.createElement("span");
+        status.textContent = provider.configured
+          ? playbackCopy.traceProviderReady(provider.model)
+          : playbackCopy.traceProviderMissing(provider.missing.join(", "));
+        item.appendChild(name);
+        item.appendChild(status);
+        providerList.appendChild(item);
+      });
+    }
+
+  }
+
+  function renderPlaybackTraceChat(log, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "playback-trace-chat";
+
+    const messages = document.createElement("div");
+    messages.className = "playback-trace-messages";
+    messages.dataset.traceMessages = "true";
+
+    const form = document.createElement("form");
+    form.className = "playback-trace-composer";
+    const composerShell = document.createElement("div");
+    composerShell.className = "playback-trace-composer-shell";
+
+    const input = document.createElement("textarea");
+    input.className = "playback-trace-input";
+    input.rows = 2;
+    input.placeholder = playbackCopy.traceAskPlaceholder;
+    input.spellcheck = false;
+    input.addEventListener("input", () => resizePlaybackTraceInput(input));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    const footer = document.createElement("div");
+    footer.className = "playback-trace-composer-footer";
+
+    const statusbar = document.createElement("div");
+    statusbar.className = "playback-trace-statusbar";
+    const provider = document.createElement("span");
+    provider.dataset.traceProvider = "true";
+    statusbar.appendChild(provider);
+
+    const send = document.createElement("button");
+    send.type = "submit";
+    send.className = "canvas-btn accent icon-btn playback-trace-send";
+    send.title = playbackCopy.traceSend;
+    send.setAttribute("aria-label", playbackCopy.traceSend);
+    send.appendChild(createPlaybackSendIcon());
+    send.addEventListener("click", (event) => {
+      if (!runtime.state.tracePendingRequestId) {
+        return;
+      }
+      event.preventDefault();
+      cancelTraceQuestion();
+    });
+
+    footer.appendChild(statusbar);
+    footer.appendChild(send);
+    composerShell.appendChild(input);
+    composerShell.appendChild(footer);
+    form.appendChild(composerShell);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      sendTraceQuestion(log, input);
+    });
+
+    wrapper.appendChild(messages);
+    wrapper.appendChild(form);
+    updatePlaybackTraceChat(wrapper, log, playbackCopy);
+    resizePlaybackTraceInput(input);
+    return wrapper;
+  }
+
+  function updatePlaybackTraceChat(panel, log, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const messages = panel.querySelector("[data-trace-messages]");
+    if (messages) {
+      renderTraceMessages(messages, playbackCopy);
+    }
+
+    const input = panel.querySelector(".playback-trace-input");
+    const send = panel.querySelector(".playback-trace-send");
+    const disabled = !log || Boolean(runtime.state.tracePendingRequestId);
+    if (input) {
+      input.disabled = disabled;
+      input.placeholder = log ? playbackCopy.traceAskPlaceholder : playbackCopy.traceNoLog;
+      resizePlaybackTraceInput(input);
+    }
+    if (send) {
+      const isPending = Boolean(runtime.state.tracePendingRequestId);
+      send.disabled = !log && !isPending;
+      send.type = isPending ? "button" : "submit";
+      const label = isPending ? playbackCopy.traceStop : playbackCopy.traceSend;
+      send.title = label;
+      send.setAttribute("aria-label", label);
+      send.replaceChildren(isPending ? createPlaybackStopIcon() : createPlaybackSendIcon());
+    }
+
+    const provider = panel.querySelector("[data-trace-provider]");
+    const config = runtime.state.traceConfig;
+    if (provider) {
+      provider.textContent = config?.ready
+        ? playbackCopy.traceCurrentProvider(config.activeProviderLabel, config.activeModel)
+        : playbackCopy.providerNotConfigured;
+    }
+  }
+
+  function renderTraceMessages(container, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    container.replaceChildren();
+    if (runtime.state.traceMessages.length === 0 && !runtime.state.tracePendingRequestId) {
+      const empty = document.createElement("div");
+      empty.className = "playback-trace-empty";
+      empty.textContent = playbackCopy.traceEmpty;
+      container.appendChild(empty);
+      return;
+    }
+
+    runtime.state.traceMessages.forEach((message) => {
+      container.appendChild(createTraceMessage(message, playbackCopy));
+    });
+
+    if (runtime.state.tracePendingRequestId) {
+      const pending = document.createElement("div");
+      pending.className = "playback-trace-message assistant is-pending";
+      pending.textContent = runtime.state.tracePendingAnswer || playbackCopy.traceThinking;
+      container.appendChild(pending);
+    }
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function createTraceMessage(message, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const item = document.createElement("article");
+    item.className = `playback-trace-message ${message.role || "assistant"}`;
+    const label = document.createElement("span");
+    label.className = "playback-trace-message-role";
+    label.textContent = message.role === "user" ? playbackCopy.traceQuestion : playbackCopy.traceAnswer;
+    const content = document.createElement("div");
+    content.className = "playback-trace-message-content";
+    content.textContent = message.content || "";
+    item.appendChild(label);
+    item.appendChild(content);
+    return item;
+  }
+
+  function sendTraceQuestion(log, input) {
+    const question = input?.value?.trim() || "";
+    const config = runtime.state.traceConfig;
+    if (!question || !log || !config?.ready || runtime.state.tracePendingRequestId) {
+      return;
+    }
+
+    const snapshot = buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex);
+    const context = buildPlaybackTraceContext(log, snapshot, runtime.i18n.getPlaybackCopy());
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    runtime.state.traceMessages.push({ role: "user", content: question });
+    runtime.state.tracePendingRequestId = requestId;
+    runtime.state.tracePendingAnswer = "";
+    input.value = "";
+    updatePlaybackTracePanel(log, snapshot);
+    vscode.postMessage({
+      type: "traceAsk",
+      payload: {
+        requestId,
+        logFilePath: log.filePath || "",
+        question,
+        context: context.prompt
+      }
+    });
+  }
+
+  function handleTraceAnswerChunk(payload) {
+    if (!payload?.requestId || payload.requestId !== runtime.state.tracePendingRequestId) {
+      return;
+    }
+    const delta = typeof payload.delta === "string" ? payload.delta : "";
+    if (!delta) {
+      return;
+    }
+    runtime.state.tracePendingAnswer += delta;
+    const log = runtime.state.playbackLog;
+    const snapshot = log ? buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex) : null;
+    updatePlaybackTracePanel(log, snapshot);
+  }
+
+  function handleTraceAnswer(payload) {
+    if (!payload?.requestId || payload.requestId !== runtime.state.tracePendingRequestId) {
+      return;
+    }
+
+    const pendingAnswer = runtime.state.tracePendingAnswer.trim();
+    const cancelled = payload.cancelled === true;
+    const errorMessage = cancelled
+      ? runtime.i18n.getPlaybackCopy().traceRequestCancelled
+      : runtime.i18n.getPlaybackCopy().traceRequestFailed(payload.error || "");
+    if (cancelled) {
+      if (pendingAnswer) {
+        runtime.state.traceMessages.push({
+          role: "assistant",
+          content: pendingAnswer
+        });
+      } else {
+        runtime.state.traceMessages.push({
+          role: "assistant",
+          content: errorMessage
+        });
+      }
+    } else if (payload.ok) {
+      runtime.state.traceMessages.push({
+        role: "assistant",
+        content: payload.answer || pendingAnswer
+      });
+    } else {
+      runtime.state.traceMessages.push({
+        role: "assistant",
+        content: errorMessage
+      });
+    }
+    runtime.state.tracePendingRequestId = "";
+    runtime.state.tracePendingAnswer = "";
+    const log = runtime.state.playbackLog;
+    const snapshot = log ? buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex) : null;
+    updatePlaybackTracePanel(log, snapshot);
+  }
+
+  function clearTraceMessages() {
+    runtime.state.traceMessages = [];
+    runtime.state.tracePendingRequestId = "";
+    runtime.state.tracePendingAnswer = "";
+  }
+
+  function cancelTraceQuestion() {
+    const requestId = runtime.state.tracePendingRequestId;
+    if (!requestId) {
+      return;
+    }
+    vscode.postMessage({
+      type: "traceCancel",
+      payload: { requestId }
+    });
+  }
+
+  function resizePlaybackTraceInput(input) {
+    if (!input) {
+      return;
+    }
+    input.style.height = "auto";
+    const nextHeight = Math.min(Math.max(input.scrollHeight, 44), 148);
+    input.style.height = `${nextHeight}px`;
+  }
+
+  function createTraceButton(label, onClick, variant = "") {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `canvas-btn playback-trace-action ${variant}`.trim();
+    button.textContent = label;
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function createPlaybackSendIcon() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M4 12.5 19.5 4l-4.1 16-4.4-5.4L4 12.5Zm6.4-.3 4 4.8 2.6-10.4-6.6 5.6Z");
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function createPlaybackStopIcon() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M7 7h10v10H7z");
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function buildPlaybackTraceContext(log, snapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const frame = log.frames?.[runtime.state.playbackFrameIndex] || null;
+    const activeTransition = getActiveTransition(log, runtime.state.playbackFrameIndex);
+    const activeTransitionName = activeTransition ? resolvePlaybackNodeName(log, activeTransition) : playbackCopy.noActiveTransition;
+    const selectedTree = getSelectedTree(log.preview);
+    const treeLabel = selectedTree?.id || log.preview?.defaultTreeId || "MainTree";
+    const frameLabel = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : playbackCopy.noFrames;
+    const transitionLabel = activeTransition
+      ? `${activeTransitionName} · ${activeTransition.prevStatus} → ${activeTransition.status}`
+      : playbackCopy.noTransition;
+    const blackboardRows = flattenBlackboardRows(snapshot.blackboardValues);
+    const blackboardLabel = playbackCopy.blackboardEntries(blackboardRows.length);
+    const prompt = [
+      playbackCopy.promptIntro,
+      `${playbackCopy.tree}: ${treeLabel}`,
+      `${playbackCopy.frame}: ${frameLabel}`,
+      `${playbackCopy.transition}: ${transitionLabel}`,
+      playbackCopy.promptBlackboardEntries(blackboardRows.length),
+      playbackCopy.promptSelectedNodePath(runtime.state.selectedNodePath || "0"),
+      "",
+      playbackCopy.promptFocus
+    ].join("\n");
+
+    return {
+      treeLabel,
+      frameLabel,
+      transitionLabel,
+      blackboardLabel,
+      prompt
+    };
   }
 
   function getPlaybackBlackboardRenderKey(snapshot) {
@@ -2475,6 +3009,10 @@
 
   function persistUiState() {
     vscode.setState({
+      uiPreferences: {
+        themePreset: runtime.state.currentSettings?.themePreset || "midnight",
+        language: runtime.state.currentSettings?.language || "en-US"
+      },
       selectedTreeId: runtime.state.selectedTreeId,
       selectedNodePath: runtime.state.selectedNodePath,
       showCatalog: runtime.state.showCatalog,
@@ -2491,6 +3029,7 @@
       playbackFrameIndex: runtime.state.playbackFrameIndex,
       playbackLeftVisible: runtime.state.playbackLeftVisible,
       playbackRightVisible: runtime.state.playbackRightVisible,
+      playbackRightTab: runtime.state.playbackRightTab,
       playbackLeftWidth: runtime.state.playbackLeftWidth,
       playbackRightWidth: runtime.state.playbackRightWidth,
       playbackTransitionFilter: runtime.state.playbackTransitionFilter,
@@ -2509,6 +3048,9 @@
   function pickNodePath(tree, preferredNodePath = runtime.state.selectedNodePath) {
     if (!tree?.node) {
       return runtime.state.currentSettings?.showBehaviorTreeRoot === false ? "0" : "__btree_root__";
+    }
+    if (preferredNodePath === null) {
+      return null;
     }
     if (preferredNodePath && findNodeByPath(tree.node, preferredNodePath)) {
       return preferredNodePath;

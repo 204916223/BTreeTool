@@ -403,7 +403,8 @@
   }
 
   function showCanvasContextMenu(x, y) {
-    if (!overlayState.canvasContextMenu) {
+    if (!overlayState.canvasContextMenu || runtime.modeRules?.isPlaybackMode?.() === true) {
+      hideCanvasContextMenu();
       return;
     }
 
