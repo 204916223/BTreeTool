@@ -280,9 +280,6 @@
     if (node.hasError) {
       card.classList.add("has-error");
     }
-    if (acceptsAppendDrop) {
-      card.classList.add("has-append-slot");
-    }
     if (node.warnings.length > 0) {
       card.title = node.warnings.map((warning) => warning.message).join("\n");
     }

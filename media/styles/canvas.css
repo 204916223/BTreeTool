@@ -195,14 +195,6 @@ body.is-reordering-nodes .canvas-node.is-drop-target-expandable:not(.is-drag-sou
   align-content: start;
 }
 
-.flow-card.has-append-slot {
-  min-height: 178px;
-}
-
-.flow-card.is-details-hidden.has-append-slot {
-  min-height: 0;
-}
-
 .flow-card.is-measuring {
   width: auto;
   height: auto;

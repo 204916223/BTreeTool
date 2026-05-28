@@ -7,6 +7,10 @@
   const DRAG_PREVIEW_ZOOM_FACTOR = 0.86;
   const DRAG_PREVIEW_ZOOM_MARGIN = 72;
   const DRAG_PREVIEW_MIN_ZOOM = 0.28;
+  const DROP_TARGET_REFERENCE_SIZE = {
+    width: 230,
+    height: 250
+  };
 
   function init() {
     enableHorizontalWheelScroll(runtime.refs.treeSwitcher, {
@@ -179,7 +183,7 @@
     };
 
     const measuredNodes = new Map();
-    const dropTargetReferenceSize = measureDropTargetReferenceSize();
+    const dropTargetReferenceSize = DROP_TARGET_REFERENCE_SIZE;
     const measured = measureSubtree(rootNode, false);
     const expandedMeasured = measureSubtree(rootNode, true);
     const positioned = positionSubtree(measured, config.paddingX, config.paddingY);
@@ -333,11 +337,6 @@
       return measured;
     }
 
-    function measureDropTargetReferenceSize() {
-      const host = ensureMeasureHost();
-      return measureCardSize(createDropTargetReferenceNode(), host);
-    }
-
     function measureCardSize(node, host) {
       host.style.width = "auto";
       host.replaceChildren();
@@ -360,54 +359,6 @@
       };
     }
 
-    function createDropTargetReferenceNode() {
-      return {
-        nodePath: "__drop_target_reference__",
-        title: "Parallel",
-        instanceName: "",
-        kind: "Parallel",
-        category: "Control",
-        targetTreeId: "",
-        description: "",
-        code: "",
-        summary: "",
-        attributes: {
-          failure_count: "1",
-          success_count: "1"
-        },
-        ioGroups: {
-          inputs: [],
-          outputs: [],
-          params: [
-            { key: "failure_count", value: "1" },
-            { key: "success_count", value: "1" }
-          ]
-        },
-        attributeFields: [
-          createDropTargetReferenceField("failure_count", "1"),
-          createDropTargetReferenceField("success_count", "1")
-        ],
-        editorFields: [],
-        modelKind: "Control",
-        warningCount: 0,
-        hasError: false,
-        warnings: [],
-        children: []
-      };
-    }
-
-    function createDropTargetReferenceField(key, value) {
-      return {
-        key,
-        value,
-        role: "param",
-        editableKey: false,
-        editableValue: true,
-        removable: false,
-        required: true,
-        source: "builtin"
-      };
-    }
   }
 
   function setupCanvas(shell, stage, layout, viewportState = null, options = {}) {
