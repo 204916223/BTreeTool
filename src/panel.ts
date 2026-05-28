@@ -12,6 +12,11 @@ import {
 } from "./core/edit";
 import { isBlockingWarning } from "./core/issueRules";
 import { decodeBtlogFile } from "./core/btlog";
+import {
+  importTreeNodesModelToNodeLibrary,
+  NodeLibraryImportConflict,
+  restoreDefaultNodeLibrary
+} from "./core/nodeLibraryImport";
 import { loadNodeLibraryPresets } from "./core/nodeLibrary";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { serializeBehaviorTreeDocument } from "./core/serialize";
@@ -124,6 +129,12 @@ type WebviewMessage =
       type: "importRecommendedPresets";
     }
   | {
+      type: "importCustomNodes";
+    }
+  | {
+      type: "clearImportedNodes";
+    }
+  | {
       type: "saveCurrentDocument";
     }
   | {
@@ -180,6 +191,13 @@ function mergePresetNodeSets(
   };
 }
 
+function formatImportConflictNames(conflicts: NodeLibraryImportConflict[]): string {
+  const names = conflicts.map((conflict) => `${conflict.category}/${conflict.nodeId}`);
+  const visibleNames = names.slice(0, 20);
+  const suffix = names.length > visibleNames.length ? `, +${names.length - visibleNames.length}` : "";
+  return `${visibleNames.join(", ")}${suffix}`;
+}
+
 function getPanelCopy(language: string) {
   const isChinese = language === "zh-CN";
   const base = {
@@ -231,11 +249,30 @@ function getPanelCopy(language: string) {
     settingsFileNotReady: "The user settings file is not ready yet.",
     presetsImported: "Recommended presets imported.",
     presetsImportFailed: (message: string) => `Failed to import recommended presets. ${message}`,
+    importCustomNodesTitle: "Import TreeNodesModel nodes",
+    customNodesImported: (count: number) => `Imported ${count} custom node definition${count === 1 ? "" : "s"}.`,
+    customNodesImportEmpty: "No supported node definitions were found in the selected file.",
+    customNodesImportSkipped: "Conflicting nodes were skipped. No new node definitions were imported.",
+    customNodesConflictPrompt: (nodes: string) =>
+      `The selected file has different content for existing nodes: ${nodes}. Choose how to continue.`,
+    customNodesOverwriteAction: "Overwrite",
+    customNodesSkipAction: "Skip",
+    customNodesCancelAction: "Cancel",
+    customNodesImportFailed: (message: string) => `Failed to import custom nodes. ${message}`,
+    clearImportedNodesConfirm: "Restore the node library to the default preset? Imported nodes will be removed.",
+    clearImportedNodesAction: "Restore",
+    clearImportedNodesCanceledAction: "Cancel",
+    importedNodesCleared: "Imported nodes cleared and the default node library was restored.",
+    importedNodesClearFailed: (message: string) => `Failed to clear imported nodes. ${message}`,
     documentSaved: "XML file saved.",
     documentSaveFailed: "Failed to save the XML file.",
     documentSaveBlocked: "The current behavior tree has blocking issues and cannot be saved from the preview.",
-    saveDocumentConfirm: "Save the current XML file now?",
-    saveAction: "Save",
+    saveDocumentConfirm: "How do you want to save the current XML file?",
+    saveAction: "Overwrite",
+    saveAsAction: "Save As",
+    saveCancelAction: "Cancel",
+    saveAsXmlTitle: "Save BehaviorTree XML as",
+    saveAsSameFileBlocked: "Choose a different file name for Save As.",
     openExistingXmlTitle: "Open existing BehaviorTree XML",
     newXmlNameTitle: "Confirm the new XML name",
     importPlaybackLogTitle: "Import Log"
@@ -294,11 +331,30 @@ function getPanelCopy(language: string) {
     settingsFileNotReady: "用户设置文件尚未就绪。",
     presetsImported: "推荐预设已导入。",
     presetsImportFailed: (message: string) => `导入推荐预设失败。${message}`,
+    importCustomNodesTitle: "导入节点",
+    customNodesImported: (count: number) => `已导入 ${count} 个自定义节点定义。`,
+    customNodesImportEmpty: "所选文件中没有找到支持的节点定义。",
+    customNodesImportSkipped: "已跳过冲突节点，没有导入新节点。",
+    customNodesConflictPrompt: (nodes: string) =>
+      `所选文件中这些节点与现有节点内容不同：${nodes}。请选择如何继续。`,
+    customNodesOverwriteAction: "覆盖",
+    customNodesSkipAction: "跳过",
+    customNodesCancelAction: "取消",
+    customNodesImportFailed: (message: string) => `导入自定义节点失败。${message}`,
+    clearImportedNodesConfirm: "将节点库恢复为默认预设？导入的节点会被移除。",
+    clearImportedNodesAction: "恢复",
+    clearImportedNodesCanceledAction: "取消",
+    importedNodesCleared: "已清除导入节点，并恢复默认节点库。",
+    importedNodesClearFailed: (message: string) => `清除导入节点失败。${message}`,
     documentSaved: "XML 文件已保存。",
     documentSaveFailed: "保存 XML 文件失败。",
     documentSaveBlocked: "当前行为树存在阻断性问题，无法从预览窗口保存。",
-    saveDocumentConfirm: "现在保存当前 XML 文件吗？",
-    saveAction: "保存",
+    saveDocumentConfirm: "请选择当前 XML 文件的保存方式。",
+    saveAction: "覆盖保存",
+    saveAsAction: "另存为",
+    saveCancelAction: "取消",
+    saveAsXmlTitle: "另存为 BehaviorTree XML",
+    saveAsSameFileBlocked: "另存为需要选择不同的文件名。",
     openExistingXmlTitle: "打开已有 BehaviorTree XML",
     newXmlNameTitle: "确认新 XML 的名称",
     importPlaybackLogTitle: "导入日志"
@@ -446,6 +502,10 @@ export class BehaviorTreePreviewPanel {
     return promise;
   }
 
+  private static clearNodeLibraryPresetsCache(extensionUri: vscode.Uri): void {
+    BehaviorTreePreviewPanel.nodeLibraryPresetsCache.delete(extensionUri.fsPath);
+  }
+
   private static isXmlWithoutBehaviorTrees(document: vscode.TextDocument): boolean {
     try {
       return parseBehaviorTreeDocument(document.getText()).behaviorTrees.length === 0;
@@ -574,6 +634,16 @@ export class BehaviorTreePreviewPanel {
 
         if (message.type === "importRecommendedPresets") {
           void this.handleImportRecommendedPresets();
+          return;
+        }
+
+        if (message.type === "importCustomNodes") {
+          void this.handleImportCustomNodes();
+          return;
+        }
+
+        if (message.type === "clearImportedNodes") {
+          void this.handleClearImportedNodes();
           return;
         }
 
@@ -1137,13 +1207,21 @@ export class BehaviorTreePreviewPanel {
       return;
     }
 
+    const overwriteAction = copy.saveAction;
+    const saveAsAction = copy.saveAsAction;
     const choice = await vscode.window.showWarningMessage(
       copy.saveDocumentConfirm,
       { modal: true },
-      copy.saveAction
+      overwriteAction,
+      saveAsAction
     );
 
-    if (choice !== copy.saveAction) {
+    if (choice === saveAsAction) {
+      await this.handleSaveCurrentDocumentAs();
+      return;
+    }
+
+    if (choice !== overwriteAction) {
       return;
     }
 
@@ -1163,6 +1241,56 @@ export class BehaviorTreePreviewPanel {
       }
 
       await this.refreshPreviewFromUri();
+      this.postEditResult(true, copy.documentSaved, "saved");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.postEditResult(false, `${copy.documentSaveFailed} ${message}`);
+    }
+  }
+
+  private async handleSaveCurrentDocumentAs(): Promise<void> {
+    const copy = this.getCopy();
+    if (!this.latestDocumentUri) {
+      this.postEditResult(false, copy.noAttachedDocument);
+      return;
+    }
+
+    try {
+      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
+      const currentText = document.getText();
+      if (this.isSaveBlocked(currentText)) {
+        this.postEditResult(false, copy.documentSaveBlocked);
+        return;
+      }
+
+      const targetUri = await vscode.window.showSaveDialog({
+        title: copy.saveAsXmlTitle,
+        defaultUri: this.latestDocumentUri,
+        filters: {
+          "BehaviorTree XML": ["xml"],
+          "All Files": ["*"]
+        }
+      });
+
+      if (!targetUri) {
+        return;
+      }
+
+      if (targetUri.toString() === this.latestDocumentUri.toString()) {
+        this.postEditResult(false, copy.saveAsSameFileBlocked);
+        return;
+      }
+
+      const parsed = parseBehaviorTreeDocument(currentText);
+      const nextXml = serializeBehaviorTreeDocument(parsed);
+      await vscode.workspace.fs.writeFile(targetUri, Buffer.from(nextXml, "utf8"));
+      const savedDocument = await vscode.workspace.openTextDocument(targetUri);
+      await vscode.window.showTextDocument(savedDocument, {
+        preview: false,
+        preserveFocus: false
+      });
+      this.attachDocument(savedDocument);
+      this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One);
       this.postEditResult(true, copy.documentSaved, "saved");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1398,6 +1526,94 @@ export class BehaviorTreePreviewPanel {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.postEditResult(false, this.getCopy().presetsImportFailed(message));
+    }
+  }
+
+  private async handleImportCustomNodes(): Promise<void> {
+    const copy = this.getCopy();
+    const files = await vscode.window.showOpenDialog({
+      title: copy.importCustomNodesTitle,
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      filters: {
+        "TreeNodesModel": ["btt", "xml"],
+        "All Files": ["*"]
+      }
+    });
+
+    const file = files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const raw = await vscode.workspace.fs.readFile(file);
+      const source = Buffer.from(raw).toString("utf8");
+      const result = await importTreeNodesModelToNodeLibrary(
+        source,
+        vscode.Uri.joinPath(this.extensionUri, "node-library").fsPath,
+        {
+          resolveConflicts: async (conflicts) => {
+            const overwrite = copy.customNodesOverwriteAction;
+            const skip = copy.customNodesSkipAction;
+            const choice = await vscode.window.showWarningMessage(
+              copy.customNodesConflictPrompt(formatImportConflictNames(conflicts)),
+              { modal: true },
+              overwrite,
+              skip
+            );
+            if (choice === overwrite) {
+              return "overwrite";
+            }
+            if (choice === skip) {
+              return "skip";
+            }
+            return "cancel";
+          }
+        }
+      );
+      if (result.canceled) {
+        return;
+      }
+
+      BehaviorTreePreviewPanel.clearNodeLibraryPresetsCache(this.extensionUri);
+      this.nodeLibraryPresets = await BehaviorTreePreviewPanel.loadNodeLibraryPresets(this.extensionUri);
+      await this.refreshPreviewFromUri();
+      this.postEditResult(
+        result.importedCount > 0,
+        result.importedCount > 0
+          ? copy.customNodesImported(result.importedCount)
+          : result.conflicts.length > 0
+            ? copy.customNodesImportSkipped
+            : copy.customNodesImportEmpty
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.postEditResult(false, copy.customNodesImportFailed(message));
+    }
+  }
+
+  private async handleClearImportedNodes(): Promise<void> {
+    const copy = this.getCopy();
+    const choice = await vscode.window.showWarningMessage(
+      copy.clearImportedNodesConfirm,
+      { modal: true },
+      copy.clearImportedNodesAction
+    );
+    if (choice !== copy.clearImportedNodesAction) {
+      return;
+    }
+
+    try {
+      await restoreDefaultNodeLibrary(vscode.Uri.joinPath(this.extensionUri, "node-library").fsPath);
+      BehaviorTreePreviewPanel.clearNodeLibraryPresetsCache(this.extensionUri);
+      this.nodeLibraryPresets = await BehaviorTreePreviewPanel.loadNodeLibraryPresets(this.extensionUri);
+      await this.refreshPreviewFromUri();
+      this.postEditResult(true, copy.importedNodesCleared);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.postEditResult(false, copy.importedNodesClearFailed(message));
     }
   }
 

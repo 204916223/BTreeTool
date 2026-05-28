@@ -404,7 +404,6 @@
       return;
     }
 
-    const chromeCopy = runtime.i18n.getChromeCopy();
     vscode.postMessage({ type: "saveCurrentDocument" });
   });
   runtime.refs.treeSearchCloseButton?.addEventListener("click", () => {

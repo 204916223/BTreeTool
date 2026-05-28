@@ -47,6 +47,8 @@
         english: "English",
         chinese: "Chinese"
       },
+      clearImportedNodes: "Clear Imported",
+      importNodes: "Import Nodes",
       save: "Save"
     };
 
@@ -83,6 +85,8 @@
           english: "英文",
           chinese: "中文"
         },
+        clearImportedNodes: "清除导入",
+        importNodes: "导入节点",
         save: "保存"
       },
       language

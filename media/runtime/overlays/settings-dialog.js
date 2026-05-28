@@ -108,6 +108,24 @@
     const actions = document.createElement("div");
     actions.className = "settings-actions";
 
+    const clearImportedNodesButton = document.createElement("button");
+    clearImportedNodesButton.type = "button";
+    clearImportedNodesButton.className = "canvas-btn";
+    clearImportedNodesButton.textContent = "Clear Imported";
+    clearImportedNodesButton.addEventListener("click", () => {
+      runtime.vscode.postMessage({ type: "clearImportedNodes" });
+      hideSettingsDialog();
+    });
+
+    const importNodesButton = document.createElement("button");
+    importNodesButton.type = "button";
+    importNodesButton.className = "canvas-btn";
+    importNodesButton.textContent = "Import Nodes";
+    importNodesButton.addEventListener("click", () => {
+      runtime.vscode.postMessage({ type: "importCustomNodes" });
+      hideSettingsDialog();
+    });
+
     const saveButton = document.createElement("button");
     saveButton.type = "button";
     saveButton.className = "canvas-btn accent";
@@ -138,6 +156,8 @@
       });
       hideSettingsDialog();
     });
+    actions.appendChild(clearImportedNodesButton);
+    actions.appendChild(importNodesButton);
     actions.appendChild(saveButton);
 
     header.appendChild(title);
@@ -176,6 +196,8 @@
       playbackSectionTitle: playbackSection.title,
       playbackAutoNavigateInput,
       playbackAutoNavigateText,
+      clearImportedNodesButton,
+      importNodesButton,
       saveButton
     };
   }
@@ -329,6 +351,8 @@
     });
     overlayState.settingsDialog.playbackSectionTitle.textContent = copy.playbackMode;
     overlayState.settingsDialog.playbackAutoNavigateText.textContent = copy.playbackAutoNavigateShort;
+    overlayState.settingsDialog.clearImportedNodesButton.textContent = copy.clearImportedNodes;
+    overlayState.settingsDialog.importNodesButton.textContent = copy.importNodes;
     overlayState.settingsDialog.saveButton.textContent = copy.save;
     overlayState.settingsDialog.languageSelect.replaceChildren();
     [

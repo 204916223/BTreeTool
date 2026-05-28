@@ -344,9 +344,11 @@ function collectNodeModels(root: XmlElement | null, warnings: BtWarning[]): BtNo
     return [];
   }
 
-  const modelContainer = root.name === "root"
-    ? root.children.find((child) => child.name === "TreeNodesModel") ?? null
-    : findDescendants(root, "TreeNodesModel")[0] ?? null;
+  const modelContainer = root.name === "TreeNodesModel"
+    ? root
+    : root.name === "root"
+      ? root.children.find((child) => child.name === "TreeNodesModel") ?? null
+      : findDescendants(root, "TreeNodesModel")[0] ?? null;
 
   if (!modelContainer) {
     return [];

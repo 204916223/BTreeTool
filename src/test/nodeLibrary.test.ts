@@ -1,9 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadNodeLibraryPresets } from "../core/nodeLibrary";
+import {
+  createDefaultNodeLibraryBackup,
+  importTreeNodesModelToNodeLibrary,
+  restoreDefaultNodeLibrary
+} from "../core/nodeLibraryImport";
 
 test("loadNodeLibraryPresets reads .btt node definitions", async () => {
   const root = await mkdtemp(join(tmpdir(), "btt-node-library-"));
@@ -75,4 +80,126 @@ test("bundled node library includes BT.CPP builtin ports", async () => {
     byKey.get("WasEntryUpdated")?.fields.map((field) => [field.key, field.role, field.defaultValue]),
     [["entry", "input", ""]]
   );
+});
+
+test("importTreeNodesModelToNodeLibrary writes .btt files by model category", async () => {
+  const root = await mkdtemp(join(tmpdir(), "btt-node-library-import-"));
+  try {
+    const result = await importTreeNodesModelToNodeLibrary(
+      `<TreeNodesModel>
+  <Action ID="TESTTT">
+    <input_port name="TESTTT" type="int" default="23" description="xx" />
+    <output_port name="TESTT" type="string" default="{testt}" description="dd" />
+  </Action>
+  <Condition ID="Ready">
+    <input_port name="flag" type="bool" default="true" description="ready flag" />
+  </Condition>
+</TreeNodesModel>`,
+      root
+    );
+
+    assert.equal(result.importedCount, 2);
+    assert.equal(result.skippedCount, 0);
+
+    const action = await readFile(join(root, "Action", "TESTTT.btt"), "utf8");
+    assert.match(action, /<node name="TESTTT" category="Action" modelKind="Action" allowCustomAttributes="true">/);
+    assert.match(action, /<input_port name="TESTTT" type="int" default="23" description="xx" \/>/);
+    assert.match(action, /<output_port name="TESTT" type="string" default="\{testt\}" description="dd" \/>/);
+
+    const condition = await readFile(join(root, "Condition", "Ready.btt"), "utf8");
+    assert.match(condition, /<node name="Ready" category="Condition" modelKind="Condition" allowCustomAttributes="true">/);
+    assert.match(condition, /<input_port name="flag" type="bool" default="true" description="ready flag" \/>/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("importTreeNodesModelToNodeLibrary lets callers skip conflicting nodes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "btt-node-library-conflict-"));
+  try {
+    await mkdir(join(root, "Action"), { recursive: true });
+    await writeFile(join(root, "Action", "TESTTT.btt"), "existing content\n", "utf8");
+
+    const result = await importTreeNodesModelToNodeLibrary(
+      `<TreeNodesModel>
+  <Action ID="TESTTT">
+    <input_port name="value" default="1" />
+  </Action>
+  <Action ID="NewNode">
+    <input_port name="flag" default="true" />
+  </Action>
+</TreeNodesModel>`,
+      root,
+      {
+        resolveConflicts: async (conflicts) => {
+          assert.deepEqual(conflicts.map((conflict) => `${conflict.category}/${conflict.nodeId}`), ["Action/TESTTT"]);
+          return "skip";
+        }
+      }
+    );
+
+    assert.equal(result.importedCount, 1);
+    assert.equal(result.skippedCount, 1);
+    assert.equal(result.canceled, false);
+    assert.equal(await readFile(join(root, "Action", "TESTTT.btt"), "utf8"), "existing content\n");
+    assert.match(await readFile(join(root, "Action", "NewNode.btt"), "utf8"), /<node name="NewNode"/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("importTreeNodesModelToNodeLibrary cancels before writing any files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "btt-node-library-cancel-"));
+  try {
+    await mkdir(join(root, "Action"), { recursive: true });
+    await writeFile(join(root, "Action", "TESTTT.btt"), "existing content\n", "utf8");
+
+    const result = await importTreeNodesModelToNodeLibrary(
+      `<TreeNodesModel>
+  <Action ID="TESTTT">
+    <input_port name="value" default="1" />
+  </Action>
+  <Action ID="NewNode">
+    <input_port name="flag" default="true" />
+  </Action>
+</TreeNodesModel>`,
+      root,
+      {
+        resolveConflicts: async () => "cancel"
+      }
+    );
+
+    assert.equal(result.importedCount, 0);
+    assert.equal(result.skippedCount, 2);
+    assert.equal(result.canceled, true);
+    assert.equal(await readFile(join(root, "Action", "TESTTT.btt"), "utf8"), "existing content\n");
+    await assert.rejects(readFile(join(root, "Action", "NewNode.btt"), "utf8"), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("restoreDefaultNodeLibrary restores the backup snapshot", async () => {
+  const root = await mkdtemp(join(tmpdir(), "btt-node-library-restore-"));
+  try {
+    await mkdir(join(root, "Action"), { recursive: true });
+    await mkdir(join(root, "Condition"), { recursive: true });
+    await writeFile(join(root, "Action", "BaseAction.btt"), "base action\n", "utf8");
+    await writeFile(join(root, "Condition", "BaseCondition.btt"), "base condition\n", "utf8");
+
+    const backup = await createDefaultNodeLibraryBackup(root);
+    assert.equal(backup.backedUpCount, 2);
+
+    await writeFile(join(root, "Action", "BaseAction.btt"), "changed action\n", "utf8");
+    await writeFile(join(root, "Action", "ImportedAction.btt"), "imported action\n", "utf8");
+
+    const result = await restoreDefaultNodeLibrary(root);
+
+    assert.equal(result.restoredCount, 2);
+    assert.equal(await readFile(join(root, "Action", "BaseAction.btt"), "utf8"), "base action\n");
+    assert.equal(await readFile(join(root, "Condition", "BaseCondition.btt"), "utf8"), "base condition\n");
+    await assert.rejects(readFile(join(root, "Action", "ImportedAction.btt"), "utf8"), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
