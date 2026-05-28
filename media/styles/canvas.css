@@ -324,7 +324,7 @@ body.is-reordering-nodes .drop-slot-overlay {
   display: none;
 }
 
-.flow-card.is-selected {
+.flow-card.is-selected:not(.is-playback-status) {
   border-color: color-mix(in srgb, var(--accent) 62%, var(--line-strong));
   box-shadow: var(--color-card-shadow-strong), 0 0 0 2px color-mix(in srgb, var(--accent-soft) 75%, transparent);
 }

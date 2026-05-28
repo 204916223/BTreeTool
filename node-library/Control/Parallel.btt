@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="Parallel" category="Control" modelKind="Control" allowCustomAttributes="true">
+  <input_port name="success_count" default="-1" required="false" />
+  <input_port name="failure_count" default="1" required="false" />
+</node>

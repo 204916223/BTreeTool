@@ -310,7 +310,7 @@
           siblingIndex: null,
           nodeTitle: node.title,
           nodeTemplate: null,
-          allowAppendChild: acceptsAppendDrop,
+          allowAppendChild: true,
           childCount: node.children.length,
           allowDelete: false
         });

@@ -142,13 +142,35 @@ test("insertNode can create the first real child under the virtual root", () => 
   });
 });
 
-test("insertNode rejects adding a second child under the virtual root", () => {
+test("insertNode wraps the root node when adding to the virtual root", () => {
   const document = createDocument();
 
-  assert.throws(
-    () => insertNode(document, "MainTree", "__btree_root__", 0, "Sequence", "Control"),
-    /already has a root node/
-  );
+  const insertedPath = insertNode(document, "MainTree", "__btree_root__", 0, "Sequence", "Control");
+
+  assert.equal(insertedPath, "0");
+  assert.deepEqual(document.behaviorTrees[0].node, {
+    tagName: "Sequence",
+    attributes: {},
+    children: [
+      {
+        tagName: "Sequence",
+        attributes: {},
+        children: [
+          {
+            tagName: "ActionA",
+            attributes: { foo: "bar" },
+            children: [
+              {
+                tagName: "NestedAction",
+                attributes: {},
+                children: []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  });
 });
 
 test("deleteNode can remove the real root and leave an empty virtual root", () => {

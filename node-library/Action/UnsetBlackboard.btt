@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="UnsetBlackboard" category="Action" modelKind="Action" allowCustomAttributes="true">
+  <param_port name="key" default="" required="true" />
+</node>

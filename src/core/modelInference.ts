@@ -59,6 +59,7 @@ const BUILTIN_COMPACT_NODE_TAGS = new Set([
   "SetBlackboard",
   "Sleep",
   "UnsetBlackboard",
+  "WasEntryUpdated",
   "SubTree"
 ]);
 

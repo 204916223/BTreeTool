@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="ScriptCondition" category="Condition" modelKind="Condition" allowCustomAttributes="true">
+  <param_port name="code" default="" required="true" />
+</node>

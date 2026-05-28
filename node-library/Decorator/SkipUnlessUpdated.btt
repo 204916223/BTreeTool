@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="SkipUnlessUpdated" category="Decorator" modelKind="Decorator" allowCustomAttributes="true">
+  <input_port name="entry" default="" required="true" />
+</node>

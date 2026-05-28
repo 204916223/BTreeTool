@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="LoopDouble" category="Decorator" modelKind="Decorator" allowCustomAttributes="true">
+  <inout_port name="queue" default="" required="true" />
+  <input_port name="if_empty" default="SUCCESS" required="false" />
+  <output_port name="value" default="" required="true" />
+</node>

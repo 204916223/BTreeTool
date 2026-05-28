@@ -81,8 +81,8 @@ export const RECOMMENDED_PRESET_NODES: BtPresetNodeSettings[] = [
     modelKind: "Control",
     allowCustomAttributes: true,
     fields: [
-      createPresetField("failure_count", "param", true, "1"),
-      createPresetField("success_count", "param", true, "1")
+      createPresetField("success_count", "input", false, "-1"),
+      createPresetField("failure_count", "input", false, "1")
     ]
   },
   {
@@ -91,10 +91,7 @@ export const RECOMMENDED_PRESET_NODES: BtPresetNodeSettings[] = [
     category: "Control",
     modelKind: "Control",
     allowCustomAttributes: true,
-    fields: [
-      createPresetField("failure_count", "param", true, "1"),
-      createPresetField("success_count", "param", true, "1")
-    ]
+    fields: [createPresetField("max_failures", "input", false, "1")]
   },
   {
     key: "Precondition",
@@ -104,7 +101,7 @@ export const RECOMMENDED_PRESET_NODES: BtPresetNodeSettings[] = [
     allowCustomAttributes: true,
     fields: [
       createPresetField("if", "param", true, ""),
-      createPresetField("else", "param", true, "")
+      createPresetField("else", "param", false, "FAILURE")
     ]
   },
   {

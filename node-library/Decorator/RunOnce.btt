@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="RunOnce" category="Decorator" modelKind="Decorator" allowCustomAttributes="true">
+  <param_port name="then_skip" default="true" required="false" />
+</node>

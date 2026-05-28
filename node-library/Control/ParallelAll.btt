@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="ParallelAll" category="Control" modelKind="Control" allowCustomAttributes="true">
+  <input_port name="max_failures" default="1" required="false" />
+</node>

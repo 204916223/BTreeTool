@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="SetBlackboard" category="Action" modelKind="Action" allowCustomAttributes="true">
+  <input_port name="value" default="" required="true" />
+  <inout_port name="output_key" default="" required="true" />
+</node>

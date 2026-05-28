@@ -1300,8 +1300,23 @@
     const playButton = document.createElement("button");
     playButton.type = "button";
     playButton.className = "canvas-btn icon-btn playback-play-btn";
-    playButton.addEventListener("click", () => {
+    playButton.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      playButton.dataset.pointerActivated = "1";
       togglePlayback(log);
+      window.setTimeout(() => {
+        delete playButton.dataset.pointerActivated;
+      }, 0);
+    });
+    playButton.addEventListener("click", (event) => {
+      if (playButton.dataset.pointerActivated === "1") {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     });
     leftControls.appendChild(playButton);
 
@@ -1356,7 +1371,7 @@
     slider.value = String(runtime.state.playbackFrameIndex);
     slider.addEventListener("input", () => {
       requestPlaybackFrame(log, Number(slider.value), {
-        navigateToActiveNode: shouldAutoNavigatePlayback(),
+        navigateToActiveNode: false,
         scrollList: false,
         focusNode: false,
         persist: false,

@@ -32,16 +32,17 @@ export interface BtNodeCatalog {
 
 export function buildNodeCatalog(document: BtDocumentAst, settings?: BtUserSettings): BtNodeCatalog {
   const entries = [
-    ...getBuiltinEntries(settings),
+    ...getBuiltinEntries(),
     ...document.nodeModels.map(toModelCatalogEntry),
     ...document.behaviorTrees.map((tree) => toSubTreeCatalogEntry(tree.id))
   ];
+  const mergedEntries = settings?.presetNodes?.length ? applyPresetNodeOverrides(entries, settings.presetNodes) : entries;
 
   const byTagName = new Map<string, BtNodeCatalogEntry>();
   const byId = new Map<string, BtNodeCatalogEntry>();
   const byCategory = new Map<BtNodeCategory, BtNodeCatalogEntry[]>();
 
-  for (const entry of entries) {
+  for (const entry of mergedEntries) {
     if (entry.category === "SubTree") {
       byId.set(entry.key, entry);
     } else {
@@ -110,7 +111,7 @@ function toSubTreeCatalogEntry(treeId: string): BtNodeCatalogEntry {
   };
 }
 
-function getBuiltinEntries(settings?: BtUserSettings): BtNodeCatalogEntry[] {
+function getBuiltinEntries(): BtNodeCatalogEntry[] {
   const controls = [
     "AsyncFallback",
     "AsyncSequence",
@@ -152,7 +153,7 @@ function getBuiltinEntries(settings?: BtUserSettings): BtNodeCatalogEntry[] {
     "WaitValueUpdate"
   ];
 
-  const actions = ["AlwaysFailure", "AlwaysSuccess", "Script", "SetBlackboard", "Sleep", "UnsetBlackboard"];
+  const actions = ["AlwaysFailure", "AlwaysSuccess", "Script", "SetBlackboard", "Sleep", "UnsetBlackboard", "WasEntryUpdated"];
   const conditions = ["ScriptCondition"];
 
   const entries = [
@@ -166,7 +167,7 @@ function getBuiltinEntries(settings?: BtUserSettings): BtNodeCatalogEntry[] {
     ])
   ];
 
-  return applyPresetNodeOverrides(entries, settings?.presetNodes || []);
+  return entries;
 }
 
 function createBuiltinEntry(
@@ -185,34 +186,61 @@ function createBuiltinEntry(
 }
 
 function builtinFieldsFor(key: string): BtNodeFieldDefinition[] {
+  const switchCaseCount = switchCaseCountFor(key);
+  if (switchCaseCount > 0) {
+    return [
+      createFixedField("variable", "input", true, "builtin"),
+      ...Array.from({ length: switchCaseCount }, (_entry, index) =>
+        createFixedField(`case_${index + 1}`, "input", true, "builtin")
+      )
+    ];
+  }
+
   switch (key) {
     case "Parallel":
-    case "ParallelAll":
       return [
-        createFixedField("failure_count", "param", true, "builtin"),
-        createFixedField("success_count", "param", true, "builtin")
+        createFixedField("success_count", "input", false, "builtin"),
+        createFixedField("failure_count", "input", false, "builtin")
       ];
+    case "ParallelAll":
+      return [createFixedField("max_failures", "input", false, "builtin")];
+    case "TryCatch":
+      return [createFixedField("catch_on_halt", "input", false, "builtin")];
+    case "LoopBool":
+    case "LoopDouble":
+    case "LoopInt":
+    case "LoopString":
+      return [
+        createFixedField("queue", "inout", true, "builtin"),
+        createFixedField("if_empty", "input", false, "builtin"),
+        createFixedField("value", "output", true, "builtin")
+      ];
+    case "SkipUnlessUpdated":
+    case "WaitValueUpdate":
+    case "WasEntryUpdated":
+      return [createFixedField("entry", "input", true, "builtin")];
     case "Precondition":
       return [
         createFixedField("if", "param", true, "builtin"),
-        createFixedField("else", "param", true, "builtin")
+        createFixedField("else", "param", false, "builtin")
       ];
     case "Repeat":
       return [createFixedField("num_cycles", "param", true, "builtin")];
     case "RetryUntilFailure":
     case "RetryUntilSuccessful":
       return [createFixedField("num_attempts", "param", true, "builtin")];
-    case "Delay":
     case "Timeout":
     case "Sleep":
       return [createFixedField("msec", "param", true, "builtin")];
+    case "Delay":
+      return [createFixedField("delay_msec", "input", true, "builtin")];
     case "Script":
     case "ScriptCondition":
       return [createFixedField("code", "param", true, "builtin")];
     case "SetBlackboard":
       return [
-        createFixedField("output_key", "output", true, "builtin"),
-        createFixedField("value", "input", true, "builtin")
+        createFixedField("value", "input", true, "builtin"),
+        createFixedField("output_key", "inout", true, "builtin")
       ];
     case "UnsetBlackboard":
       return [createFixedField("key", "param", true, "builtin")];
@@ -221,6 +249,15 @@ function builtinFieldsFor(key: string): BtNodeFieldDefinition[] {
     default:
       return [];
   }
+}
+
+function switchCaseCountFor(key: string): number {
+  if (key === "Switch") {
+    return 2;
+  }
+
+  const match = key.match(/^Switch([2-6])$/);
+  return match ? Number(match[1]) : 0;
 }
 
 function createFixedField(

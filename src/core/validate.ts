@@ -10,7 +10,13 @@ const BUILTIN_CONTROL_NODES = new Set([
   "Parallel",
   "IfThenElse",
   "WhileDoElse",
-  "Switch"
+  "Switch",
+  "Switch2",
+  "Switch3",
+  "Switch4",
+  "Switch5",
+  "Switch6",
+  "TryCatch"
 ]);
 
 const BUILTIN_DECORATOR_NODES = new Set([
@@ -24,7 +30,13 @@ const BUILTIN_DECORATOR_NODES = new Set([
   "Timeout",
   "Delay",
   "RunOnce",
-  "KeepRunningUntilFailure"
+  "KeepRunningUntilFailure",
+  "LoopBool",
+  "LoopDouble",
+  "LoopInt",
+  "LoopString",
+  "SkipUnlessUpdated",
+  "WaitValueUpdate"
 ]);
 
 const BUILTIN_LEAF_NODES = new Set([
@@ -34,7 +46,8 @@ const BUILTIN_LEAF_NODES = new Set([
   "AlwaysFailure",
   "SetBlackboard",
   "UnsetBlackboard",
-  "Sleep"
+  "Sleep",
+  "WasEntryUpdated"
 ]);
 
 type NodeKind = "control" | "decorator" | "leaf";

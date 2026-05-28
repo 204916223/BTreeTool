@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="RetryUntilSuccessful" category="Decorator" modelKind="Decorator" allowCustomAttributes="true">
+  <param_port name="num_attempts" default="1" required="true" />
+</node>

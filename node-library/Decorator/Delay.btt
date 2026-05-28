@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="Delay" category="Decorator" modelKind="Decorator" allowCustomAttributes="true">
+  <input_port name="delay_msec" default="0" required="true" />
+</node>

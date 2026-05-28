@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<node name="TryCatch" category="Control" modelKind="Control" allowCustomAttributes="true">
+  <input_port name="catch_on_halt" default="false" required="false" />
+</node>

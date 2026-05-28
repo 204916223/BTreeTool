@@ -12,6 +12,7 @@ import {
 } from "./core/edit";
 import { isBlockingWarning } from "./core/issueRules";
 import { decodeBtlogFile } from "./core/btlog";
+import { loadNodeLibraryPresets } from "./core/nodeLibrary";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { serializeBehaviorTreeDocument } from "./core/serialize";
 import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
@@ -159,6 +160,26 @@ function normalizeNodeCopyChildren(children: NodeCopyTemplateMessage[] | undefin
     }));
 }
 
+function mergePresetNodeSets(
+  settings: BtUserSettings,
+  extraPresetNodes: BtUserSettings["presetNodes"]
+): BtUserSettings {
+  const merged = new Map<string, BtUserSettings["presetNodes"][number]>();
+
+  for (const preset of settings.presetNodes) {
+    merged.set(preset.key, preset);
+  }
+
+  for (const preset of extraPresetNodes) {
+    merged.set(preset.key, preset);
+  }
+
+  return {
+    ...cloneUserSettings(settings),
+    presetNodes: Array.from(merged.values()).sort((left, right) => left.title.localeCompare(right.title))
+  };
+}
+
 function getPanelCopy(language: string) {
   const isChinese = language === "zh-CN";
   const base = {
@@ -288,6 +309,8 @@ export class BehaviorTreePreviewPanel {
   private static readonly panelsByDocument = new Map<string, Set<BehaviorTreePreviewPanel>>();
   private static readonly noDocumentPanels = new Set<BehaviorTreePreviewPanel>();
   private static activePanel: BehaviorTreePreviewPanel | null = null;
+  private static readonly invalidDocumentMessage = "当前文件不符合规则";
+  private static readonly invalidDocumentConfirm = "确定";
   private static readonly emptyPayload: PreviewPayload = {
     fileName: "No active document",
     languageId: "unknown",
@@ -315,6 +338,13 @@ export class BehaviorTreePreviewPanel {
     globalStorageUri: vscode.Uri,
     document?: vscode.TextDocument
   ): void {
+    if (document && BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(document)) {
+      void BehaviorTreePreviewPanel.showInvalidDocumentMessage().then(() => {
+        BehaviorTreePreviewPanel.createOrShow(extensionUri, globalStorageUri, undefined);
+      });
+      return;
+    }
+
     const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
 
     if (!document) {
@@ -400,6 +430,38 @@ export class BehaviorTreePreviewPanel {
     return segments[segments.length - 1] || fileName;
   }
 
+  private static loadNodeLibraryPresets(extensionUri: vscode.Uri): Promise<BtUserSettings["presetNodes"]> {
+    const cacheKey = extensionUri.fsPath;
+    const cached = BehaviorTreePreviewPanel.nodeLibraryPresetsCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const promise = loadNodeLibraryPresets(vscode.Uri.joinPath(extensionUri, "node-library").fsPath).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`BTreeTool: failed to load node library presets. ${message}`);
+      return [];
+    });
+    BehaviorTreePreviewPanel.nodeLibraryPresetsCache.set(cacheKey, promise);
+    return promise;
+  }
+
+  private static isXmlWithoutBehaviorTrees(document: vscode.TextDocument): boolean {
+    try {
+      return parseBehaviorTreeDocument(document.getText()).behaviorTrees.length === 0;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  private static async showInvalidDocumentMessage(): Promise<void> {
+    await vscode.window.showWarningMessage(
+      BehaviorTreePreviewPanel.invalidDocumentMessage,
+      { modal: true },
+      BehaviorTreePreviewPanel.invalidDocumentConfirm
+    );
+  }
+
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
   private readonly globalStorageUri: vscode.Uri;
@@ -408,11 +470,18 @@ export class BehaviorTreePreviewPanel {
   private latestDocumentUri: vscode.Uri | null = null;
   private settingsFileUri: vscode.Uri | null = null;
   private currentSettings: BtUserSettings = cloneUserSettings(BehaviorTreePreviewPanel.emptyPayload.settings);
+  private nodeLibraryPresets: BtUserSettings["presetNodes"] = [];
   private webviewReady = false;
   private readonly xmlUndoStack: string[] = [];
+  private invalidDocumentPrompt: Promise<void> | null = null;
+  private static readonly nodeLibraryPresetsCache = new Map<string, Promise<BtUserSettings["presetNodes"]>>();
 
   private getCopy() {
     return getPanelCopy(this.currentSettings.language);
+  }
+
+  private getEffectiveSettings(): BtUserSettings {
+    return mergePresetNodeSets(this.currentSettings, this.nodeLibraryPresets);
   }
 
   private constructor(
@@ -543,6 +612,11 @@ export class BehaviorTreePreviewPanel {
       return;
     }
 
+    if (BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(document)) {
+      void this.detachInvalidDocumentAfterPrompt();
+      return;
+    }
+
     this.latestPayload = this.toPayload(document);
 
     if (this.webviewReady) {
@@ -589,6 +663,11 @@ export class BehaviorTreePreviewPanel {
     }
 
     const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
+    if (BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(document)) {
+      await this.detachInvalidDocumentAfterPrompt();
+      return;
+    }
+
     this.latestPayload = this.toPayload(document);
 
     if (this.webviewReady) {
@@ -612,6 +691,37 @@ export class BehaviorTreePreviewPanel {
     if (this.webviewReady) {
       this.postLatestPayload();
     }
+  }
+
+  private detachDocument(): void {
+    if (this.latestDocumentUri) {
+      BehaviorTreePreviewPanel.removePanelFromDocument(this.latestDocumentUri, this);
+    }
+
+    BehaviorTreePreviewPanel.noDocumentPanels.add(this);
+    this.latestDocumentUri = null;
+    this.xmlUndoStack.length = 0;
+    this.latestPayload = this.toPayload(undefined);
+    this.panel.title = "BTreeTool";
+    BehaviorTreePreviewPanel.activePanel = this;
+    if (this.webviewReady) {
+      this.postLatestPayload();
+    }
+  }
+
+  private async detachInvalidDocumentAfterPrompt(): Promise<void> {
+    if (this.invalidDocumentPrompt) {
+      return this.invalidDocumentPrompt;
+    }
+
+    this.invalidDocumentPrompt = BehaviorTreePreviewPanel.showInvalidDocumentMessage()
+      .then(() => {
+        this.detachDocument();
+      })
+      .finally(() => {
+        this.invalidDocumentPrompt = null;
+      });
+    return this.invalidDocumentPrompt;
   }
 
   private toPayload(document: vscode.TextDocument | undefined): PreviewPayload {
@@ -638,7 +748,7 @@ export class BehaviorTreePreviewPanel {
     try {
       const ast = parseBehaviorTreeDocument(source);
       return {
-        preview: buildPreviewDocument(ast, this.currentSettings),
+        preview: buildPreviewDocument(ast, this.getEffectiveSettings()),
         parseError: null
       };
     } catch (error) {
@@ -855,7 +965,7 @@ export class BehaviorTreePreviewPanel {
           targetIndex,
           payload.nodeKey!,
           payload.nodeCategory!,
-          this.currentSettings
+          this.getEffectiveSettings()
         );
         return serializeBehaviorTreeDocument(parsed);
       }
@@ -1134,6 +1244,13 @@ export class BehaviorTreePreviewPanel {
     }
 
     const document = await vscode.workspace.openTextDocument(file);
+    if (BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(document)) {
+      await BehaviorTreePreviewPanel.showInvalidDocumentMessage();
+      this.detachDocument();
+      this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One);
+      return;
+    }
+
     await vscode.window.showTextDocument(document, {
       preview: false,
       preserveFocus: false
@@ -1211,9 +1328,15 @@ export class BehaviorTreePreviewPanel {
       const { settings, configUri } = await loadUserSettings(this.globalStorageUri);
       this.currentSettings = settings;
       this.settingsFileUri = configUri;
+      this.nodeLibraryPresets = await BehaviorTreePreviewPanel.loadNodeLibraryPresets(this.extensionUri);
       const attachedDocument = this.latestDocumentUri
         ? await vscode.workspace.openTextDocument(this.latestDocumentUri)
         : undefined;
+      if (attachedDocument && BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(attachedDocument)) {
+        await this.detachInvalidDocumentAfterPrompt();
+        return;
+      }
+
       this.latestPayload = this.toPayload(attachedDocument);
       if (this.webviewReady) {
         this.postLatestPayload();

@@ -182,7 +182,7 @@ export function insertNode(
   const nextNode = createNodeFromPalette(document, nodeKey, nodeCategory, settings);
   if (targetParentPath === VIRTUAL_ROOT_PATH) {
     if (tree.node) {
-      throw new Error(`BehaviorTree "${treeId}" already has a root node.`);
+      nextNode.children.push(tree.node);
     }
     tree.node = nextNode;
     return "0";
@@ -438,12 +438,36 @@ function defaultAttributesFor(document: BtDocumentAst, nodeKey: string, settings
 }
 
 function defaultAttributesFromBuiltin(nodeKey: string): Record<string, string> {
+  const switchCaseCount = switchCaseCountFor(nodeKey);
+  if (switchCaseCount > 0) {
+    return {
+      variable: "",
+      ...Object.fromEntries(Array.from({ length: switchCaseCount }, (_entry, index) => [`case_${index + 1}`, ""]))
+    };
+  }
+
   switch (nodeKey) {
     case "Parallel":
+      return {
+        success_count: "-1",
+        failure_count: "1"
+      };
     case "ParallelAll":
       return {
-        failure_count: "1",
-        success_count: "1"
+        max_failures: "1"
+      };
+    case "TryCatch":
+      return {
+        catch_on_halt: "false"
+      };
+    case "LoopBool":
+    case "LoopDouble":
+    case "LoopInt":
+    case "LoopString":
+      return {
+        queue: "",
+        if_empty: "SUCCESS",
+        value: ""
       };
     case "Repeat":
       return {
@@ -454,29 +478,52 @@ function defaultAttributesFromBuiltin(nodeKey: string): Record<string, string> {
       return {
         num_attempts: "1"
       };
-    case "Delay":
     case "Timeout":
     case "Sleep":
       return {
         msec: "0"
+      };
+    case "Delay":
+      return {
+        delay_msec: "0"
       };
     case "Script":
     case "ScriptCondition":
       return {
         code: ""
       };
+    case "SetBlackboard":
+      return {
+        value: "",
+        output_key: ""
+      };
+    case "WasEntryUpdated":
+    case "SkipUnlessUpdated":
+    case "WaitValueUpdate":
+      return {
+        entry: ""
+      };
     case "RunOnce":
       return {
-        then_skip: "false"
+        then_skip: "true"
       };
     case "Precondition":
       return {
         if: "",
-        else: ""
+        else: "FAILURE"
       };
     default:
       return {};
   }
+}
+
+function switchCaseCountFor(nodeKey: string): number {
+  if (nodeKey === "Switch") {
+    return 2;
+  }
+
+  const match = nodeKey.match(/^Switch([2-6])$/);
+  return match ? Number(match[1]) : 0;
 }
 
 function defaultAttributesFromModel(document: BtDocumentAst, nodeKey: string): Record<string, string> {
