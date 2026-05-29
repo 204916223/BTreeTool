@@ -370,7 +370,8 @@
       paneId,
       panX: 0,
       panY: 0,
-      zoom: viewportState?.zoom || 1
+      zoom: viewportState?.zoom || 1,
+      selectedCard: null
     };
     shell.__btreeCanvasState = canvasState;
     runtime.state.canvasStatesByPane = {
@@ -441,11 +442,11 @@
   function enableCanvasPan(shell) {
     let dragging = false;
     let didPan = false;
-    let clearSelectionOnRelease = false;
     let startX = 0;
     let startY = 0;
     let initialPanX = 0;
     let initialPanY = 0;
+    let capturedPointerId = null;
 
     shell.addEventListener("pointerenter", () => {
       activateCanvasState(shell.__btreeCanvasState);
@@ -453,16 +454,19 @@
 
     shell.addEventListener("pointerdown", (event) => {
       activateCanvasState(shell.__btreeCanvasState);
-      if (event.button !== 0 || event.target.closest("button")) {
+      const target = event.target;
+      if (!(target instanceof Element) || event.button !== 0 || target.closest("button")) {
         return;
       }
 
-      const onNodeCard = Boolean(event.target.closest(".flow-card"));
-      const onEditableControl = Boolean(event.target.closest("input, textarea, select, [contenteditable='true']"));
+      const onNodeCard = Boolean(target.closest(".flow-card"));
+      const onEditableControl = Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
       if (!onEditableControl) {
         blurActiveCanvasInput();
       }
-      clearSelectionOnRelease = !onNodeCard && !onEditableControl;
+      if (!onNodeCard && !onEditableControl) {
+        clearCanvasSelection({ render: false });
+      }
       if (onNodeCard && !runtime.state.isSpacePressed) {
         return;
       }
@@ -474,7 +478,12 @@
       initialPanX = shell.__btreeCanvasState?.panX || 0;
       initialPanY = shell.__btreeCanvasState?.panY || 0;
       shell.classList.add("is-dragging");
-      shell.setPointerCapture(event.pointerId);
+      capturedPointerId = event.pointerId;
+      try {
+        shell.setPointerCapture(event.pointerId);
+      } catch (_error) {
+        // Ignore capture failures in webviews that already lost the pointer.
+      }
       event.preventDefault();
     });
 
@@ -492,13 +501,12 @@
       setCanvasPan(initialPanX + deltaX, initialPanY + deltaY);
     });
 
-    const stopDragging = () => {
-      const shouldClearSelection = clearSelectionOnRelease && !didPan;
+    const stopDragging = (event) => {
+      if (event && capturedPointerId !== null && "pointerId" in event && event.pointerId !== capturedPointerId) {
+        return;
+      }
+
       if (!dragging) {
-        if (shouldClearSelection) {
-          clearCanvasSelection();
-        }
-        clearSelectionOnRelease = false;
         return;
       }
 
@@ -509,14 +517,21 @@
       dragging = false;
       didPan = false;
       shell.classList.remove("is-dragging");
-      if (shouldClearSelection) {
-        clearCanvasSelection();
+      if (capturedPointerId !== null) {
+        try {
+          shell.releasePointerCapture(capturedPointerId);
+        } catch (_error) {
+          // Ignore stale pointer capture state.
+        }
       }
-      clearSelectionOnRelease = false;
+      capturedPointerId = null;
     };
 
     shell.addEventListener("pointerup", stopDragging);
     shell.addEventListener("pointercancel", stopDragging);
+    window.addEventListener("pointerup", stopDragging, true);
+    window.addEventListener("pointercancel", stopDragging, true);
+    window.addEventListener("blur", stopDragging);
 
     shell.addEventListener(
       "wheel",
@@ -546,14 +561,23 @@
     }
   }
 
-  function clearCanvasSelection() {
-    if (runtime.state.selectedNodePath === null) {
+  function clearCanvasSelection(options = {}) {
+    const render = options.render !== false;
+    runtime.viewport.updateCanvasSelection(null);
+    runtime.state.selectedNodePath = null;
+    if (runtime.state.splitViewEnabled && runtime.state.activeTreePane) {
+      runtime.state.splitPaneNodePaths = {
+        ...(runtime.state.splitPaneNodePaths || {}),
+        [runtime.state.activeTreePane]: null
+      };
+    }
+    runtime.app.persistUiState?.();
+    if (!render) {
       return;
     }
-
-    runtime.state.selectedNodePath = null;
-    runtime.app.persistUiState?.();
-    if (runtime.state.latestPayload) {
+    if (runtime.modeRules?.isPlaybackMode?.() && runtime.state.playbackLog) {
+      runtime.app.renderPlaybackLog({ preserveViewport: true });
+    } else if (runtime.state.latestPayload) {
       runtime.app.renderCurrentTree(runtime.state.latestPayload, { preserveViewport: true });
     }
   }
@@ -806,6 +830,31 @@
     updateZoomLabel();
   }
 
+  function updateCanvasSelection(nodePath, treeId = runtime.state.selectedTreeId) {
+    const canvasState = runtime.state.currentCanvasState;
+    if (!canvasState?.shell) {
+      return;
+    }
+
+    const currentSelected = canvasState.selectedCard || canvasState.shell.querySelector(".flow-card.is-selected");
+    currentSelected?.classList.remove("is-selected");
+    canvasState.selectedCard = null;
+
+    if (nodePath === null || nodePath === undefined) {
+      return;
+    }
+
+    const pathSelector = CSS.escape(String(nodePath));
+    const treeSelector = treeId ? `[data-tree-id="${CSS.escape(String(treeId))}"]` : "";
+    const selected = canvasState.shell.querySelector(`.canvas-node${treeSelector}[data-node-path="${pathSelector}"] .flow-card`);
+    if (!selected) {
+      return;
+    }
+
+    selected.classList.add("is-selected");
+    canvasState.selectedCard = selected;
+  }
+
   function syncCanvasInteractionMode() {
     document.querySelectorAll(".canvas-shell").forEach((shell) => {
       shell.classList.toggle("is-hand-mode", runtime.state.isSpacePressed);
@@ -831,6 +880,7 @@
     endDragPreviewViewport,
     setCanvasPan,
     focusNodePath,
-    refreshViewport
+    refreshViewport,
+    updateCanvasSelection
   };
 })();

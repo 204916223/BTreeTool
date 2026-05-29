@@ -230,6 +230,9 @@
   }
 
   function renderCanvasNode(entry, result, currentTreeId, options = {}) {
+    const selectedNodePath = Object.prototype.hasOwnProperty.call(options, "selectedNodePath")
+      ? options.selectedNodePath
+      : runtime.state.selectedNodePath;
     const wrapper = document.createElement("div");
     wrapper.className = "canvas-node";
     wrapper.dataset.nodePath = entry.node.nodePath;
@@ -257,7 +260,7 @@
 
     const card = buildNodeCard(entry.node, result, {
       interactive: true,
-      selected: entry.node.nodePath === (options.selectedNodePath || runtime.state.selectedNodePath),
+      selected: entry.node.nodePath === selectedNodePath,
       currentTreeId,
       paneId: options.paneId
     });
@@ -409,11 +412,7 @@
         runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
         runtime.state.selectedNodePath = node.nodePath;
         runtime.app.persistUiState();
-        if (runtime.modeRules?.isPlaybackMode?.() && runtime.app.renderPlaybackLog) {
-          runtime.app.renderPlaybackLog({ preserveViewport: true });
-          return;
-        }
-        runtime.app.renderCurrentTree(result, { preserveViewport: true });
+        runtime.viewport.updateCanvasSelection(node.nodePath, options.currentTreeId);
       });
 
       heading.addEventListener("dblclick", (event) => {

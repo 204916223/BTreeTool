@@ -2715,7 +2715,7 @@
     }
 
     runtime.state.canvasStatesByPane = {};
-    runtime.state.selectedNodePath = pickNodePath(selectedTree);
+    runtime.state.selectedNodePath = pickNodePath(selectedTree, runtime.state.selectedNodePath);
     persistUiState();
     runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
     runtime.refs.treeContent.replaceChildren(runtime.canvas.renderTree(selectedTree, result, viewportState));
@@ -2809,7 +2809,10 @@
       return pane;
     }
 
-    const selectedNodePath = pickNodePath(tree, runtime.state.splitPaneNodePaths?.[paneId] || "0");
+    const paneSelectedNodePath = runtime.state.splitPaneNodePaths?.[paneId];
+    const selectedNodePath = paneSelectedNodePath === null
+      ? null
+      : pickNodePath(tree, paneSelectedNodePath ?? runtime.state.selectedNodePath);
     runtime.state.splitPaneNodePaths = {
       ...(runtime.state.splitPaneNodePaths || {}),
       [paneId]: selectedNodePath
@@ -2877,7 +2880,9 @@
 
     const activeTreeId = paneTreeIds[runtime.state.activeTreePane] || paneTreeIds.left || result.defaultTreeId;
     runtime.state.selectedTreeId = treeMap.has(activeTreeId) ? activeTreeId : result.defaultTreeId;
-    runtime.state.selectedNodePath = runtime.state.splitPaneNodePaths?.[runtime.state.activeTreePane] || runtime.state.selectedNodePath || "0";
+    const activePaneNodePath = runtime.state.splitPaneNodePaths?.[runtime.state.activeTreePane];
+    runtime.state.selectedNodePath =
+      activePaneNodePath === null ? null : activePaneNodePath ?? runtime.state.selectedNodePath ?? "0";
   }
 
   function pickNeighborTreeId(result, treeId) {
@@ -2956,7 +2961,8 @@
       };
       runtime.state.selectedNodePath = nodePath;
     } else {
-      runtime.state.selectedNodePath = runtime.state.splitPaneNodePaths?.[normalizedPaneId] || runtime.state.selectedNodePath || "0";
+      const paneNodePath = runtime.state.splitPaneNodePaths?.[normalizedPaneId];
+      runtime.state.selectedNodePath = paneNodePath === null ? null : paneNodePath ?? runtime.state.selectedNodePath ?? "0";
     }
 
     updateSplitPaneActiveState();

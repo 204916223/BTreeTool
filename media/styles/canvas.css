@@ -182,7 +182,7 @@ body.is-reordering-nodes .canvas-node.is-drag-source {
   border: 1px solid var(--line);
   background: linear-gradient(180deg, var(--color-surface-subtle-hover), transparent), var(--card-strong);
   box-shadow: var(--color-card-shadow-soft);
-  cursor: pointer;
+  cursor: default;
   transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
   position: relative;
   overflow: hidden;
@@ -250,7 +250,7 @@ body.is-reordering-nodes .canvas-node.is-drop-target-expandable:not(.is-drag-sou
 }
 
 .flow-card:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .flow-card.is-dragging-node {
@@ -454,6 +454,7 @@ body.is-reordering-nodes .drop-slot-overlay {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
 }
 
 .flow-warning-badge {
