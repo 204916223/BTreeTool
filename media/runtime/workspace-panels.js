@@ -14,6 +14,8 @@
 
     runtime.refs.toggleCatalogButton.classList.toggle("is-active", showCatalog);
 
+    runtime.catalog.syncDeleteTargetIndicator?.();
+
     if (hasDocument && runtime.state.currentCanvasState) {
       requestAnimationFrame(() => {
         runtime.viewport.refreshViewport();

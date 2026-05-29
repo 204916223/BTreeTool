@@ -2023,14 +2023,7 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
               <p id="catalog-summary" class="catalog-summary">
                 Built-in nodes, model-backed actions, and SubTree entries available in this XML.
               </p>
-              <input
-                id="catalog-search"
-                class="panel-search"
-                type="text"
-                placeholder="Search nodes"
-                spellcheck="false"
-              />
-              <div class="panel-actions">
+              <div class="catalog-search-row">
                 <button
                   id="add-node-model"
                   class="canvas-btn icon-btn"
@@ -2040,8 +2033,21 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
                 </button>
-                <button id="edit-node-definitions" class="canvas-btn subtle" type="button">
-                  Edit XML
+                <input
+                  id="catalog-search"
+                  class="panel-search"
+                  type="text"
+                  placeholder="Search nodes"
+                  spellcheck="false"
+                />
+                <button
+                  id="catalog-search-button"
+                  class="canvas-btn icon-btn subtle catalog-search-button"
+                  type="button"
+                  title="Search nodes"
+                  aria-label="Search nodes"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm5.64 8.22 3.42 3.42-1.42 1.42-3.42-3.42 1.42-1.42Z"/></svg>
                 </button>
               </div>
             </div>

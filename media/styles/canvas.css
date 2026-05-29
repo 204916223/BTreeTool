@@ -331,6 +331,10 @@ body.is-reordering-nodes .drop-slot-overlay {
   display: none;
 }
 
+body.is-reordering-nodes .canvas-node.is-drop-target-hidden .drop-slot-overlay {
+  display: none;
+}
+
 .flow-card.is-dragging-node {
   opacity: 0.58;
 }

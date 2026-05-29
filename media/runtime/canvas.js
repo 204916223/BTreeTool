@@ -257,6 +257,9 @@
     if (entry.expandForDropTarget) {
       wrapper.classList.add("is-drop-target-expandable");
     }
+    if (isDropTargetHidden(entry.node.nodePath, currentTreeId)) {
+      wrapper.classList.add("is-drop-target-hidden");
+    }
 
     const card = buildNodeCard(entry.node, result, {
       interactive: true,
@@ -460,8 +463,11 @@
           card.classList.add("is-dragging-node");
           card.closest(".canvas-node")?.classList.add("is-drag-source");
           runtime.viewport.beginDragPreviewViewport();
+          runtime.viewport.refreshDropTargetVisibility();
+          runtime.catalog.syncDeleteTargetIndicator?.();
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData("text/plain", node.nodePath);
+          runtime.setNeutralDragImage?.(event);
         });
 
         heading.addEventListener("dragend", () => {
@@ -699,8 +705,10 @@
     runtime.state.currentDragState = null;
     document.body.classList.remove("is-reordering-nodes");
     runtime.viewport.endDragPreviewViewport();
+    runtime.viewport.refreshDropTargetVisibility();
     clearDropMarkers();
     runtime.catalog.clearCatalogDeleteTarget();
+    runtime.catalog.syncDeleteTargetIndicator?.();
     runtime.overlays.hideNodeContextMenu();
     document.querySelectorAll(".flow-card.is-dragging-node").forEach((node) => {
       node.classList.remove("is-dragging-node");
@@ -721,7 +729,6 @@
 
   function applyDropMarker(nodePath, position, treeId = runtime.state.selectedTreeId) {
     clearDropMarkers();
-    runtime.catalog.clearCatalogDeleteTarget();
     const node = document.querySelector(
       `.canvas-node[data-tree-id="${CSS.escape(treeId || "")}"][data-node-path="${CSS.escape(nodePath)}"] .drop-slot-${position}`
     );
@@ -732,13 +739,30 @@
 
   function applyAppendMarker(nodePath, treeId = runtime.state.selectedTreeId) {
     clearDropMarkers();
-    runtime.catalog.clearCatalogDeleteTarget();
     const node = document.querySelector(
       `.canvas-node[data-tree-id="${CSS.escape(treeId || "")}"][data-node-path="${CSS.escape(nodePath)}"] .drop-slot-append`
     );
     if (node) {
       node.classList.add("is-active");
     }
+  }
+
+  function isDropTargetHidden(nodePath, treeId) {
+    const dragState = runtime.state.currentDragState;
+    if (!dragState || dragState.kind !== "move") {
+      return false;
+    }
+
+    if (!treeId || dragState.treeId !== treeId) {
+      return false;
+    }
+
+    const sourceNodePath = String(dragState.sourceNodePath || "");
+    const targetNodePath = String(nodePath || "");
+    return (
+      targetNodePath === sourceNodePath ||
+      targetNodePath.startsWith(`${sourceNodePath}.`)
+    );
   }
 
   function canAppendChildren(node) {

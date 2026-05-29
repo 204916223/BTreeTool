@@ -830,6 +830,20 @@
     updateZoomLabel();
   }
 
+  function refreshDropTargetVisibility() {
+    document.querySelectorAll(".canvas-node").forEach((node) => {
+      const treeId = node.dataset.treeId || "";
+      const nodePath = node.dataset.nodePath || "";
+      const shouldHide =
+        runtime.state.currentDragState?.kind === "move" &&
+        treeId === runtime.state.currentDragState.treeId &&
+        Boolean(runtime.state.currentDragState.sourceNodePath) &&
+        (nodePath === runtime.state.currentDragState.sourceNodePath ||
+          nodePath.startsWith(`${runtime.state.currentDragState.sourceNodePath}.`));
+      node.classList.toggle("is-drop-target-hidden", shouldHide);
+    });
+  }
+
   function updateCanvasSelection(nodePath, treeId = runtime.state.selectedTreeId) {
     const canvasState = runtime.state.currentCanvasState;
     if (!canvasState?.shell) {
@@ -881,6 +895,7 @@
     setCanvasPan,
     focusNodePath,
     refreshViewport,
+    refreshDropTargetVisibility,
     updateCanvasSelection
   };
 })();

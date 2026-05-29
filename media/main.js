@@ -4,6 +4,28 @@
   const persistedState = vscode.getState() || {};
   const initialMode = window.BTreeToolInitialMode === "playback" ? "playback" : "edit";
   runtime.vscode = vscode;
+  runtime.setNeutralDragImage = (event) => {
+    const transfer = event?.dataTransfer;
+    if (!transfer || typeof transfer.setDragImage !== "function") {
+      return;
+    }
+
+    let dragImage = document.getElementById("btree-neutral-drag-image");
+    if (!dragImage) {
+      dragImage = document.createElement("div");
+      dragImage.id = "btree-neutral-drag-image";
+      dragImage.style.position = "fixed";
+      dragImage.style.left = "-1000px";
+      dragImage.style.top = "-1000px";
+      dragImage.style.width = "1px";
+      dragImage.style.height = "1px";
+      dragImage.style.opacity = "0";
+      dragImage.style.pointerEvents = "none";
+      document.body.appendChild(dragImage);
+    }
+
+    transfer.setDragImage(dragImage, 0, 0);
+  };
   runtime.state = {
     selectedTreeId: persistedState.selectedTreeId || null,
     selectedNodePath: persistedState.selectedNodePath || "0",
@@ -157,10 +179,10 @@
     catalogPanel: document.getElementById("catalog-panel"),
     catalogEyebrow: document.getElementById("catalog-eyebrow"),
     catalogSummary: document.getElementById("catalog-summary"),
+    catalogSearchButton: document.getElementById("catalog-search-button"),
     catalogList: document.getElementById("catalog-list"),
     catalogSearchInput: document.getElementById("catalog-search"),
     addNodeModelButton: document.getElementById("add-node-model"),
-    editNodeDefinitionsButton: document.getElementById("edit-node-definitions"),
     catalogResizer: document.getElementById("catalog-resizer"),
     toggleCatalogButton: document.getElementById("toggle-catalog"),
     openSettingsButton: document.getElementById("open-settings")
@@ -627,7 +649,6 @@
     runtime.refs.catalogSearchInput.placeholder = catalogCopy.searchPlaceholder;
     runtime.refs.addNodeModelButton.title = catalogCopy.addModelTitle;
     runtime.refs.addNodeModelButton.setAttribute("aria-label", catalogCopy.addModelTitle);
-    runtime.refs.editNodeDefinitionsButton.textContent = catalogCopy.editXml;
     const searchCopy = runtime.i18n.getSearchCopy();
     runtime.refs.treeSearchTitle.textContent = searchCopy.title;
     runtime.refs.treeSearchInput.placeholder = searchCopy.placeholder;

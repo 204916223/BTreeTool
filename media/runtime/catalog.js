@@ -29,16 +29,14 @@
 
     refs.catalogSearchInput.hidden = false;
     refs.addNodeModelButton.hidden = false;
-    refs.editNodeDefinitionsButton.hidden = false;
     const canCreateNodeModel = app.canPerformAction("createNodeModel");
-    const canRevealNodeModelSource = app.canPerformAction("revealNodeModelSource");
     const canDragPaletteNode = app.canPerformAction("dragPaletteNode", { treeId: state.selectedTreeId });
 
     if (refs.addNodeModelButton) {
       refs.addNodeModelButton.disabled = !canCreateNodeModel;
     }
-    if (refs.editNodeDefinitionsButton) {
-      refs.editNodeDefinitionsButton.disabled = !canRevealNodeModelSource;
+    if (refs.catalogSearchButton) {
+      refs.catalogSearchButton.disabled = !catalogSearchInput;
     }
 
     if (!catalogList) {
@@ -50,6 +48,7 @@
       const query = (catalogSearchInput?.value || "").trim();
       const message = query ? copy.emptySearch(query) : copy.emptyCatalog;
       catalogList.replaceChildren(app.emptyState(message));
+      syncDeleteTargetIndicator();
       return;
     }
 
@@ -59,6 +58,7 @@
       const collapsed = isCatalogGroupCollapsed(group.category);
       const section = document.createElement("section");
       section.className = "catalog-group";
+      section.dataset.category = group.category;
 
       const header = document.createElement("button");
       header.type = "button";
@@ -191,6 +191,7 @@
           runtime.viewport.beginDragPreviewViewport();
           event.dataTransfer.effectAllowed = "copyMove";
           event.dataTransfer.setData("text/plain", item.key);
+          runtime.setNeutralDragImage?.(event);
         });
         row.addEventListener("dragend", () => {
           runtime.canvas.clearDragState();
@@ -203,6 +204,7 @@
     });
 
     catalogList.replaceChildren(fragment);
+    syncDeleteTargetIndicator();
   }
 
   function isCatalogGroupCollapsed(category) {
@@ -211,6 +213,22 @@
       return collapsedGroups[category] !== false;
     }
     return true;
+  }
+
+  function syncDeleteTargetIndicator() {
+    const { catalogPanel } = runtime.refs;
+    if (!catalogPanel) {
+      return;
+    }
+
+    const shouldShowDeleteTarget =
+      !catalogPanel.hidden && runtime.state.currentDragState?.kind === "move";
+    catalogPanel.classList.toggle("is-delete-target", shouldShowDeleteTarget);
+
+    const header = catalogPanel.querySelector(".catalog-header");
+    if (header) {
+      header.dataset.deleteHint = runtime.i18n.getCatalogCopy().deleteDropHint;
+    }
   }
 
   function enableCatalogDeleteTarget() {
@@ -233,7 +251,7 @@
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       canvas.clearDropMarkers();
-      catalogPanel.classList.add("is-delete-target");
+      syncDeleteTargetIndicator();
     });
 
     catalogPanel.addEventListener("drop", (event) => {
@@ -261,9 +279,13 @@
   }
 
   function init() {
-    const { refs, app, state, vscode } = runtime;
+    const { refs, state } = runtime;
 
     refs.catalogSearchInput?.addEventListener("input", () => {
+      renderCatalog(state.currentCatalogGroups);
+    });
+    refs.catalogSearchButton?.addEventListener("click", () => {
+      refs.catalogSearchInput?.focus();
       renderCatalog(state.currentCatalogGroups);
     });
     refs.addNodeModelButton?.addEventListener("click", () => {
@@ -272,13 +294,8 @@
       }
       runtime.overlays.showTreeNodesModelDialog({ createNew: true });
     });
-    refs.editNodeDefinitionsButton?.addEventListener("click", () => {
-      if (!runtime.app.canPerformAction("revealNodeModelSource")) {
-        return;
-      }
-      vscode.postMessage({ type: "revealTreeNodesModel" });
-    });
     enableCatalogDeleteTarget();
+    syncDeleteTargetIndicator();
   }
 
   runtime.catalog = {
@@ -287,6 +304,7 @@
     filterCatalogGroups,
     isCatalogGroupCollapsed,
     enableCatalogDeleteTarget,
-    clearCatalogDeleteTarget
+    clearCatalogDeleteTarget,
+    syncDeleteTargetIndicator
   };
 })();

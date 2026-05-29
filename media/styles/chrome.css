@@ -159,7 +159,6 @@ body.is-playback-mode .node-picker-item,
 body.is-playback-mode .catalog-item-edit,
 body.is-playback-mode .catalog-item-remove,
 body.is-playback-mode #add-node-model,
-body.is-playback-mode #edit-node-definitions,
 body.is-playback-mode #apply-attributes {
   cursor: not-allowed;
 }
