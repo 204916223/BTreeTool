@@ -115,7 +115,7 @@ npm run package:vsix
 - `Node Layout`：切换节点属性布局
 - `MainTree Locator`：显示或隐藏 MainTree 定位图，默认开启
 - `BehaviorTree Root`：显示或隐藏虚拟 root，默认开启
-- `Node Details`：控制简化视图里隐藏哪些节点详情
+- `Node Display`：控制简化视图里隐藏哪些节点显示项
 
 用户预设节点会参与 Node Palette、右键新增、节点字段约束和新建节点默认值。
 

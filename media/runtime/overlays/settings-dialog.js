@@ -33,33 +33,28 @@
     form.className = "settings-form";
 
     const commonSection = createSettingsSection("General Mode");
-    const commonRow = document.createElement("div");
-    commonRow.className = "settings-inline-row";
-
     const languageRow = createInlineField("Language");
     const languageSelect = document.createElement("select");
     languageSelect.className = "attribute-input";
     languageRow.control.appendChild(languageSelect);
-    commonRow.appendChild(languageRow.element);
-
     const themeRow = createInlineField("Theme");
     const themeSelect = document.createElement("select");
     themeSelect.className = "attribute-input";
     themeRow.control.appendChild(themeSelect);
-    commonRow.appendChild(themeRow.element);
-    commonSection.body.appendChild(commonRow);
+    commonSection.body.appendChild(languageRow.element);
+    commonSection.body.appendChild(themeRow.element);
 
     const nodeLayoutRow = createInlineField("Node Layout");
     const nodeLayoutControl = createSegmentedControl([
-      { value: "stacked", label: "上下" },
-      { value: "inline", label: "左右" }
+      { value: "stacked", label: "上下布局" },
+      { value: "inline", label: "左右布局" }
     ]);
     nodeLayoutRow.control.appendChild(nodeLayoutControl.element);
     commonSection.body.appendChild(nodeLayoutRow.element);
 
     const detailTitle = document.createElement("div");
     detailTitle.className = "settings-detail-title";
-    detailTitle.textContent = "Node Details";
+    detailTitle.textContent = "Node Display";
     const detailGrid = document.createElement("div");
     detailGrid.className = "settings-detail-grid";
     const detailSwitches = createDetailSwitches();
@@ -70,6 +65,7 @@
     commonSection.body.appendChild(detailGrid);
 
     const editSection = createSettingsSection("Edit Mode");
+    editSection.element.classList.add("settings-section-edit");
     const editRow = document.createElement("div");
     editRow.className = "settings-toggle-row";
 
@@ -380,7 +376,7 @@
     overlayState.settingsDialog.behaviorTreeRootText.textContent = copy.rootShort;
     overlayState.settingsDialog.deleteConfirmText.textContent = copy.deleteConfirmShort;
     overlayState.settingsDialog.copyDescendantsText.textContent = copy.copyDescendantsShort;
-    overlayState.settingsDialog.detailTitle.textContent = copy.nodeDetails;
+    overlayState.settingsDialog.detailTitle.textContent = copy.nodeDisplay;
     overlayState.settingsDialog.detailSwitches.forEach((entry) => {
       entry.switchControl.text.textContent = copy.nodeDetailOptions[entry.key];
     });

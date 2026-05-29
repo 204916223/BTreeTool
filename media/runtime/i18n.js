@@ -27,8 +27,8 @@
       theme: "Theme",
       nodeAttributeLayout: "Node Layout",
       nodeAttributeLayoutOptions: {
-        inline: "Key left, value right",
-        stacked: "Key top, value bottom"
+        inline: "Left-right layout",
+        stacked: "Top-bottom layout"
       },
       locatorShort: "Locator",
       rootShort: "ROOT",
@@ -38,7 +38,7 @@
       traceConfigDirectory: "Trace config directory",
       traceConfigDirectoryUnavailable: "Trace config directory is not ready.",
       traceOpenConfig: "Open config file",
-      nodeDetails: "Node Details",
+      nodeDisplay: "Node Display",
       nodeDetailOptions: {
         description: "Description",
         code: "Code",
@@ -69,8 +69,8 @@
         theme: "主题",
         nodeAttributeLayout: "节点布局类型",
         nodeAttributeLayoutOptions: {
-          inline: "左 key，右 value",
-          stacked: "上 key，下 value"
+          inline: "左右布局",
+          stacked: "上下布局"
         },
         locatorShort: "定位图",
         rootShort: "ROOT",
@@ -80,7 +80,7 @@
         traceConfigDirectory: "塔斯配置目录",
         traceConfigDirectoryUnavailable: "塔斯配置目录尚未就绪。",
         traceOpenConfig: "打开配置文件",
-        nodeDetails: "节点详情",
+        nodeDisplay: "节点显示",
         nodeDetailOptions: {
           description: "描述",
           code: "代码",
@@ -331,8 +331,8 @@
       cancel: "Cancel",
       delete: "Delete",
       deleteConfirm: (title) => `Delete "${title || "this node"}"? This only removes the current node instance.`,
-      hideAllNodeDetails: "Hide All Node Details",
-      showConfiguredNodeDetails: "Show Configured Node Details",
+      hideAllNodeDetails: "Hide All Node Display Items",
+      showConfiguredNodeDetails: "Show Configured Node Display Items",
       nodePickerTitle: "Add node",
       close: "Close",
       nodePickerSearchPlaceholder: "Search nodes",
@@ -356,8 +356,8 @@
         cancel: "取消",
         delete: "删除",
         deleteConfirm: (title) => `删除“${title || "当前节点"}”？这只会移除当前节点实例。`,
-        hideAllNodeDetails: "隐藏所有节点详情",
-        showConfiguredNodeDetails: "恢复配置的节点详情",
+        hideAllNodeDetails: "隐藏所有节点显示项",
+        showConfiguredNodeDetails: "恢复配置的节点显示项",
         nodePickerTitle: "添加节点",
         close: "关闭",
         nodePickerSearchPlaceholder: "搜索节点",

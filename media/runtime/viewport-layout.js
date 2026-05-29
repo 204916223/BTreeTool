@@ -383,19 +383,14 @@
     syncCanvasInteractionMode();
     enableCanvasPan(shell);
 
-    requestAnimationFrame(() => {
-      if (viewportState) {
-        setCanvasPan(viewportState.panX, viewportState.panY, canvasState);
-        if (options.active !== false) {
-          activateCanvasState(canvasState);
-        }
-        return;
-      }
+    if (viewportState) {
+      restoreCanvasViewportWhenReady(canvasState, viewportState, options.active !== false);
+    } else {
       fitCanvasWhenReady(canvasState, options.active !== false);
-    });
+    }
   }
 
-  function fitCanvasWhenReady(canvasState, activateAfterFit, previousSize = null, frame = 0) {
+  function waitForStableCanvasSize(canvasState, onReady, previousSize = null, frame = 0) {
     if (!canvasState?.shell) {
       return;
     }
@@ -410,16 +405,36 @@
       previousSize?.width === size.width &&
       previousSize?.height === size.height;
 
-    if (stable || frame >= 5) {
-      fitCanvas(canvasState);
-      if (activateAfterFit) {
-        activateCanvasState(canvasState);
-      }
+    if (stable || (frame >= 12 && size.width > 0 && size.height > 0)) {
+      onReady();
+      return;
+    }
+
+    if (frame >= 30) {
       return;
     }
 
     requestAnimationFrame(() => {
-      fitCanvasWhenReady(canvasState, activateAfterFit, size, frame + 1);
+      waitForStableCanvasSize(canvasState, onReady, size, frame + 1);
+    });
+  }
+
+  function fitCanvasWhenReady(canvasState, activateAfterFit) {
+    waitForStableCanvasSize(canvasState, () => {
+      fitCanvas(canvasState);
+      if (activateAfterFit) {
+        activateCanvasState(canvasState);
+      }
+    });
+  }
+
+  function restoreCanvasViewportWhenReady(canvasState, viewportState, activateAfterRestore) {
+    waitForStableCanvasSize(canvasState, () => {
+      canvasState.zoom = viewportState.zoom || 1;
+      setCanvasPan(viewportState.panX || 0, viewportState.panY || 0, canvasState);
+      if (activateAfterRestore) {
+        activateCanvasState(canvasState);
+      }
     });
   }
 

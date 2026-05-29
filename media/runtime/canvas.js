@@ -174,12 +174,49 @@
     stage.appendChild(svg);
     stage.appendChild(nodesLayer);
     shell.appendChild(stage);
+    shell.appendChild(createCanvasFitViewButton({ ...options, treeId: tree.id }));
 
     runtime.viewport.setupCanvas(shell, stage, layout, viewportState, {
       paneId: options.paneId || "main",
       active: options.active !== false
     });
     return shell;
+  }
+
+  function createCanvasFitViewButton(options = {}) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "canvas-fit-view-btn";
+    button.title = "Reset view";
+    button.setAttribute("aria-label", "Reset view");
+    button.innerHTML = [
+      '<svg viewBox="0 0 24 24" aria-hidden="true">',
+      '<path d="M12 4v3M12 17v3M4 12h3M17 12h3"/>',
+      '<circle cx="12" cy="12" r="5"/>',
+      '<circle cx="12" cy="12" r="1.5"/>',
+      "</svg>"
+    ].join("");
+
+    button.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    button.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const canvasState = button.closest(".canvas-shell")?.__btreeCanvasState;
+      if (!canvasState) {
+        return;
+      }
+      runtime.app.activateTreePane(options.paneId, options.treeId, null);
+      runtime.viewport.activateCanvasState(canvasState);
+      runtime.viewport.fitCanvas(canvasState);
+    });
+
+    return button;
   }
 
   function renderZEdgePath(edge) {
