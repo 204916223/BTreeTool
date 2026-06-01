@@ -228,13 +228,14 @@ body.is-resizing-panels .playback-duration-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
   grid-template-rows: minmax(0, 1fr);
-  gap: 8px;
+  gap: 10px;
   padding: 12px;
   overflow: hidden;
 }
 
 .playback-duration-panel.hide-current-task-panel {
   grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 6px;
 }
 
 .playback-duration-main {
@@ -260,11 +261,26 @@ body.is-resizing-panels .playback-duration-panel {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-bg-panel) 82%, transparent);
 }
 
 .playback-duration-height-btn {
+  width: 26px;
+  height: 24px;
+  min-width: 26px;
+  min-height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   font-weight: 700;
+}
+
+.playback-duration-height-btn:hover {
+  background: var(--color-surface-subtle-hover);
 }
 
 .playback-duration-ruler {
@@ -418,29 +434,51 @@ body.is-resizing-panels .playback-duration-panel {
   overflow: hidden;
 }
 
+.playback-duration-panel.hide-current-task-panel .playback-duration-task-panel {
+  align-self: start;
+  justify-self: center;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .playback-duration-task-header {
   min-width: 0;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  column-gap: 10px;
   padding: 6px;
   border-bottom: 1px solid var(--line);
 }
 
 .playback-duration-panel.hide-current-task-panel .playback-duration-task-header {
-  grid-template-columns: 24px;
+  grid-template-columns: 28px;
   justify-content: center;
+  padding: 0;
   border-bottom: 0;
 }
 
 .playback-duration-task-toggle {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  border-radius: 4px;
-  font-size: 12px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--color-bg-panel) 82%, transparent);
+}
+
+.playback-duration-task-toggle svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+}
+
+.playback-duration-panel.hide-current-task-panel .playback-duration-task-toggle {
+  border-color: var(--line-strong);
+  background: var(--color-surface-subtle);
+  box-shadow: 0 8px 18px color-mix(in srgb, #000 14%, transparent);
 }
 
 .playback-duration-task-header strong {

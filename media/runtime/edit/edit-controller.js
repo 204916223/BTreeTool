@@ -41,6 +41,7 @@
     });
     const renderPlaybackState = playbackController.renderPlaybackState;
     const renderPlaybackLog = playbackController.renderPlaybackLog;
+    const togglePlayback = playbackController.togglePlayback;
     const pausePlayback = playbackController.pausePlayback;
     const stagePlaybackTransitionUidFilter = playbackController.stagePlaybackTransitionUidFilter;
     const updatePlaybackTracePanel = playbackController.updatePlaybackTracePanel;
@@ -97,7 +98,9 @@
       handleTraceAnswer,
       handleTraceAnswerChunk
     });
-    runtime.mainEvents.bindGlobalKeys();
+    runtime.mainEvents.bindGlobalKeys({
+      togglePlayback
+    });
 
     runtime.catalog.init();
     runtime.overlays.init();

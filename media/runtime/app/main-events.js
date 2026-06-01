@@ -79,7 +79,7 @@
     });
   }
 
-  function bindGlobalKeys() {
+  function bindGlobalKeys(handlers = {}) {
     const shortcutState = {
       chord: null,
       resetHandle: 0
@@ -92,6 +92,18 @@
 
       if (event.code === "Space") {
         if (event.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) {
+          return;
+        }
+
+        if (event.target instanceof HTMLElement && event.target.isContentEditable) {
+          return;
+        }
+
+        if (runtime.modeRules.isPlaybackMode()) {
+          event.preventDefault();
+          if (!event.repeat && runtime.state.playbackLog && typeof handlers.togglePlayback === "function") {
+            handlers.togglePlayback(runtime.state.playbackLog);
+          }
           return;
         }
 

@@ -79,24 +79,6 @@
         }
       });
 
-      const prevButton = document.createElement("button");
-      prevButton.type = "button";
-      prevButton.className = "canvas-btn icon-btn playback-step-btn";
-      prevButton.textContent = "<";
-      prevButton.title = playbackCopy.previousNodeStatusChange;
-      bindPlaybackRepeatButton(prevButton, () => {
-        stepPlaybackTransition(log, -1);
-      });
-
-      const nextButton = document.createElement("button");
-      nextButton.type = "button";
-      nextButton.className = "canvas-btn icon-btn playback-step-btn";
-      nextButton.textContent = ">";
-      nextButton.title = playbackCopy.nextNodeStatusChange;
-      bindPlaybackRepeatButton(nextButton, () => {
-        stepPlaybackTransition(log, 1);
-      });
-
       const heightControls = document.createElement("div");
       heightControls.className = "playback-duration-height-controls";
       const shrinkButton = document.createElement("button");
@@ -114,8 +96,6 @@
 
       controls.appendChild(playButton);
       controls.appendChild(speedSelect);
-      controls.appendChild(prevButton);
-      controls.appendChild(nextButton);
       controls.appendChild(heightControls);
 
       const ruler = document.createElement("div");
@@ -227,7 +207,7 @@
       const toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "canvas-btn icon-btn playback-duration-task-toggle";
-      toggle.textContent = runtime.state.playbackDurationTaskPanelVisible === true ? ">" : "<";
+      toggle.replaceChildren(createTaskPanelToggleIcon(runtime.state.playbackDurationTaskPanelVisible === true));
       toggle.title = runtime.state.playbackDurationTaskPanelVisible === true
         ? playbackCopy.hideCurrentTasks
         : playbackCopy.showCurrentTasks;
@@ -238,7 +218,7 @@
           "hide-current-task-panel",
           runtime.state.playbackDurationTaskPanelVisible !== true
         );
-        toggle.textContent = runtime.state.playbackDurationTaskPanelVisible === true ? ">" : "<";
+        toggle.replaceChildren(createTaskPanelToggleIcon(runtime.state.playbackDurationTaskPanelVisible === true));
         toggle.title = runtime.state.playbackDurationTaskPanelVisible === true
           ? playbackCopy.hideCurrentTasks
           : playbackCopy.showCurrentTasks;
@@ -258,6 +238,21 @@
       panel.appendChild(header);
       panel.appendChild(list);
       return panel;
+    }
+
+    function createTaskPanelToggleIcon(panelVisible) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("aria-hidden", "true");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", panelVisible ? "M9 5l7 7-7 7" : "M15 5l-7 7 7 7");
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "currentColor");
+      path.setAttribute("stroke-width", "2.2");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(path);
+      return svg;
     }
 
     function buildPlaybackDurationModel(log) {
@@ -319,9 +314,60 @@
         playhead.setAttribute("aria-valuenow", formatTransitionTime(log, tUs));
       }
 
+      if (runtime.state.playbackIsPlaying === true) {
+        followPlaybackDurationViewport(durationModel, progress);
+      } else {
+        runtime.state.playbackDurationFollowAnchorX = null;
+      }
       updatePlaybackCurrentTaskPanel(log, durationModel, tUs);
       updatePlaybackDurationRangeLabels(log, durationModel);
       syncPlaybackDurationSegmentLabels(durationModel);
+    }
+
+    function followPlaybackDurationViewport(model, progress) {
+      const viewport = document.querySelector(".playback-duration-viewport");
+      const track = document.querySelector(".playback-duration-track");
+      if (!viewport || !track) {
+        return;
+      }
+
+      const viewportWidth = Math.max(1, viewport.clientWidth || 0);
+      const trackWidth = Math.max(1, track.scrollWidth || model.trackWidth || 1);
+      const maxScrollLeft = Math.max(0, trackWidth - viewportWidth);
+      if (maxScrollLeft <= 0) {
+        runtime.state.playbackDurationFollowAnchorX = null;
+        return;
+      }
+
+      const playheadX = clampNumber((progress / 100) * trackWidth, 0, trackWidth);
+      const visibleLeft = viewport.scrollLeft;
+      const visibleRight = visibleLeft + viewportWidth;
+      const gutter = clampNumber(viewportWidth * 0.18, 48, 160, 72);
+      const maxAnchor = Math.max(gutter, viewportWidth - gutter);
+      let anchorX = runtime.state.playbackDurationFollowAnchorX;
+
+      if (!Number.isFinite(anchorX)) {
+        const currentScreenX = playheadX - visibleLeft;
+        anchorX = currentScreenX >= gutter && currentScreenX <= maxAnchor
+          ? currentScreenX
+          : viewportWidth * 0.5;
+      }
+
+      anchorX = clampNumber(anchorX, gutter, maxAnchor, viewportWidth * 0.5);
+      runtime.state.playbackDurationFollowAnchorX = anchorX;
+
+      if (playheadX >= visibleLeft + gutter && playheadX <= visibleRight - gutter) {
+        const desiredWhileVisible = clampNumber(playheadX - anchorX, 0, maxScrollLeft, visibleLeft);
+        if (Math.abs(desiredWhileVisible - visibleLeft) >= 1) {
+          viewport.scrollLeft = desiredWhileVisible;
+        }
+        return;
+      }
+
+      const desired = clampNumber(playheadX - anchorX, 0, maxScrollLeft, visibleLeft);
+      if (Math.abs(desired - visibleLeft) >= 1) {
+        viewport.scrollLeft = desired;
+      }
     }
 
     function updatePlaybackCurrentTaskPanel(log, model, currentTime = getCurrentPlaybackTimeUs(log, model)) {
@@ -764,6 +810,7 @@
         latestClientY = event.clientY;
         startScrollLeft = viewport.scrollLeft;
         startScrollTop = viewport.scrollTop;
+        runtime.state.playbackDurationFollowAnchorX = null;
         document.body.classList.add("is-panning-playback-duration");
         try {
           viewport.setPointerCapture(event.pointerId);
@@ -808,6 +855,7 @@
           return;
         }
         applyPlaybackDurationTrackWidth(viewport, log, model, nextWidth, anchorRatio, anchorX);
+        runtime.state.playbackDurationFollowAnchorX = null;
         persistUiState();
       }, { passive: false });
     }

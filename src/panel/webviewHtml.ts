@@ -171,7 +171,7 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
               aria-label="Playback mode"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M8 5.5v13l10-6.5z"/>
+                <path d="M4 13h3l1.4-5 3.1 10 2.3-8 1.4 3H20v2h-6.1l-.7-1.5-1.8 6.5H9.5L8.1 15H4v-2z"/>
               </svg>
             </button>
             <button

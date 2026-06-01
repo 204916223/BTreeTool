@@ -18,6 +18,7 @@
     let playbackFrameUpdateHandle = 0;
     let pendingPlaybackFrameUpdate = null;
     let playbackAutoAdvanceHandle = 0;
+    let playbackClockAnchor = null;
     const PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS = runtime.playbackConfig.autoAdvanceBaseDelayMs;
     const PLAYBACK_SPEED_OPTIONS = runtime.playbackConfig.speedOptions;
     let playbackDomCache = null;
@@ -333,12 +334,14 @@
         });
       }
       runtime.state.playbackIsPlaying = true;
+      resetPlaybackClockAnchor(log);
       updatePlaybackTimelineControls(log);
       reschedulePlaybackAutoAdvance(log);
     }
 
     function pausePlayback() {
       runtime.state.playbackIsPlaying = false;
+      playbackClockAnchor = null;
       if (playbackAutoAdvanceHandle) {
         clearTimeout(playbackAutoAdvanceHandle);
         playbackAutoAdvanceHandle = 0;
@@ -360,62 +363,103 @@
         return;
       }
 
-      const currentFrameIndex = runtime.state.playbackFrameIndex;
-      const nextFrameIndex = currentFrameIndex + 1;
-      if (!log.frames || nextFrameIndex >= log.frames.length) {
+      reschedulePlaybackFrameAutoAdvance(log);
+    }
+
+    function reschedulePlaybackFrameAutoAdvance(log) {
+      if (!log.frames || runtime.state.playbackFrameIndex >= log.frames.length - 1) {
         pausePlayback();
         return;
       }
 
-      const delayMs = getPlaybackAdvanceDelayMs();
       playbackAutoAdvanceHandle = window.setTimeout(() => {
         playbackAutoAdvanceHandle = 0;
         if (!runtime.state.playbackIsPlaying || runtime.state.playbackLog !== log) {
           return;
         }
-        if (runtime.state.playbackFrameIndex !== currentFrameIndex) {
+
+        const anchor = ensurePlaybackClockAnchor(log, "frame");
+        const elapsedMs = Math.max(0, performance.now() - anchor.realMs);
+        const targetFrameIndex = Math.min(
+          log.frames.length - 1,
+          anchor.frameIndex + Math.floor((elapsedMs * anchor.speed) / PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS)
+        );
+
+        if (targetFrameIndex <= runtime.state.playbackFrameIndex) {
           reschedulePlaybackAutoAdvance(log);
           return;
         }
-        setPlaybackFrame(log, nextFrameIndex, {
+
+        setPlaybackFrame(log, targetFrameIndex, {
           navigateToActiveNode: shouldAutoNavigatePlayback(),
           scrollList: true,
           focusNode: false,
-          persist: true
+          persist: true,
+          fromAutoAdvance: true
         });
-      }, delayMs);
+        if (targetFrameIndex >= log.frames.length - 1) {
+          pausePlayback();
+          return;
+        }
+        reschedulePlaybackAutoAdvance(log);
+      }, PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS);
     }
 
     function reschedulePlaybackTimeAutoAdvance(log) {
-      const currentTimeUs = getCurrentPlaybackTimeUs(log, null);
       const lastTimeUs = getPlaybackLastTimeUs(log);
-      if (currentTimeUs >= lastTimeUs) {
+      if (getCurrentPlaybackTimeUs(log, null) >= lastTimeUs) {
         pausePlayback();
         return;
       }
 
-      const scheduledAt = performance.now();
       playbackAutoAdvanceHandle = window.setTimeout(() => {
         playbackAutoAdvanceHandle = 0;
         if (!runtime.state.playbackIsPlaying || runtime.state.playbackLog !== log) {
           return;
         }
-        const elapsedMs = Math.max(PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS, performance.now() - scheduledAt);
-        const speed = normalizePlaybackSpeed(runtime.state.playbackPlaybackSpeed);
-        const nextTimeUs = Math.min(lastTimeUs, currentTimeUs + elapsedMs * 1000 * speed);
+
+        const anchor = ensurePlaybackClockAnchor(log, "time");
+        const elapsedMs = Math.max(0, performance.now() - anchor.realMs);
+        const nextTimeUs = Math.min(lastTimeUs, anchor.timeUs + elapsedMs * 1000 * anchor.speed);
         setPlaybackTime(log, nextTimeUs, {
           navigateToActiveNode: shouldAutoNavigatePlayback(),
           scrollList: true,
           focusNode: false,
           persist: true,
-          updateBlackboard: true
+          updateBlackboard: true,
+          fromAutoAdvance: true
         });
+        if (nextTimeUs >= lastTimeUs) {
+          pausePlayback();
+          return;
+        }
+        reschedulePlaybackAutoAdvance(log);
       }, PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS);
     }
 
-    function getPlaybackAdvanceDelayMs() {
+    function resetPlaybackClockAnchor(log) {
+      const mode = isPlaybackTimeBasedMode() ? "time" : "frame";
+      playbackClockAnchor = {
+        log,
+        mode,
+        realMs: performance.now(),
+        speed: normalizePlaybackSpeed(runtime.state.playbackPlaybackSpeed),
+        frameIndex: runtime.state.playbackFrameIndex,
+        timeUs: getCurrentPlaybackTimeUs(log, null)
+      };
+    }
+
+    function ensurePlaybackClockAnchor(log, mode) {
       const speed = normalizePlaybackSpeed(runtime.state.playbackPlaybackSpeed);
-      return Math.max(16, Math.round(PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS / Math.max(0.1, speed)));
+      if (
+        !playbackClockAnchor ||
+        playbackClockAnchor.log !== log ||
+        playbackClockAnchor.mode !== mode ||
+        playbackClockAnchor.speed !== speed
+      ) {
+        resetPlaybackClockAnchor(log);
+      }
+      return playbackClockAnchor;
     }
 
     function createPlaybackPanelToggle(side) {
@@ -562,6 +606,9 @@
       const maxFrameIndex = Math.max(0, (log.frames?.length || 1) - 1);
       runtime.state.playbackFrameIndex = clampInteger(frameIndex, 0, maxFrameIndex);
       runtime.state.playbackTimeUs = getPlaybackFrameTimeUs(log, runtime.state.playbackFrameIndex);
+      if (runtime.state.playbackIsPlaying && options.fromAutoAdvance !== true) {
+        resetPlaybackClockAnchor(log);
+      }
 
       if (options.navigateToActiveNode) {
         const activeTransition = getActiveTransition(log, runtime.state.playbackFrameIndex);
@@ -582,7 +629,7 @@
       }
 
       syncPlaybackFrameUi(log, options);
-      if (runtime.state.playbackIsPlaying) {
+      if (runtime.state.playbackIsPlaying && options.fromAutoAdvance !== true) {
         reschedulePlaybackAutoAdvance(log);
       }
       if (options.persist) {
@@ -596,6 +643,9 @@
       }
       runtime.state.playbackTimeUs = clampPlaybackTimeUs(log, tUs);
       runtime.state.playbackFrameIndex = findPlaybackFrameIndexAtOrBeforeTime(log, runtime.state.playbackTimeUs);
+      if (runtime.state.playbackIsPlaying && options.fromAutoAdvance !== true) {
+        resetPlaybackClockAnchor(log);
+      }
 
       if (options.navigateToActiveNode) {
         const activeTransition = getActiveTransitionAtTime(log, runtime.state.playbackTimeUs);
@@ -616,7 +666,7 @@
       }
 
       syncPlaybackFrameUi(log, { ...options, timeBased: true });
-      if (runtime.state.playbackIsPlaying) {
+      if (runtime.state.playbackIsPlaying && options.fromAutoAdvance !== true) {
         reschedulePlaybackAutoAdvance(log);
       }
       if (options.persist) {
@@ -875,6 +925,7 @@
     return {
       renderPlaybackState,
       renderPlaybackLog,
+      togglePlayback,
       pausePlayback,
       stagePlaybackTransitionUidFilter,
       updatePlaybackTracePanel,
