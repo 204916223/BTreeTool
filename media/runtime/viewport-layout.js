@@ -268,7 +268,7 @@
     }
 
     function collect(entry, parent) {
-      const expandedEntry = expandedByPath.get(entry.node.nodePath) || entry;
+      const expandedEntry = expandedByPath.get(getLayoutNodeKey(entry.node)) || entry;
       const descriptor = {
         node: entry.node,
         x: entry.x,
@@ -293,10 +293,12 @@
       maxY = Math.max(maxY, expandedEntry.y + expandedEntry.height);
 
       if (parent) {
-        const expandedParent = expandedByPath.get(parent.node?.nodePath) || parent;
+        const expandedParent = expandedByPath.get(getLayoutNodeKey(parent.node)) || parent;
         edges.push({
           parentNodePath: parent.node?.nodePath || "",
           childNodePath: descriptor.node.nodePath,
+          parentTreeId: parent.node?.sourceTreeId || "",
+          childTreeId: descriptor.node.sourceTreeId || "",
           startX: parent.centerX,
           startY: parent.y + parent.height,
           endX: descriptor.centerX,
@@ -312,7 +314,7 @@
     }
 
     function indexExpanded(entry) {
-      expandedByPath.set(entry.node.nodePath, entry);
+      expandedByPath.set(getLayoutNodeKey(entry.node), entry);
       entry.children.forEach(indexExpanded);
     }
 
@@ -320,7 +322,7 @@
       const hiddenSections = runtime.modeRules?.isPlaybackMode?.() !== true && runtime.state.forceHideNodeDetails
         ? "all"
         : (runtime.state.currentSettings?.simplifyHiddenSections || []).join(",");
-      const cacheKey = `${hiddenSections}::${expanded ? "expanded" : "base"}::${node.nodePath}`;
+      const cacheKey = `${hiddenSections}::${expanded ? "expanded" : "base"}::${getLayoutNodeKey(node)}`;
       if (measuredNodes.has(cacheKey)) {
         return measuredNodes.get(cacheKey);
       }
@@ -359,6 +361,10 @@
       };
     }
 
+  }
+
+  function getLayoutNodeKey(node) {
+    return node?.renderPath || `${node?.sourceTreeId || ""}::${node?.nodePath || ""}`;
   }
 
   function setupCanvas(shell, stage, layout, viewportState = null, options = {}) {
@@ -432,11 +438,38 @@
   function restoreCanvasViewportWhenReady(canvasState, viewportState, activateAfterRestore) {
     waitForStableCanvasSize(canvasState, () => {
       canvasState.zoom = viewportState.zoom || 1;
-      setCanvasPan(viewportState.panX || 0, viewportState.panY || 0, canvasState);
+      const anchorEntry = findViewportAnchorEntry(canvasState, viewportState.anchor);
+      if (anchorEntry && viewportState.anchor) {
+        setCanvasPan(
+          viewportState.anchor.screenX - anchorEntry.centerX * canvasState.zoom,
+          viewportState.anchor.screenY - (anchorEntry.y + anchorEntry.height / 2) * canvasState.zoom,
+          canvasState
+        );
+      } else {
+        setCanvasPan(viewportState.panX || 0, viewportState.panY || 0, canvasState);
+      }
       if (activateAfterRestore) {
         activateCanvasState(canvasState);
       }
     });
+  }
+
+  function findViewportAnchorEntry(canvasState, anchor) {
+    if (!canvasState?.layout || !anchor) {
+      return null;
+    }
+
+    if (anchor.renderPath) {
+      const renderPathMatch = canvasState.layout.nodes.find((item) => item.node?.renderPath === anchor.renderPath);
+      if (renderPathMatch) {
+        return renderPathMatch;
+      }
+    }
+
+    return canvasState.layout.nodes.find((item) => (
+      item.node?.nodePath === anchor.nodePath &&
+      (!anchor.treeId || !item.node?.sourceTreeId || item.node.sourceTreeId === anchor.treeId)
+    )) || null;
   }
 
   function enableCanvasPan(shell) {
@@ -800,12 +833,17 @@
     }
   }
 
-  function focusNodePath(nodePath) {
+  function focusNodePath(nodePath, treeId = runtime.state.selectedTreeId) {
     if (!runtime.state.currentCanvasState?.layout || !runtime.state.currentCanvasState?.shell) {
       return;
     }
 
-    const entry = runtime.state.currentCanvasState.layout.nodes.find((item) => item.node?.nodePath === nodePath);
+    const entry = runtime.state.currentCanvasState.layout.nodes.find((item) => {
+      if (item.node?.nodePath !== nodePath) {
+        return false;
+      }
+      return !treeId || !item.node?.sourceTreeId || item.node.sourceTreeId === treeId;
+    });
     if (!entry) {
       return;
     }

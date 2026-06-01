@@ -105,7 +105,11 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
       requireNodeDeleteConfirmation: false,
       copyNodeWithDescendants: true,
       playbackAutoNavigateToTree: true,
+      allowUnclosedPlaybackLog: false,
       nodeAttributeLayout: "inline",
+      editTreeRenderMode: "paged",
+      playbackTreeRenderMode: "paged",
+      playbackPanelLayout: "classic",
       simplifyHiddenSections: [],
       presetNodes: []
     }

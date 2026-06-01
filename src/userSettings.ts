@@ -13,6 +13,8 @@ export type BtThemePreset =
 export type BtSettingsNodeCategory = "Action" | "Condition" | "Control" | "Decorator" | "SubTree";
 export type BtSettingsFieldRole = "input" | "output" | "inout" | "param";
 export type BtNodeAttributeLayout = "inline" | "stacked";
+export type BtTreeRenderMode = "paged" | "expanded";
+export type BtPlaybackPanelLayout = "classic" | "dashboard";
 export type BtSimplifySection = "description" | "code" | "inputs" | "outputs" | "params" | "subtreeJump";
 
 export interface BtPresetFieldSettings {
@@ -42,7 +44,11 @@ export interface BtUserSettings {
   requireNodeDeleteConfirmation: boolean;
   copyNodeWithDescendants: boolean;
   playbackAutoNavigateToTree: boolean;
+  allowUnclosedPlaybackLog: boolean;
   nodeAttributeLayout: BtNodeAttributeLayout;
+  editTreeRenderMode: BtTreeRenderMode;
+  playbackTreeRenderMode: BtTreeRenderMode;
+  playbackPanelLayout: BtPlaybackPanelLayout;
   simplifyHiddenSections: BtSimplifySection[];
   presetNodes: BtPresetNodeSettings[];
 }
@@ -57,7 +63,11 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   requireNodeDeleteConfirmation: false,
   copyNodeWithDescendants: true,
   playbackAutoNavigateToTree: true,
+  allowUnclosedPlaybackLog: false,
   nodeAttributeLayout: "inline",
+  editTreeRenderMode: "paged",
+  playbackTreeRenderMode: "paged",
+  playbackPanelLayout: "classic",
   simplifyHiddenSections: [],
   presetNodes: []
 };
@@ -171,7 +181,11 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     requireNodeDeleteConfirmation: settings.requireNodeDeleteConfirmation === true,
     copyNodeWithDescendants: settings.copyNodeWithDescendants !== false,
     playbackAutoNavigateToTree: settings.playbackAutoNavigateToTree !== false,
+    allowUnclosedPlaybackLog: settings.allowUnclosedPlaybackLog === true,
     nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
+    editTreeRenderMode: normalizeTreeRenderMode(settings.editTreeRenderMode),
+    playbackTreeRenderMode: normalizeTreeRenderMode(settings.playbackTreeRenderMode),
+    playbackPanelLayout: normalizePlaybackPanelLayout(settings.playbackPanelLayout),
     simplifyHiddenSections: [...settings.simplifyHiddenSections],
     presetNodes: settings.presetNodes.map(clonePresetNodeSettings)
   };
@@ -197,7 +211,11 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const requireNodeDeleteConfirmation = input.requireNodeDeleteConfirmation === true;
   const copyNodeWithDescendants = input.copyNodeWithDescendants !== false;
   const playbackAutoNavigateToTree = input.playbackAutoNavigateToTree !== false;
+  const allowUnclosedPlaybackLog = input.allowUnclosedPlaybackLog === true;
   const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
+  const editTreeRenderMode = normalizeTreeRenderMode(input.editTreeRenderMode);
+  const playbackTreeRenderMode = normalizeTreeRenderMode(input.playbackTreeRenderMode);
+  const playbackPanelLayout = normalizePlaybackPanelLayout(input.playbackPanelLayout);
   const simplifyHiddenSections = Array.isArray(input.simplifyHiddenSections)
     ? input.simplifyHiddenSections.map(normalizeSimplifySection).filter((value): value is BtSimplifySection => Boolean(value))
     : [...DEFAULT_USER_SETTINGS.simplifyHiddenSections];
@@ -214,7 +232,11 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     requireNodeDeleteConfirmation,
     copyNodeWithDescendants,
     playbackAutoNavigateToTree,
+    allowUnclosedPlaybackLog,
     nodeAttributeLayout,
+    editTreeRenderMode,
+    playbackTreeRenderMode,
+    playbackPanelLayout,
     simplifyHiddenSections: Array.from(new Set(simplifyHiddenSections)),
     presetNodes
   };
@@ -222,6 +244,14 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
 
 function normalizeNodeAttributeLayout(value: unknown): BtNodeAttributeLayout {
   return value === "stacked" ? "stacked" : "inline";
+}
+
+function normalizeTreeRenderMode(value: unknown): BtTreeRenderMode {
+  return value === "expanded" ? "expanded" : "paged";
+}
+
+function normalizePlaybackPanelLayout(value: unknown): BtPlaybackPanelLayout {
+  return value === "dashboard" ? "dashboard" : "classic";
 }
 
 function normalizeSimplifySection(value: unknown): BtSimplifySection | null {

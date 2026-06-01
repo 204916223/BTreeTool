@@ -69,6 +69,7 @@
     splitPaneNodePaths: persistedState.splitPaneNodePaths || {},
     playbackLog: null,
     playbackFrameIndex: Number.isInteger(persistedState.playbackFrameIndex) ? persistedState.playbackFrameIndex : 0,
+    playbackTimeUs: Number.isFinite(persistedState.playbackTimeUs) ? persistedState.playbackTimeUs : null,
     playbackLeftVisible: persistedState.playbackLeftVisible !== false,
     playbackRightVisible: persistedState.playbackRightVisible !== false,
     playbackRightTab: persistedState.playbackRightTab === "trace" || persistedState.playbackRightTab === "ai" ? "trace" : "blackboard",
@@ -84,6 +85,32 @@
       560,
       320
     ),
+    playbackDashboardBottomVisible: persistedState.playbackDashboardBottomVisible !== false,
+    playbackDashboardBottomHeight: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
+      persistedState.playbackDashboardBottomHeight,
+      180,
+      720,
+      320
+    ),
+    playbackDashboardLeftWidth: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
+      persistedState.playbackDashboardLeftWidth,
+      240,
+      960,
+      520
+    ),
+    playbackDurationLaneHeight: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
+      persistedState.playbackDurationLaneHeight,
+      18,
+      72,
+      42
+    ),
+    playbackDurationTimeScale: (runtime.viewport?.clampNumber || ((v, _min, _max, fallback) => fallback))(
+      persistedState.playbackDurationTimeScale,
+      0.5,
+      12,
+      1
+    ),
+    playbackDurationTaskPanelVisible: persistedState.playbackDurationTaskPanelVisible === true,
     playbackStatusByUid: {},
     playbackLatestTransitionByUid: {},
     playbackLastTerminalStatusByUid: {},
@@ -93,6 +120,7 @@
     playbackChildrenByUid: {},
     playbackDepthByUid: {},
     playbackTransitionFilter: persistedState.playbackTransitionFilter || "",
+    playbackTransitionFilterDraft: persistedState.playbackTransitionFilterDraft || persistedState.playbackTransitionFilter || "",
     playbackTransitionScrollTop: Number.isFinite(persistedState.playbackTransitionScrollTop)
       ? persistedState.playbackTransitionScrollTop
       : 0,
@@ -117,7 +145,11 @@
       requireNodeDeleteConfirmation: false,
       copyNodeWithDescendants: true,
       playbackAutoNavigateToTree: true,
+      allowUnclosedPlaybackLog: false,
       nodeAttributeLayout: "inline",
+      editTreeRenderMode: "paged",
+      playbackTreeRenderMode: "paged",
+      playbackPanelLayout: "classic",
       simplifyHiddenSections: [],
       presetNodes: []
     },
@@ -140,13 +172,18 @@
   let shortcutChordResetHandle = 0;
   const PLAYBACK_TRANSITION_ROW_HEIGHT = 23;
   const PLAYBACK_TRANSITION_OVERSCAN_ROWS = 12;
+  const PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS = 20;
+  const PLAYBACK_DURATION_MIN_VISIBLE_US = 1_000_000;
+  const PLAYBACK_DURATION_MAX_VISIBLE_US = 30_000_000;
   const PLAYBACK_SPEED_OPTIONS = [
     { value: 0.1, label: "0.1x" },
     { value: 0.5, label: "0.5x" },
     { value: 1, label: "1.0x" },
     { value: 1.5, label: "1.5x" },
     { value: 2, label: "2.0x" },
-    { value: 3, label: "3.0x" }
+    { value: 3, label: "3.0x" },
+    { value: 5, label: "5.0x" },
+    { value: 10, label: "10.0x" }
   ];
   let playbackDomCache = null;
 
@@ -203,6 +240,7 @@
     activateTreePane,
     activateTreePaneByTreeId,
     persistUiState,
+    stagePlaybackTransitionUidFilter,
     applyWorkspacePanels: runtime.workspacePanels.apply,
     applyUserSettings,
     isEditModeEnabled,
@@ -254,6 +292,7 @@
         clearTraceMessages();
       }
       runtime.state.playbackFrameIndex = 0;
+      runtime.state.playbackTimeUs = getPlaybackFrameTimeUs(runtime.state.playbackLog, 0);
       runtime.state.editModeEnabled = false;
       runtime.state.playbackIsPlaying = false;
       runtime.state.selectedTreeId = message.payload?.preview ? pickTreeId(message.payload.preview) : null;
@@ -275,7 +314,7 @@
     if (message?.type === "traceConfigState") {
       runtime.state.traceConfig = message.payload || null;
       const log = runtime.state.playbackLog;
-      const snapshot = log ? buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex) : null;
+      const snapshot = log ? buildCurrentPlaybackSnapshot(log) : null;
       updatePlaybackTracePanel(log, snapshot);
       return;
     }
@@ -430,6 +469,18 @@
   });
   runtime.refs.playbackModeButton?.addEventListener("click", () => {
     setPreviewMode("playback");
+  });
+  runtime.refs.fileLabel?.addEventListener("click", () => {
+    if (runtime.modeRules.isPlaybackMode()) {
+      vscode.postMessage({ type: "choosePlaybackLogFile" });
+    }
+  });
+  runtime.refs.fileLabel?.addEventListener("keydown", (event) => {
+    if (!runtime.modeRules.isPlaybackMode() || (event.key !== "Enter" && event.key !== " ")) {
+      return;
+    }
+    event.preventDefault();
+    vscode.postMessage({ type: "choosePlaybackLogFile" });
   });
   runtime.refs.openSettingsButton?.addEventListener("click", () => {
     runtime.overlays.showSettingsDialog();
@@ -724,6 +775,7 @@
     editButton.setAttribute("aria-label", chromeCopy.editModeTitle);
     playbackButton.title = chromeCopy.playbackModeTitle;
     playbackButton.setAttribute("aria-label", chromeCopy.playbackModeTitle);
+    updateFileLabelAction();
 
     runtime.overlays.hideAll?.();
     runtime.overlays.hideNodeContextMenu?.();
@@ -731,6 +783,27 @@
     runtime.canvas.clearDragState?.();
 
     updateBehaviorTreeCreateButton();
+  }
+
+  function updateFileLabelAction() {
+    const label = runtime.refs.fileLabel;
+    if (!label) {
+      return;
+    }
+
+    const isPlaybackMode = runtime.modeRules.isPlaybackMode();
+    label.classList.toggle("is-actionable", isPlaybackMode);
+    if (isPlaybackMode) {
+      label.tabIndex = 0;
+      label.setAttribute("role", "button");
+      label.title = runtime.i18n.getAppCopy().importPlaybackLog;
+      label.setAttribute("aria-label", runtime.i18n.getAppCopy().importPlaybackLog);
+    } else {
+      label.removeAttribute("tabindex");
+      label.removeAttribute("role");
+      label.removeAttribute("title");
+      label.removeAttribute("aria-label");
+    }
   }
 
   function setPreviewMode(mode) {
@@ -921,6 +994,144 @@
     }
   }
 
+  function getTreeRenderMode(scope) {
+    const settings = runtime.state.currentSettings || {};
+    if (scope === "playback") {
+      return settings.playbackTreeRenderMode === "expanded" ? "expanded" : "paged";
+    }
+    return settings.editTreeRenderMode === "expanded" ? "expanded" : "paged";
+  }
+
+  function isExpandedTreeRenderMode(scope) {
+    return getTreeRenderMode(scope) === "expanded";
+  }
+
+  function getPlaybackPanelLayout() {
+    return runtime.state.currentSettings?.playbackPanelLayout === "dashboard" ? "dashboard" : "classic";
+  }
+
+  function isPlaybackTimeBasedMode() {
+    return runtime.modeRules.isPlaybackMode() && getPlaybackPanelLayout() === "dashboard";
+  }
+
+  function getTreeRenderContext(result, scope) {
+    if (!result || !isExpandedTreeRenderMode(scope)) {
+      return {
+        expanded: false,
+        tree: result ? getSelectedTree(result) : null,
+        renderResult: result,
+        switcherResult: result,
+        rootTreeId: runtime.state.selectedTreeId || result?.defaultTreeId || null
+      };
+    }
+
+    const treeMap = getTreeMap(result);
+    const rootTreeId = pickExpandedRenderRootTreeId(result, treeMap);
+    const rootTree = rootTreeId ? treeMap.get(rootTreeId) || null : null;
+    const expandedTree = rootTree ? buildExpandedRenderTree(rootTree, result, treeMap) : null;
+    const switcherResult = expandedTree
+      ? {
+        ...result,
+        defaultTreeId: expandedTree.id,
+        mainTreeToExecute: expandedTree.id,
+        behaviorTrees: [expandedTree]
+      }
+      : {
+        ...result,
+        behaviorTrees: []
+      };
+
+    return {
+      expanded: true,
+      tree: expandedTree,
+      renderResult: result,
+      switcherResult,
+      rootTreeId
+    };
+  }
+
+  function pickExpandedRenderRootTreeId(result, treeMap = getTreeMap(result)) {
+    if (result?.defaultTreeId && treeMap.has(result.defaultTreeId)) {
+      return result.defaultTreeId;
+    }
+    if (result?.mainTreeToExecute && treeMap.has(result.mainTreeToExecute)) {
+      return result.mainTreeToExecute;
+    }
+    if (treeMap.has("MainTree")) {
+      return "MainTree";
+    }
+    return result?.behaviorTrees?.[0]?.id || null;
+  }
+
+  function buildExpandedRenderTree(rootTree, result, treeMap = getTreeMap(result)) {
+    return {
+      ...rootTree,
+      sourceTreeId: rootTree.id,
+      expandedRenderTree: true,
+      node: rootTree.node
+        ? cloneExpandedRenderNode(rootTree.node, rootTree.id, treeMap, new Set([rootTree.id]), `${rootTree.id}::`)
+        : null
+    };
+  }
+
+  function cloneExpandedRenderNode(node, sourceTreeId, treeMap, treeStack, renderPrefix) {
+    const renderPath = `${renderPrefix}${sourceTreeId}:${node.nodePath}`;
+    const children = (node.children || []).map((child) =>
+      cloneExpandedRenderNode(child, sourceTreeId, treeMap, treeStack, `${renderPath}/`)
+    );
+    const clone = {
+      ...node,
+      sourceTreeId,
+      renderPath,
+      children
+    };
+
+    if (node.kind !== "SubTree" || !node.targetTreeId) {
+      return clone;
+    }
+
+    const targetTree = treeMap.get(node.targetTreeId);
+    if (!targetTree?.node || treeStack.has(node.targetTreeId)) {
+      return clone;
+    }
+
+    const nextStack = new Set(treeStack);
+    nextStack.add(node.targetTreeId);
+    const expandedChild = cloneExpandedRenderNode(targetTree.node, targetTree.id, treeMap, nextStack, `${renderPath}=>`);
+    expandedChild.expandedSubtreeInjection = true;
+    clone.children = [...children, expandedChild];
+    return clone;
+  }
+
+  function ensureRenderSelection(renderContext) {
+    if (!renderContext?.expanded || !renderContext.tree?.node) {
+      return;
+    }
+
+    if (findRenderNodeByTreePath(renderContext.tree.node, runtime.state.selectedTreeId, runtime.state.selectedNodePath)) {
+      return;
+    }
+
+    runtime.state.selectedTreeId = renderContext.rootTreeId;
+    runtime.state.selectedNodePath = "0";
+  }
+
+  function findRenderNodeByTreePath(node, treeId, nodePath) {
+    if (!node || !treeId || !nodePath) {
+      return null;
+    }
+    if ((node.sourceTreeId || "") === treeId && node.nodePath === nodePath) {
+      return node;
+    }
+    for (const child of node.children || []) {
+      const match = findRenderNodeByTreePath(child, treeId, nodePath);
+      if (match) {
+        return match;
+      }
+    }
+    return null;
+  }
+
   function renderPlaybackLog(options = {}) {
     const log = runtime.state.playbackLog;
     if (!log?.preview) {
@@ -934,9 +1145,13 @@
 
     const frameCount = log.frames?.length || 0;
     runtime.state.playbackFrameIndex = clampInteger(runtime.state.playbackFrameIndex, 0, Math.max(0, frameCount - 1));
+    runtime.state.playbackTimeUs = clampPlaybackTimeUs(
+      log,
+      runtime.state.playbackTimeUs ?? getPlaybackFrameTimeUs(log, runtime.state.playbackFrameIndex)
+    );
     runtime.state.playbackPlaybackSpeed = normalizePlaybackSpeed(runtime.state.playbackPlaybackSpeed);
     const cache = getPlaybackCache(log);
-    const playbackSnapshot = buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex);
+    const playbackSnapshot = buildCurrentPlaybackSnapshot(log);
     runtime.state.playbackStatusByUid = playbackSnapshot.statusByUid;
     runtime.state.playbackLatestTransitionByUid = playbackSnapshot.latestTransitionByUid;
     runtime.state.playbackLastTerminalStatusByUid = playbackSnapshot.lastTerminalStatusByUid;
@@ -955,8 +1170,19 @@
       runtime.state.selectedNodePath = "0";
     }
 
-    runtime.treeSwitcher.render(log.preview, { ensureActiveVisible: options.ensureActiveTreeVisible === true });
-    const selectedTree = getSelectedTree(log.preview);
+    if (getPlaybackPanelLayout() === "dashboard") {
+      renderPlaybackDashboardLog(log, playbackSnapshot, playbackCopy);
+      return;
+    }
+
+    const renderContext = getTreeRenderContext(log.preview, "playback");
+    ensureRenderSelection(renderContext);
+    runtime.treeSwitcher.render(renderContext.switcherResult, {
+      ensureActiveVisible: options.ensureActiveTreeVisible === true,
+      activeTreeId: renderContext.expanded ? renderContext.rootTreeId : undefined,
+      selectResult: log.preview
+    });
+    const selectedTree = renderContext.tree;
     const shell = document.createElement("div");
     shell.className = "playback-shell";
     shell.style.setProperty("--playback-left-width", `${runtime.state.playbackLeftWidth}px`);
@@ -974,7 +1200,9 @@
     const center = document.createElement("div");
     center.className = "playback-canvas-pane";
     if (selectedTree) {
-      runtime.state.selectedNodePath = pickNodePath(selectedTree, runtime.state.selectedNodePath);
+      if (!renderContext.expanded) {
+        runtime.state.selectedNodePath = pickNodePath(selectedTree, runtime.state.selectedNodePath);
+      }
       center.appendChild(runtime.canvas.renderTree(selectedTree, log.preview, viewportState, { playback: true }));
       runtime.mainTreeLocator.render(log.preview, selectedTree);
     } else {
@@ -1009,6 +1237,160 @@
     });
   }
 
+  function renderPlaybackDashboardLog(log, playbackSnapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    runtime.refs.treeSwitcher.replaceChildren();
+    runtime.mainTreeLocator.clear();
+    runtime.state.currentCanvasState = null;
+
+    const layout = document.createElement("div");
+    layout.className = "playback-dashboard-layout";
+    layout.style.setProperty("--playback-dashboard-bottom-height", `${runtime.state.playbackDashboardBottomHeight}px`);
+    layout.style.setProperty("--playback-dashboard-left-width", `${runtime.state.playbackDashboardLeftWidth}px`);
+    layout.classList.toggle("hide-bottom", runtime.state.playbackDashboardBottomVisible === false);
+
+    const top = document.createElement("section");
+    top.className = "playback-dashboard-top";
+    top.appendChild(renderPlaybackDurationTimeline(log, playbackCopy));
+    layout.appendChild(top);
+    layout.appendChild(createPlaybackDashboardBottomToggle());
+
+    if (runtime.state.playbackDashboardBottomVisible !== false) {
+      layout.appendChild(createPlaybackDashboardResizer("bottom"));
+
+      const blackboardPanel = document.createElement("section");
+      blackboardPanel.className = "playback-dashboard-panel playback-dashboard-blackboard";
+      blackboardPanel.appendChild(createPlaybackDashboardPanelHeader(playbackCopy.blackboard));
+      blackboardPanel.appendChild(renderPlaybackBlackboardPanel(log, playbackSnapshot, playbackCopy));
+
+      const tracePanel = document.createElement("section");
+      tracePanel.className = "playback-dashboard-panel playback-dashboard-trace";
+      tracePanel.appendChild(createPlaybackDashboardPanelHeader(getPlaybackTraceLabel(playbackCopy)));
+      tracePanel.appendChild(renderPlaybackTracePanel(log, playbackSnapshot, playbackCopy));
+
+      layout.appendChild(blackboardPanel);
+      layout.appendChild(createPlaybackDashboardResizer("split"));
+      layout.appendChild(tracePanel);
+    }
+
+    playbackDomCache = null;
+    runtime.refs.treeContent.replaceChildren(layout);
+    runtime.canvas.clearDragState();
+    persistUiState();
+    requestAnimationFrame(() => {
+      syncPlaybackFrameUi(log, { scrollList: true, focusNode: false });
+      if (runtime.state.playbackIsPlaying) {
+        reschedulePlaybackAutoAdvance(log);
+      }
+    });
+  }
+
+  function createPlaybackDashboardPanelHeader(titleText) {
+    const header = document.createElement("div");
+    header.className = "playback-dashboard-panel-header";
+    const title = document.createElement("strong");
+    title.textContent = titleText;
+    header.appendChild(title);
+    return header;
+  }
+
+  function createPlaybackDashboardBottomToggle() {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "playback-dashboard-bottom-toggle";
+    const hidden = runtime.state.playbackDashboardBottomVisible === false;
+    button.title = hidden ? "Show lower panels" : "Hide lower panels";
+    button.setAttribute("aria-label", button.title);
+    button.addEventListener("click", () => {
+      runtime.state.playbackDashboardBottomVisible = runtime.state.playbackDashboardBottomVisible === false;
+      renderPlaybackLog();
+    });
+    return button;
+  }
+
+  function createPlaybackDashboardResizer(kind) {
+    const handle = document.createElement("div");
+    handle.className = `panel-resizer playback-dashboard-resizer playback-dashboard-resizer-${kind}`;
+    handle.addEventListener("pointerdown", (event) => {
+      const layout = handle.closest(".playback-dashboard-layout");
+      if (!layout) {
+        return;
+      }
+
+      const pointerId = event.pointerId;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startBottomHeight = runtime.state.playbackDashboardBottomHeight;
+      const startLeftWidth = runtime.state.playbackDashboardLeftWidth;
+      const maxBottomHeight = Math.max(220, layout.clientHeight - 160);
+      const maxLeftWidth = Math.max(260, layout.clientWidth - 260);
+      let pendingClientX = startX;
+      let pendingClientY = startY;
+      let resizeFrame = 0;
+      const resizeCursorClass = kind === "bottom" ? "is-resizing-rows" : "is-resizing-columns";
+
+      const applyResize = () => {
+        resizeFrame = 0;
+        if (kind === "bottom") {
+          const deltaY = startY - pendingClientY;
+          runtime.state.playbackDashboardBottomHeight = runtime.viewport.clampNumber(
+            startBottomHeight + deltaY,
+            180,
+            maxBottomHeight,
+            startBottomHeight
+          );
+          layout.style.setProperty("--playback-dashboard-bottom-height", `${runtime.state.playbackDashboardBottomHeight}px`);
+        } else {
+          const deltaX = pendingClientX - startX;
+          runtime.state.playbackDashboardLeftWidth = runtime.viewport.clampNumber(
+            startLeftWidth + deltaX,
+            240,
+            maxLeftWidth,
+            startLeftWidth
+          );
+          layout.style.setProperty("--playback-dashboard-left-width", `${runtime.state.playbackDashboardLeftWidth}px`);
+        }
+      };
+
+      const scheduleResize = () => {
+        if (resizeFrame) {
+          return;
+        }
+        resizeFrame = requestAnimationFrame(applyResize);
+      };
+
+      handle.setPointerCapture(pointerId);
+      document.body.classList.add("is-resizing-panels", resizeCursorClass);
+
+      const onPointerMove = (moveEvent) => {
+        pendingClientX = moveEvent.clientX;
+        pendingClientY = moveEvent.clientY;
+        scheduleResize();
+      };
+
+      const finish = () => {
+        document.body.classList.remove("is-resizing-panels", resizeCursorClass);
+        handle.removeEventListener("pointermove", onPointerMove);
+        handle.removeEventListener("pointerup", finish);
+        handle.removeEventListener("pointercancel", finish);
+        if (resizeFrame) {
+          cancelAnimationFrame(resizeFrame);
+          applyResize();
+        }
+        persistUiState();
+        try {
+          handle.releasePointerCapture(pointerId);
+        } catch (_error) {
+          // Ignore stale pointer capture state.
+        }
+      };
+
+      handle.addEventListener("pointermove", onPointerMove);
+      handle.addEventListener("pointerup", finish);
+      handle.addEventListener("pointercancel", finish);
+    });
+    return handle;
+  }
+
   function renderPlaybackTransitionPanel(log, playbackCopy = runtime.i18n.getPlaybackCopy()) {
     const panel = document.createElement("aside");
     panel.className = "playback-side-panel playback-transition-panel";
@@ -1030,17 +1412,27 @@
     filterInput.type = "search";
     filterInput.placeholder = playbackCopy.filterByNodeName;
     filterInput.spellcheck = false;
-    filterInput.value = runtime.state.playbackTransitionFilter || "";
+    filterInput.value = runtime.state.playbackTransitionFilterDraft || runtime.state.playbackTransitionFilter || "";
     filterInput.addEventListener("input", () => {
-      runtime.state.playbackTransitionFilter = filterInput.value;
-      updatePlaybackTransitionRows(log);
-      updatePlaybackTransitionCount(log);
-      updatePlaybackActiveTransition(log, true);
+      runtime.state.playbackTransitionFilterDraft = filterInput.value;
+      updatePlaybackTransitionFilterButtonState();
       persistUiState();
     });
-    const menuIcon = document.createElement("span");
-    menuIcon.className = "playback-transition-menu-icon";
-    menuIcon.textContent = "≡";
+    filterInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        applyPlaybackTransitionFilter(log);
+      }
+    });
+    const menuIcon = document.createElement("button");
+    menuIcon.type = "button";
+    menuIcon.className = "canvas-btn icon-btn playback-transition-filter-button";
+    menuIcon.title = playbackCopy.applyTransitionFilter || playbackCopy.filterByNodeName;
+    menuIcon.setAttribute("aria-label", menuIcon.title);
+    menuIcon.appendChild(createPlaybackTransitionFilterIcon());
+    menuIcon.addEventListener("click", () => {
+      applyPlaybackTransitionFilter(log);
+    });
     filterRow.appendChild(filterInput);
     filterRow.appendChild(menuIcon);
 
@@ -1067,7 +1459,52 @@
     panel.appendChild(filterRow);
     panel.appendChild(table);
     updatePlaybackTransitionRows(log, list);
+    updatePlaybackTransitionFilterButtonState(panel);
     return panel;
+  }
+
+  function createPlaybackTransitionFilterIcon() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M4 6h16v2H4V6Zm3 5h10v2H7v-2Zm3 5h4v2h-4v-2Z");
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function applyPlaybackTransitionFilter(log) {
+    runtime.state.playbackTransitionFilter = runtime.state.playbackTransitionFilterDraft || "";
+    runtime.state.playbackTransitionScrollTop = 0;
+    updatePlaybackTransitionRows(log);
+    updatePlaybackTransitionCount(log);
+    updatePlaybackActiveTransition(log, true);
+    updatePlaybackTransitionFilterButtonState();
+    persistUiState();
+  }
+
+  function stagePlaybackTransitionUidFilter(uid) {
+    if (!runtime.modeRules.isPlaybackMode() || !uid) {
+      return;
+    }
+    runtime.state.playbackTransitionFilterDraft = String(uid);
+    const filterInput = document.querySelector(".playback-transition-filter");
+    if (filterInput) {
+      filterInput.value = runtime.state.playbackTransitionFilterDraft;
+    }
+    updatePlaybackTransitionFilterButtonState();
+    persistUiState();
+  }
+
+  function updatePlaybackTransitionFilterButtonState(scope = document) {
+    const input = scope.querySelector?.(".playback-transition-filter");
+    const button = scope.querySelector?.(".playback-transition-filter-button");
+    if (!input || !button) {
+      return;
+    }
+    const draft = input.value || "";
+    const active = runtime.state.playbackTransitionFilter || "";
+    button.classList.toggle("is-pending", draft !== active);
   }
 
   function updatePlaybackTransitionRows(log, targetList = null) {
@@ -1104,7 +1541,7 @@
 
   function renderPlaybackTransitionWindow(log, list, requestedScrollTop = null) {
     const filter = normalizeFilter(runtime.state.playbackTransitionFilter);
-    const activeTransitionIndex = getActiveTransitionIndex(log, runtime.state.playbackFrameIndex);
+    const activeTransitionIndex = getCurrentPlaybackActiveTransitionIndex(log);
     const model = getPlaybackTransitionListModel(log, filter);
     const rowHeight = PLAYBACK_TRANSITION_ROW_HEIGHT;
     const viewportHeight = list.clientHeight || rowHeight * 40;
@@ -1159,7 +1596,7 @@
         event.stopPropagation();
         return;
       }
-      jumpToPlaybackTransition(log, transition.frameIndex);
+      jumpToPlaybackTransition(log, transition);
     });
     row.addEventListener("dblclick", (event) => {
       event.preventDefault();
@@ -1173,13 +1610,18 @@
     return row;
   }
 
-  function jumpToPlaybackTransition(log, frameIndex) {
-    setPlaybackFrame(log, frameIndex, {
+  function jumpToPlaybackTransition(log, transition) {
+    const options = {
       navigateToActiveNode: shouldAutoNavigatePlayback(),
       scrollList: true,
       focusNode: shouldAutoNavigatePlayback(),
       persist: true
-    });
+    };
+    if (isPlaybackTimeBasedMode()) {
+      setPlaybackTime(log, transition.tUs, { ...options, updateBlackboard: true });
+      return;
+    }
+    setPlaybackFrame(log, transition.frameIndex, options);
   }
 
   function createTransitionCell(kind, text) {
@@ -1269,7 +1711,7 @@
     filterInput.value = runtime.state.playbackBlackboardFilter || "";
     filterInput.addEventListener("input", () => {
       runtime.state.playbackBlackboardFilter = filterInput.value;
-      updatePlaybackBlackboardPanel(log, buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex));
+      updatePlaybackBlackboardPanel(log, buildCurrentPlaybackSnapshot(log));
       persistUiState();
     });
     const count = document.createElement("span");
@@ -1436,6 +1878,992 @@
     return cell;
   }
 
+  function renderPlaybackDurationTimeline(log, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const panel = document.createElement("div");
+    panel.className = "playback-duration-panel";
+    panel.classList.toggle("hide-current-task-panel", runtime.state.playbackDurationTaskPanelVisible !== true);
+    const main = document.createElement("div");
+    main.className = "playback-duration-main";
+
+    const controls = document.createElement("div");
+    controls.className = "playback-duration-controls";
+
+    const playButton = document.createElement("button");
+    playButton.type = "button";
+    playButton.className = "canvas-btn icon-btn playback-play-btn";
+    const iconKind = runtime.state.playbackIsPlaying ? "pause" : "play";
+    playButton.replaceChildren(createPlaybackTransportIcon(iconKind));
+    playButton.dataset.playbackIcon = iconKind;
+    playButton.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      playButton.dataset.pointerActivated = "1";
+      togglePlayback(log);
+      window.setTimeout(() => {
+        delete playButton.dataset.pointerActivated;
+      }, 0);
+    });
+    playButton.addEventListener("click", (event) => {
+      if (playButton.dataset.pointerActivated === "1") {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+
+    const speedSelect = document.createElement("select");
+    speedSelect.className = "playback-speed-select";
+    speedSelect.setAttribute("aria-label", playbackCopy.playbackSpeed);
+    speedSelect.title = playbackCopy.playbackSpeed;
+    PLAYBACK_SPEED_OPTIONS.forEach((option) => {
+      const item = document.createElement("option");
+      item.value = String(option.value);
+      item.textContent = option.label;
+      speedSelect.appendChild(item);
+    });
+    speedSelect.value = String(runtime.state.playbackPlaybackSpeed);
+    speedSelect.addEventListener("change", () => {
+      runtime.state.playbackPlaybackSpeed = normalizePlaybackSpeed(speedSelect.value);
+      persistUiState();
+      updatePlaybackTimelineControls(log);
+      if (runtime.state.playbackIsPlaying) {
+        reschedulePlaybackAutoAdvance(log);
+      }
+    });
+
+    const prevButton = document.createElement("button");
+    prevButton.type = "button";
+    prevButton.className = "canvas-btn icon-btn playback-step-btn";
+    prevButton.textContent = "<";
+    prevButton.title = playbackCopy.previousNodeStatusChange;
+    bindPlaybackRepeatButton(prevButton, () => {
+      stepPlaybackTransition(log, -1);
+    });
+
+    const nextButton = document.createElement("button");
+    nextButton.type = "button";
+    nextButton.className = "canvas-btn icon-btn playback-step-btn";
+    nextButton.textContent = ">";
+    nextButton.title = playbackCopy.nextNodeStatusChange;
+    bindPlaybackRepeatButton(nextButton, () => {
+      stepPlaybackTransition(log, 1);
+    });
+
+    const heightControls = document.createElement("div");
+    heightControls.className = "playback-duration-height-controls";
+    const shrinkButton = document.createElement("button");
+    shrinkButton.type = "button";
+    shrinkButton.className = "canvas-btn icon-btn playback-duration-height-btn";
+    shrinkButton.textContent = "-";
+    shrinkButton.title = "Decrease track height";
+    const growButton = document.createElement("button");
+    growButton.type = "button";
+    growButton.className = "canvas-btn icon-btn playback-duration-height-btn";
+    growButton.textContent = "+";
+    growButton.title = "Increase track height";
+    heightControls.appendChild(shrinkButton);
+    heightControls.appendChild(growButton);
+
+    controls.appendChild(playButton);
+    controls.appendChild(speedSelect);
+    controls.appendChild(prevButton);
+    controls.appendChild(nextButton);
+    controls.appendChild(heightControls);
+
+    const ruler = document.createElement("div");
+    ruler.className = "playback-duration-ruler";
+    const totalStart = document.createElement("span");
+    totalStart.className = "playback-duration-total-start";
+    const cursorTime = document.createElement("span");
+    cursorTime.className = "playback-duration-cursor-time";
+    const totalEnd = document.createElement("span");
+    totalEnd.className = "playback-duration-total-end";
+    ruler.appendChild(totalStart);
+    ruler.appendChild(cursorTime);
+    ruler.appendChild(totalEnd);
+
+    const overview = document.createElement("div");
+    overview.className = "playback-duration-overview";
+    const overviewWindow = document.createElement("div");
+    overviewWindow.className = "playback-duration-overview-window";
+    const overviewCursor = document.createElement("div");
+    overviewCursor.className = "playback-duration-overview-cursor";
+    overviewCursor.title = playbackCopy.frame || "Frame";
+    overviewCursor.setAttribute("role", "slider");
+    overviewCursor.setAttribute("aria-label", overviewCursor.title);
+    overview.appendChild(overviewWindow);
+    overview.appendChild(overviewCursor);
+
+    const axis = document.createElement("div");
+    axis.className = "playback-duration-axis";
+    const viewport = document.createElement("div");
+    viewport.className = "playback-duration-viewport";
+    const track = document.createElement("div");
+    track.className = "playback-duration-track";
+
+    const model = buildPlaybackDurationModel(log);
+    bindPlaybackDurationOverviewCursor(overviewCursor, overview, log, model);
+    track.style.width = `${model.trackWidth}px`;
+    track.style.height = `${model.trackHeight}px`;
+    track.style.setProperty("--playback-duration-lane-height", `${model.laneHeight}px`);
+    track.style.setProperty("--playback-duration-block-height", `${model.blockHeight}px`);
+    model.segments.forEach((segment) => {
+      const item = document.createElement("div");
+      item.className = `playback-duration-segment status-${normalizeStatusClass(segment.status)}`;
+      item.dataset.playbackTreeId = segment.treeId ? String(segment.treeId) : "";
+      item.dataset.playbackTaskId = segment.id ? String(segment.id) : "";
+      item.dataset.playbackTaskSource = segment.source ? String(segment.source) : "";
+      item.dataset.frameIndex = String(segment.frameIndex);
+      item.dataset.playbackLane = String(segment.lane);
+      item.dataset.segmentStart = String(segment.start);
+      item.dataset.segmentEnd = String(segment.end);
+      item.style.left = `${segment.leftPercent}%`;
+      item.style.width = `${segment.widthPercent}%`;
+      item.style.top = `${segment.laneTop}px`;
+      item.title = segment.title;
+      const label = document.createElement("span");
+      label.className = "playback-duration-segment-label";
+      label.textContent = segment.label;
+      item.appendChild(label);
+      track.appendChild(item);
+    });
+
+    const playhead = document.createElement("div");
+    playhead.className = "playback-duration-playhead";
+    playhead.title = playbackCopy.frame || "Frame";
+    playhead.setAttribute("role", "slider");
+    playhead.setAttribute("aria-label", playhead.title);
+    bindPlaybackDurationPlayhead(playhead, viewport, log, model);
+    track.appendChild(playhead);
+
+    viewport.appendChild(track);
+    viewport.addEventListener("scroll", () => {
+      updatePlaybackDurationRangeLabels(log, model);
+    }, { passive: true });
+    bindPlaybackDurationOverviewWindow(overviewWindow, overview, viewport, log, model);
+    shrinkButton.addEventListener("click", () => {
+      adjustPlaybackDurationLaneHeight(viewport, log, model, -4);
+    });
+    growButton.addEventListener("click", () => {
+      adjustPlaybackDurationLaneHeight(viewport, log, model, 4);
+    });
+    bindPlaybackDurationViewportInteractions(viewport, log, model);
+    axis.appendChild(viewport);
+    const windowRuler = document.createElement("div");
+    windowRuler.className = "playback-duration-window-ruler";
+    const windowStart = document.createElement("span");
+    windowStart.className = "playback-duration-window-start";
+    const windowEnd = document.createElement("span");
+    windowEnd.className = "playback-duration-window-end";
+    windowRuler.appendChild(windowStart);
+    windowRuler.appendChild(windowEnd);
+    main.appendChild(controls);
+    main.appendChild(ruler);
+    main.appendChild(overview);
+    main.appendChild(axis);
+    main.appendChild(windowRuler);
+    panel.appendChild(main);
+    panel.appendChild(renderPlaybackCurrentTaskPanel(log, model, playbackCopy));
+    requestAnimationFrame(() => {
+      applyPlaybackDurationTrackWidth(viewport, log, model, getClampedPlaybackDurationTrackWidth(viewport, model, model.trackWidth));
+    });
+    syncPlaybackDurationTimeline(log, model);
+    return panel;
+  }
+
+  function renderPlaybackCurrentTaskPanel(log, model, playbackCopy = runtime.i18n.getPlaybackCopy()) {
+    const panel = document.createElement("aside");
+    panel.className = "playback-duration-task-panel";
+    const header = document.createElement("div");
+    header.className = "playback-duration-task-header";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "canvas-btn icon-btn playback-duration-task-toggle";
+    toggle.textContent = runtime.state.playbackDurationTaskPanelVisible === true ? ">" : "<";
+    toggle.title = runtime.state.playbackDurationTaskPanelVisible === true
+      ? playbackCopy.hideCurrentTasks
+      : playbackCopy.showCurrentTasks;
+    toggle.setAttribute("aria-label", toggle.title);
+    toggle.addEventListener("click", () => {
+      runtime.state.playbackDurationTaskPanelVisible = runtime.state.playbackDurationTaskPanelVisible !== true;
+      document.querySelector(".playback-duration-panel")?.classList.toggle(
+        "hide-current-task-panel",
+        runtime.state.playbackDurationTaskPanelVisible !== true
+      );
+      toggle.textContent = runtime.state.playbackDurationTaskPanelVisible === true ? ">" : "<";
+      toggle.title = runtime.state.playbackDurationTaskPanelVisible === true
+        ? playbackCopy.hideCurrentTasks
+        : playbackCopy.showCurrentTasks;
+      toggle.setAttribute("aria-label", toggle.title);
+      updatePlaybackCurrentTaskPanel(log, model);
+      persistUiState();
+    });
+    const title = document.createElement("strong");
+    title.textContent = playbackCopy.currentTasks;
+    const count = document.createElement("span");
+    count.className = "playback-duration-task-count";
+    header.appendChild(toggle);
+    header.appendChild(title);
+    header.appendChild(count);
+    const list = document.createElement("div");
+    list.className = "playback-duration-task-list";
+    panel.appendChild(header);
+    panel.appendChild(list);
+    return panel;
+  }
+
+  function buildPlaybackDurationModel(log) {
+    const laneHeight = getPlaybackDurationLaneHeight();
+    const blockHeight = getPlaybackDurationBlockHeight(laneHeight);
+    const model = runtime.playbackTimelineTasks.buildPlaybackDurationModel(log, { laneHeight, blockHeight });
+    return {
+      ...model,
+      trackWidth: getPlaybackDurationTrackWidth(model.total)
+    };
+  }
+
+  function getPlaybackDurationLaneHeight() {
+    return runtime.viewport.clampNumber(runtime.state.playbackDurationLaneHeight, 18, 72, 42);
+  }
+
+  function getPlaybackDurationBlockHeight(laneHeight = getPlaybackDurationLaneHeight()) {
+    return runtime.viewport.clampNumber(laneHeight - 10, 10, 64, 32);
+  }
+
+  function getPlaybackDurationTimeScale() {
+    return runtime.viewport.clampNumber(runtime.state.playbackDurationTimeScale, 0.5, 12, 1);
+  }
+
+  function getPlaybackDurationTrackWidth(total) {
+    const baseWidth = Math.max(960, Math.ceil((Math.max(1, total) / 1000) * 0.12));
+    return Math.max(480, Math.min(40000, Math.round(baseWidth * getPlaybackDurationTimeScale())));
+  }
+
+  function getPlaybackDurationTrackWidthBounds(viewport, model) {
+    const viewportWidth = Math.max(1, viewport?.clientWidth || 960);
+    const total = Math.max(1, model.total);
+    const maxVisible = Math.min(total, PLAYBACK_DURATION_MAX_VISIBLE_US);
+    const minVisible = Math.min(total, PLAYBACK_DURATION_MIN_VISIBLE_US);
+    const minWidth = Math.max(viewportWidth, Math.ceil((viewportWidth * total) / Math.max(1, maxVisible)));
+    const maxWidth = Math.max(minWidth, Math.ceil((viewportWidth * total) / Math.max(1, minVisible)));
+    return { minWidth, maxWidth };
+  }
+
+  function getClampedPlaybackDurationTrackWidth(viewport, model, width) {
+    const { minWidth, maxWidth } = getPlaybackDurationTrackWidthBounds(viewport, model);
+    return runtime.viewport.clampNumber(width, minWidth, maxWidth, minWidth);
+  }
+
+  function syncPlaybackDurationTimeline(log, model = null) {
+    const track = document.querySelector(".playback-duration-track");
+    const playhead = document.querySelector(".playback-duration-playhead");
+    if (!track && !playhead) {
+      return;
+    }
+
+    const durationModel = model || buildPlaybackDurationModel(log);
+    const tUs = getCurrentPlaybackTimeUs(log, durationModel);
+    const progress = clampNumber(((tUs - durationModel.firstTime) / durationModel.total) * 100, 0, 100);
+    track?.style.setProperty("--playback-duration-progress", `${progress}%`);
+    if (playhead) {
+      playhead.setAttribute("aria-valuemin", formatTransitionTime(log, durationModel.firstTime));
+      playhead.setAttribute("aria-valuemax", formatTransitionTime(log, durationModel.firstTime + durationModel.total));
+      playhead.setAttribute("aria-valuenow", formatTransitionTime(log, tUs));
+    }
+
+    updatePlaybackCurrentTaskPanel(log, durationModel, tUs);
+    updatePlaybackDurationRangeLabels(log, durationModel);
+    syncPlaybackDurationSegmentLabels(durationModel);
+  }
+
+  function updatePlaybackCurrentTaskPanel(log, model, currentTime = getCurrentPlaybackTimeUs(log, model)) {
+    const taskPanel = document.querySelector(".playback-duration-task-panel");
+    const list = taskPanel?.querySelector(".playback-duration-task-list");
+    const count = taskPanel?.querySelector(".playback-duration-task-count");
+    if (!taskPanel || !list || !count) {
+      return;
+    }
+
+    const activeTasks = (model.segments || []).filter((segment) =>
+      isPlaybackDurationSegmentAtTime(model, segment, currentTime)
+    );
+    count.textContent = String(activeTasks.length);
+    if (runtime.state.playbackDurationTaskPanelVisible !== true) {
+      list.replaceChildren();
+      return;
+    }
+
+    if (activeTasks.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "playback-duration-task-empty";
+      empty.textContent = runtime.i18n.getPlaybackCopy().noCurrentTasks;
+      list.replaceChildren(empty);
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    activeTasks.forEach((task) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "playback-duration-task-item";
+      item.title = task.title || task.label;
+      item.addEventListener("click", () => {
+        centerPlaybackDurationViewportOnTime(log, model, task.start);
+      });
+      const name = document.createElement("strong");
+      name.textContent = task.label;
+      const time = document.createElement("span");
+      time.textContent = `${formatPlaybackTimelineClock(log, task.start)} - ${formatPlaybackTimelineClock(log, task.end)}`;
+      item.appendChild(name);
+      item.appendChild(time);
+      fragment.appendChild(item);
+    });
+    list.replaceChildren(fragment);
+  }
+
+  function isPlaybackDurationSegmentAtTime(model, segment, currentTime) {
+    const start = Number(segment.start);
+    const end = Number(segment.end);
+    const time = Number(currentTime);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(time)) {
+      return false;
+    }
+    if (time >= start && time <= end) {
+      return true;
+    }
+
+    const visualStartPercent = Number(segment.leftPercent);
+    const visualWidthPercent = Number(segment.widthPercent);
+    if (!Number.isFinite(visualStartPercent) || !Number.isFinite(visualWidthPercent) || visualWidthPercent <= 0) {
+      return false;
+    }
+    const visualStart = model.firstTime + (visualStartPercent / 100) * model.total;
+    const visualEnd = model.firstTime + ((visualStartPercent + visualWidthPercent) / 100) * model.total;
+    return time >= visualStart && time <= visualEnd;
+  }
+
+  function bindPlaybackDurationPlayhead(playhead, viewport, log, model) {
+    let activePointerId = null;
+    let latestClientX = 0;
+    let dragFrame = 0;
+
+    const timeFromClientX = (clientX) => {
+      const track = viewport.querySelector(".playback-duration-track");
+      const rect = track?.getBoundingClientRect();
+      if (!rect || rect.width <= 0) {
+        return getCurrentPlaybackTimeUs(log, model);
+      }
+      const offsetX = clampNumber(clientX - rect.left, 0, rect.width);
+      return clampPlaybackTimeUs(log, model.firstTime + (offsetX / rect.width) * model.total);
+    };
+
+    const applyDrag = (persist) => {
+      dragFrame = 0;
+      scrollPlaybackDurationViewportNearEdge(viewport, latestClientX);
+      const tUs = timeFromClientX(latestClientX);
+      const options = {
+        navigateToActiveNode: false,
+        scrollList: false,
+        focusNode: false,
+        persist,
+        updateBlackboard: true
+      };
+      if (persist) {
+        setPlaybackTime(log, tUs, options);
+      } else {
+        requestPlaybackTime(log, tUs, options);
+      }
+    };
+
+    const scheduleDrag = () => {
+      if (dragFrame) {
+        return;
+      }
+      dragFrame = requestAnimationFrame(() => applyDrag(false));
+    };
+
+    const finish = (commit = true) => {
+      if (activePointerId === null) {
+        return;
+      }
+      if (dragFrame) {
+        cancelAnimationFrame(dragFrame);
+        dragFrame = 0;
+      }
+      if (commit) {
+        applyDrag(true);
+      }
+      document.body.classList.remove("is-dragging-playback-playhead");
+      try {
+        playhead.releasePointerCapture(activePointerId);
+      } catch (_error) {
+        // Ignore stale pointer capture state.
+      }
+      activePointerId = null;
+    };
+
+    playhead.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      latestClientX = event.clientX;
+      activePointerId = event.pointerId;
+      document.body.classList.add("is-dragging-playback-playhead");
+      try {
+        playhead.setPointerCapture(event.pointerId);
+      } catch (_error) {
+        // Dragging still works in hosts without pointer capture.
+      }
+      applyDrag(false);
+    });
+
+    playhead.addEventListener("pointermove", (event) => {
+      if (activePointerId === null || event.pointerId !== activePointerId) {
+        return;
+      }
+      if ((event.buttons & 1) !== 1) {
+        finish(false);
+        return;
+      }
+      latestClientX = event.clientX;
+      scheduleDrag();
+    });
+    playhead.addEventListener("pointerup", (event) => {
+      if (activePointerId !== null && event.pointerId !== activePointerId) {
+        return;
+      }
+      finish();
+    });
+    playhead.addEventListener("pointercancel", () => finish(false));
+    playhead.addEventListener("lostpointercapture", () => finish(false));
+  }
+
+  function scrollPlaybackDurationViewportNearEdge(viewport, clientX) {
+    const rect = viewport.getBoundingClientRect();
+    const edgeSize = 28;
+    const maxStep = 56;
+    if (clientX > rect.right - edgeSize) {
+      viewport.scrollLeft += Math.min(maxStep, Math.max(1, clientX - rect.right + edgeSize));
+    } else if (clientX < rect.left + edgeSize) {
+      viewport.scrollLeft -= Math.min(maxStep, Math.max(1, rect.left + edgeSize - clientX));
+    }
+  }
+
+  function bindPlaybackDurationOverviewCursor(cursor, overview, log, model) {
+    let activePointerId = null;
+    let startClientX = 0;
+    let latestClientX = 0;
+    let dragFrame = 0;
+    let didDrag = false;
+    const dragThreshold = 3;
+
+    const timeFromClientX = (clientX) => {
+      const rect = overview.getBoundingClientRect();
+      if (!rect || rect.width <= 0) {
+        return getCurrentPlaybackTimeUs(log, model);
+      }
+      const ratio = clampNumber((clientX - rect.left) / rect.width, 0, 1);
+      return clampPlaybackTimeUs(log, model.firstTime + ratio * model.total);
+    };
+
+    const applyDrag = (persist) => {
+      dragFrame = 0;
+      const tUs = timeFromClientX(latestClientX);
+      const options = {
+        navigateToActiveNode: false,
+        scrollList: false,
+        focusNode: false,
+        persist,
+        updateBlackboard: true
+      };
+      if (persist) {
+        setPlaybackTime(log, tUs, options);
+      } else {
+        requestPlaybackTime(log, tUs, options);
+      }
+    };
+
+    const scheduleDrag = () => {
+      if (dragFrame) {
+        return;
+      }
+      dragFrame = requestAnimationFrame(() => applyDrag(false));
+    };
+
+    const finish = (commit = true) => {
+      if (activePointerId === null) {
+        return;
+      }
+      if (dragFrame) {
+        cancelAnimationFrame(dragFrame);
+        dragFrame = 0;
+      }
+      if (commit && didDrag) {
+        applyDrag(true);
+      } else if (commit) {
+        centerPlaybackDurationViewportOnTime(log, model, getCurrentPlaybackTimeUs(log, model));
+      }
+      document.body.classList.remove("is-dragging-playback-playhead");
+      try {
+        cursor.releasePointerCapture(activePointerId);
+      } catch (_error) {
+        // Ignore stale pointer capture state.
+      }
+      activePointerId = null;
+      didDrag = false;
+    };
+
+    cursor.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      startClientX = event.clientX;
+      latestClientX = event.clientX;
+      activePointerId = event.pointerId;
+      try {
+        cursor.setPointerCapture(event.pointerId);
+      } catch (_error) {
+        // Dragging still works in hosts without pointer capture.
+      }
+    });
+
+    cursor.addEventListener("pointermove", (event) => {
+      if (activePointerId === null || event.pointerId !== activePointerId) {
+        return;
+      }
+      if ((event.buttons & 1) !== 1) {
+        finish(false);
+        return;
+      }
+      latestClientX = event.clientX;
+      if (!didDrag) {
+        if (Math.abs(latestClientX - startClientX) < dragThreshold) {
+          return;
+        }
+        didDrag = true;
+        document.body.classList.add("is-dragging-playback-playhead");
+      }
+      scheduleDrag();
+    });
+    cursor.addEventListener("pointerup", (event) => {
+      if (activePointerId !== null && event.pointerId !== activePointerId) {
+        return;
+      }
+      finish();
+    });
+    cursor.addEventListener("pointercancel", () => finish(false));
+    cursor.addEventListener("lostpointercapture", () => finish(false));
+  }
+
+  function bindPlaybackDurationOverviewWindow(windowEl, overview, viewport, log, model) {
+    let activePointerId = null;
+    let startClientX = 0;
+    let startScrollLeft = 0;
+    let latestClientX = 0;
+    let panFrame = 0;
+
+    const applyPan = () => {
+      panFrame = 0;
+      const rect = overview.getBoundingClientRect();
+      const track = viewport.querySelector(".playback-duration-track");
+      const trackWidth = Math.max(1, track?.scrollWidth || model.trackWidth || 1);
+      if (!rect || rect.width <= 0) {
+        return;
+      }
+      viewport.scrollLeft = startScrollLeft + ((latestClientX - startClientX) / rect.width) * trackWidth;
+      updatePlaybackDurationRangeLabels(log, model);
+      syncPlaybackDurationSegmentLabels(model);
+    };
+
+    const schedulePan = () => {
+      if (panFrame) {
+        return;
+      }
+      panFrame = requestAnimationFrame(applyPan);
+    };
+
+    const finish = () => {
+      if (activePointerId === null) {
+        return;
+      }
+      if (panFrame) {
+        cancelAnimationFrame(panFrame);
+        applyPan();
+      }
+      document.body.classList.remove("is-panning-playback-duration");
+      try {
+        windowEl.releasePointerCapture(activePointerId);
+      } catch (_error) {
+        // Ignore stale pointer capture state.
+      }
+      activePointerId = null;
+    };
+
+    windowEl.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      activePointerId = event.pointerId;
+      startClientX = event.clientX;
+      latestClientX = event.clientX;
+      startScrollLeft = viewport.scrollLeft;
+      document.body.classList.add("is-panning-playback-duration");
+      try {
+        windowEl.setPointerCapture(event.pointerId);
+      } catch (_error) {
+        // Dragging still works in hosts without pointer capture.
+      }
+    });
+
+    windowEl.addEventListener("pointermove", (event) => {
+      if (activePointerId === null || event.pointerId !== activePointerId) {
+        return;
+      }
+      if ((event.buttons & 1) !== 1) {
+        finish();
+        return;
+      }
+      latestClientX = event.clientX;
+      schedulePan();
+    });
+    windowEl.addEventListener("pointerup", (event) => {
+      if (activePointerId !== null && event.pointerId !== activePointerId) {
+        return;
+      }
+      finish();
+    });
+    windowEl.addEventListener("pointercancel", finish);
+    windowEl.addEventListener("lostpointercapture", finish);
+  }
+
+  function getCurrentPlaybackTimeUs(log, model) {
+    return clampPlaybackTimeUs(log, runtime.state.playbackTimeUs ?? model?.firstTime ?? 0);
+  }
+
+  function centerPlaybackDurationViewportOnTime(log, model, tUs) {
+    const viewport = document.querySelector(".playback-duration-viewport");
+    const track = document.querySelector(".playback-duration-track");
+    if (!viewport || !track) {
+      return;
+    }
+    const trackWidth = Math.max(1, track.scrollWidth || model.trackWidth || 1);
+    const ratio = clampNumber((Number(tUs) - model.firstTime) / model.total, 0, 1);
+    viewport.scrollLeft = Math.max(0, ratio * trackWidth - viewport.clientWidth / 2);
+    updatePlaybackDurationRangeLabels(log, model);
+    syncPlaybackDurationSegmentLabels(model);
+  }
+
+  function bindPlaybackDurationViewportInteractions(viewport, log, model) {
+    let activePointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let startScrollLeft = 0;
+    let startScrollTop = 0;
+    let panFrame = 0;
+    let latestClientX = 0;
+    let latestClientY = 0;
+
+    const applyPan = () => {
+      panFrame = 0;
+      viewport.scrollLeft = startScrollLeft - (latestClientX - startX);
+      viewport.scrollTop = startScrollTop - (latestClientY - startY);
+      updatePlaybackDurationRangeLabels(log, model);
+      syncPlaybackDurationSegmentLabels(model);
+    };
+
+    const schedulePan = () => {
+      if (panFrame) {
+        return;
+      }
+      panFrame = requestAnimationFrame(applyPan);
+    };
+
+    const finishPan = () => {
+      if (activePointerId === null) {
+        return;
+      }
+      if (panFrame) {
+        cancelAnimationFrame(panFrame);
+        applyPan();
+      }
+      document.body.classList.remove("is-panning-playback-duration");
+      try {
+        viewport.releasePointerCapture(activePointerId);
+      } catch (_error) {
+        // Ignore stale pointer capture state.
+      }
+      activePointerId = null;
+    };
+
+    viewport.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      if (event.target?.closest?.(".playback-duration-playhead")) {
+        return;
+      }
+      event.preventDefault();
+      activePointerId = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+      latestClientX = event.clientX;
+      latestClientY = event.clientY;
+      startScrollLeft = viewport.scrollLeft;
+      startScrollTop = viewport.scrollTop;
+      document.body.classList.add("is-panning-playback-duration");
+      try {
+        viewport.setPointerCapture(event.pointerId);
+      } catch (_error) {
+        // Dragging still works in hosts without pointer capture.
+      }
+    });
+
+    viewport.addEventListener("pointermove", (event) => {
+      if (activePointerId === null || event.pointerId !== activePointerId) {
+        return;
+      }
+      if ((event.buttons & 1) !== 1) {
+        finishPan();
+        return;
+      }
+      latestClientX = event.clientX;
+      latestClientY = event.clientY;
+      schedulePan();
+    });
+    viewport.addEventListener("pointerup", (event) => {
+      if (activePointerId !== null && event.pointerId !== activePointerId) {
+        return;
+      }
+      finishPan();
+    });
+    viewport.addEventListener("pointercancel", finishPan);
+    viewport.addEventListener("lostpointercapture", finishPan);
+    viewport.addEventListener("wheel", (event) => {
+      if (!event.deltaY) {
+        return;
+      }
+      event.preventDefault();
+      const current = getPlaybackDurationTimeScale();
+      const rect = viewport.getBoundingClientRect();
+      const anchorX = clampNumber(event.clientX - rect.left, 0, Math.max(1, rect.width));
+      const oldTrackWidth = Math.max(1, model.trackWidth);
+      const anchorRatio = clampNumber((viewport.scrollLeft + anchorX) / oldTrackWidth, 0, 1);
+      const requestedWidth = oldTrackWidth * (event.deltaY > 0 ? 0.88 : 1.14);
+      const nextWidth = getClampedPlaybackDurationTrackWidth(viewport, model, requestedWidth);
+      if (Math.abs(nextWidth - oldTrackWidth) < 1) {
+        return;
+      }
+      applyPlaybackDurationTrackWidth(viewport, log, model, nextWidth, anchorRatio, anchorX);
+      persistUiState();
+    }, { passive: false });
+  }
+
+  function adjustPlaybackDurationLaneHeight(viewport, log, model, delta) {
+    const current = getPlaybackDurationLaneHeight();
+    const next = runtime.viewport.clampNumber(current + delta, 18, 72, 42);
+    if (next === current) {
+      return;
+    }
+    runtime.state.playbackDurationLaneHeight = next;
+    applyPlaybackDurationLaneHeight(viewport, log, model, next);
+    persistUiState();
+  }
+
+  function applyPlaybackDurationLaneHeight(viewport, log, model, laneHeight) {
+    const track = viewport.querySelector(".playback-duration-track");
+    if (!track) {
+      return;
+    }
+    const blockHeight = getPlaybackDurationBlockHeight(laneHeight);
+    model.laneHeight = laneHeight;
+    model.blockHeight = blockHeight;
+    model.trackHeight = Math.max(96, model.laneCount * laneHeight);
+    track.style.height = `${model.trackHeight}px`;
+    track.style.setProperty("--playback-duration-lane-height", `${laneHeight}px`);
+    track.style.setProperty("--playback-duration-block-height", `${blockHeight}px`);
+    track.querySelectorAll(".playback-duration-segment").forEach((segment) => {
+      const lane = Number(segment.dataset.playbackLane);
+      if (Number.isFinite(lane)) {
+        segment.style.top = `${lane * laneHeight}px`;
+      }
+    });
+    updatePlaybackDurationRangeLabels(log, model);
+    syncPlaybackDurationSegmentLabels(model);
+  }
+
+  function applyPlaybackDurationTrackWidth(viewport, log, model, width, anchorRatio = null, anchorX = null) {
+    const track = viewport.querySelector(".playback-duration-track");
+    if (!track) {
+      return;
+    }
+    const previousTrackWidth = Math.max(1, model.trackWidth);
+    const resolvedAnchorRatio = anchorRatio ?? clampNumber((viewport.scrollLeft + viewport.clientWidth / 2) / previousTrackWidth, 0, 1);
+    const resolvedAnchorX = anchorX ?? viewport.clientWidth / 2;
+    model.trackWidth = getClampedPlaybackDurationTrackWidth(viewport, model, width);
+    track.style.width = `${model.trackWidth}px`;
+    runtime.state.playbackDurationTimeScale = model.trackWidth / Math.max(1, model.baseTrackWidth || 1);
+    viewport.scrollLeft = Math.max(0, resolvedAnchorRatio * model.trackWidth - resolvedAnchorX);
+    updatePlaybackDurationRangeLabels(log, model);
+    syncPlaybackDurationSegmentLabels(model);
+  }
+
+  function findPlaybackFrameIndexAtTime(log, tUs) {
+    const frames = log.frames || [];
+    if (frames.length === 0) {
+      return 0;
+    }
+    const target = Number(tUs);
+    if (!Number.isFinite(target)) {
+      return runtime.state.playbackFrameIndex;
+    }
+
+    let left = 0;
+    let right = frames.length - 1;
+    let match = 0;
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      const time = Number(frames[mid]?.tUs);
+      if (time <= target) {
+        match = mid;
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+
+    const next = Math.min(frames.length - 1, match + 1);
+    const currentDelta = Math.abs(Number(frames[match]?.tUs) - target);
+    const nextDelta = Math.abs(Number(frames[next]?.tUs) - target);
+    return nextDelta < currentDelta ? next : match;
+  }
+
+  function findPlaybackFrameIndexAtOrBeforeTime(log, tUs) {
+    const frames = log.frames || [];
+    if (frames.length === 0) {
+      return 0;
+    }
+    const target = Number(tUs);
+    if (!Number.isFinite(target)) {
+      return runtime.state.playbackFrameIndex;
+    }
+    let left = 0;
+    let right = frames.length - 1;
+    let match = 0;
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      const time = Number(frames[mid]?.tUs);
+      if (!Number.isFinite(time) || time <= target) {
+        match = mid;
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+    return match;
+  }
+
+  function getPlaybackFrameTimeUs(log, frameIndex) {
+    const frames = log?.frames || [];
+    const frame = frames[clampInteger(frameIndex, 0, Math.max(0, frames.length - 1))] || null;
+    return Number.isFinite(Number(frame?.tUs)) ? Number(frame.tUs) : getPlaybackFirstTimeUs(log);
+  }
+
+  function getPlaybackFirstTimeUs(log) {
+    const first = Number(log?.frames?.[0]?.tUs ?? log?.transitions?.[0]?.tUs ?? 0);
+    return Number.isFinite(first) ? first : 0;
+  }
+
+  function getPlaybackLastTimeUs(log) {
+    const frames = log?.frames || [];
+    const transitions = log?.transitions || [];
+    const last = Number(
+      frames[frames.length - 1]?.tUs
+      ?? transitions[transitions.length - 1]?.tUs
+      ?? getPlaybackFirstTimeUs(log)
+    );
+    return Number.isFinite(last) ? last : getPlaybackFirstTimeUs(log);
+  }
+
+  function clampPlaybackTimeUs(log, tUs) {
+    const first = getPlaybackFirstTimeUs(log);
+    const last = Math.max(first, getPlaybackLastTimeUs(log));
+    return clampNumber(Number(tUs), first, last);
+  }
+
+  function updatePlaybackDurationRangeLabels(log, model) {
+    const viewport = document.querySelector(".playback-duration-viewport");
+    const track = document.querySelector(".playback-duration-track");
+    const totalStartLabel = document.querySelector(".playback-duration-total-start");
+    const cursorLabel = document.querySelector(".playback-duration-cursor-time");
+    const totalEndLabel = document.querySelector(".playback-duration-total-end");
+    const windowStartLabel = document.querySelector(".playback-duration-window-start");
+    const windowEndLabel = document.querySelector(".playback-duration-window-end");
+    const overviewWindow = document.querySelector(".playback-duration-overview-window");
+    const overviewCursor = document.querySelector(".playback-duration-overview-cursor");
+    if (!viewport || !track || !totalStartLabel || !cursorLabel || !totalEndLabel || !windowStartLabel || !windowEndLabel) {
+      return;
+    }
+
+    const trackWidth = Math.max(1, track.scrollWidth || model.trackWidth || 1);
+    const visibleStart = model.firstTime + clampNumber(viewport.scrollLeft / trackWidth, 0, 1) * model.total;
+    const visibleEnd = model.firstTime + clampNumber((viewport.scrollLeft + viewport.clientWidth) / trackWidth, 0, 1) * model.total;
+    const currentTime = getCurrentPlaybackTimeUs(log, model);
+    totalStartLabel.textContent = formatPlaybackTimelineClock(log, model.firstTime);
+    cursorLabel.textContent = formatPlaybackTimelineClock(log, currentTime);
+    totalEndLabel.textContent = formatPlaybackTimelineClock(log, model.firstTime + model.total);
+    windowStartLabel.textContent = formatPlaybackTimelineClock(log, visibleStart);
+    windowEndLabel.textContent = formatPlaybackTimelineClock(log, visibleEnd);
+    if (overviewWindow) {
+      overviewWindow.style.left = `${clampNumber((visibleStart - model.firstTime) / model.total, 0, 1) * 100}%`;
+      overviewWindow.style.width = `${clampNumber((visibleEnd - visibleStart) / model.total, 0, 1) * 100}%`;
+    }
+    if (overviewCursor) {
+      overviewCursor.style.left = `${clampNumber((currentTime - model.firstTime) / model.total, 0, 1) * 100}%`;
+    }
+    syncPlaybackDurationSegmentLabels(model);
+  }
+
+  function syncPlaybackDurationSegmentLabels(model) {
+    const viewport = document.querySelector(".playback-duration-viewport");
+    const track = document.querySelector(".playback-duration-track");
+    if (!viewport || !track) {
+      return;
+    }
+
+    const trackWidth = Math.max(1, track.scrollWidth || model.trackWidth || 1);
+    track.querySelectorAll(".playback-duration-segment").forEach((segment) => {
+      const label = segment.querySelector(".playback-duration-segment-label");
+      if (!label) {
+        return;
+      }
+      const segmentStart = Number(segment.dataset.segmentStart);
+      const segmentEnd = Number(segment.dataset.segmentEnd);
+      if (!Number.isFinite(segmentStart) || !Number.isFinite(segmentEnd)) {
+        return;
+      }
+      const segmentLeft = Number.isFinite(segment.offsetLeft)
+        ? segment.offsetLeft
+        : ((segmentStart - model.firstTime) / model.total) * trackWidth;
+      const segmentWidth = Math.max(
+        0,
+        segment.offsetWidth || ((segmentEnd - segmentStart) / model.total) * trackWidth
+      );
+      const padding = 6;
+      const rawOffset = viewport.scrollLeft - segmentLeft + padding;
+      const maxOffset = Math.max(0, segmentWidth - label.offsetWidth - padding * 2);
+      const offset = clampNumber(rawOffset, 0, maxOffset);
+      label.style.transform = `translateX(${offset}px)`;
+    });
+  }
+
   function renderPlaybackTimeline(log) {
     const playbackCopy = runtime.i18n.getPlaybackCopy();
     const footer = document.createElement("div");
@@ -1496,7 +2924,7 @@
     prevButton.className = "canvas-btn icon-btn playback-step-btn";
     prevButton.textContent = "<";
     prevButton.title = playbackCopy.previousNodeStatusChange;
-    prevButton.addEventListener("click", () => {
+    bindPlaybackRepeatButton(prevButton, () => {
       stepPlaybackTransition(log, -1);
     });
 
@@ -1505,7 +2933,7 @@
     nextButton.className = "canvas-btn icon-btn playback-step-btn";
     nextButton.textContent = ">";
     nextButton.title = playbackCopy.nextNodeStatusChange;
-    nextButton.addEventListener("click", () => {
+    bindPlaybackRepeatButton(nextButton, () => {
       stepPlaybackTransition(log, 1);
     });
 
@@ -1563,9 +2991,22 @@
     if (!log?.frames || log.frames.length < 2) {
       return;
     }
-    if (runtime.state.playbackFrameIndex >= log.frames.length - 1) {
-      runtime.state.playbackFrameIndex = 0;
-      syncPlaybackFrameUi(log, { scrollList: true, focusNode: false });
+    if (isPlaybackTimeBasedMode()) {
+      if (getCurrentPlaybackTimeUs(log, null) >= getPlaybackLastTimeUs(log)) {
+        setPlaybackTime(log, getPlaybackFirstTimeUs(log), {
+          scrollList: true,
+          focusNode: false,
+          persist: false,
+          updateBlackboard: true
+        });
+      }
+    } else if (runtime.state.playbackFrameIndex >= log.frames.length - 1) {
+      setPlaybackFrame(log, 0, {
+        scrollList: true,
+        focusNode: false,
+        persist: false,
+        updateBlackboard: true
+      });
     }
     runtime.state.playbackIsPlaying = true;
     updatePlaybackTimelineControls(log);
@@ -1590,6 +3031,11 @@
       return;
     }
 
+    if (isPlaybackTimeBasedMode()) {
+      reschedulePlaybackTimeAutoAdvance(log);
+      return;
+    }
+
     const currentFrameIndex = runtime.state.playbackFrameIndex;
     const nextFrameIndex = currentFrameIndex + 1;
     if (!log.frames || nextFrameIndex >= log.frames.length) {
@@ -1597,7 +3043,7 @@
       return;
     }
 
-    const delayMs = getPlaybackAdvanceDelayMs(log, currentFrameIndex, nextFrameIndex);
+    const delayMs = getPlaybackAdvanceDelayMs();
     playbackAutoAdvanceHandle = window.setTimeout(() => {
       playbackAutoAdvanceHandle = 0;
       if (!runtime.state.playbackIsPlaying || runtime.state.playbackLog !== log) {
@@ -1616,13 +3062,36 @@
     }, delayMs);
   }
 
-  function getPlaybackAdvanceDelayMs(log, currentFrameIndex, nextFrameIndex) {
-    const currentFrame = log.frames?.[currentFrameIndex] || null;
-    const nextFrame = log.frames?.[nextFrameIndex] || null;
+  function reschedulePlaybackTimeAutoAdvance(log) {
+    const currentTimeUs = getCurrentPlaybackTimeUs(log, null);
+    const lastTimeUs = getPlaybackLastTimeUs(log);
+    if (currentTimeUs >= lastTimeUs) {
+      pausePlayback();
+      return;
+    }
+
+    const scheduledAt = performance.now();
+    playbackAutoAdvanceHandle = window.setTimeout(() => {
+      playbackAutoAdvanceHandle = 0;
+      if (!runtime.state.playbackIsPlaying || runtime.state.playbackLog !== log) {
+        return;
+      }
+      const elapsedMs = Math.max(PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS, performance.now() - scheduledAt);
+      const speed = normalizePlaybackSpeed(runtime.state.playbackPlaybackSpeed);
+      const nextTimeUs = Math.min(lastTimeUs, currentTimeUs + elapsedMs * 1000 * speed);
+      setPlaybackTime(log, nextTimeUs, {
+        navigateToActiveNode: shouldAutoNavigatePlayback(),
+        scrollList: true,
+        focusNode: false,
+        persist: true,
+        updateBlackboard: true
+      });
+    }, PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS);
+  }
+
+  function getPlaybackAdvanceDelayMs() {
     const speed = normalizePlaybackSpeed(runtime.state.playbackPlaybackSpeed);
-    const deltaUs = Number(nextFrame?.tUs) - Number(currentFrame?.tUs);
-    const deltaMs = Number.isFinite(deltaUs) && deltaUs > 0 ? deltaUs / 1000 : 100;
-    return Math.max(16, Math.round(deltaMs / Math.max(0.1, speed)));
+    return Math.max(16, Math.round(PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS / Math.max(0.1, speed)));
   }
 
   function updatePlaybackTimelineControls(log) {
@@ -1649,6 +3118,98 @@
       }
       speedSelect.disabled = !log?.frames || log.frames.length < 2;
     }
+  }
+
+  function bindPlaybackRepeatButton(button, action) {
+    let holdTimer = 0;
+    let repeatTimer = 0;
+    let activePointerId = null;
+    let didRepeat = false;
+    let suppressNextClick = false;
+    let suppressClickResetTimer = 0;
+
+    const clearTimers = () => {
+      if (holdTimer) {
+        window.clearTimeout(holdTimer);
+        holdTimer = 0;
+      }
+      if (repeatTimer) {
+        window.clearInterval(repeatTimer);
+        repeatTimer = 0;
+      }
+    };
+
+    const finishPress = () => {
+      clearTimers();
+      if (didRepeat) {
+        suppressNextClick = true;
+        if (suppressClickResetTimer) {
+          window.clearTimeout(suppressClickResetTimer);
+        }
+        suppressClickResetTimer = window.setTimeout(() => {
+          suppressNextClick = false;
+          suppressClickResetTimer = 0;
+        }, 80);
+      }
+      activePointerId = null;
+      didRepeat = false;
+    };
+
+    button.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      if (button.disabled) {
+        return;
+      }
+
+      clearTimers();
+      didRepeat = false;
+      activePointerId = event.pointerId;
+      try {
+        button.setPointerCapture(event.pointerId);
+      } catch (_error) {
+        // Some hosts may reject stale pointer capture; repeating still works without it.
+      }
+
+      holdTimer = window.setTimeout(() => {
+        didRepeat = true;
+        action();
+        repeatTimer = window.setInterval(action, 200);
+      }, 200);
+    });
+
+    button.addEventListener("pointerup", (event) => {
+      if (activePointerId !== null && event.pointerId !== activePointerId) {
+        return;
+      }
+      try {
+        button.releasePointerCapture(event.pointerId);
+      } catch (_error) {
+        // Ignore stale pointer capture state.
+      }
+      finishPress();
+    });
+    button.addEventListener("pointercancel", finishPress);
+    button.addEventListener("lostpointercapture", finishPress);
+    button.addEventListener("contextmenu", (event) => {
+      if (holdTimer || repeatTimer) {
+        event.preventDefault();
+      }
+    });
+    button.addEventListener("click", (event) => {
+      if (suppressNextClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        suppressNextClick = false;
+        if (suppressClickResetTimer) {
+          window.clearTimeout(suppressClickResetTimer);
+          suppressClickResetTimer = 0;
+        }
+        return;
+      }
+      action();
+    });
   }
 
   function createPlaybackTransportIcon(kind) {
@@ -1727,6 +3288,24 @@
     if (transitions.length === 0) {
       return;
     }
+    if (isPlaybackTimeBasedMode()) {
+      const currentTime = getCurrentPlaybackTimeUs(log, null);
+      const nextIndex = direction < 0
+        ? findLastTransitionIndexBeforeTime(transitions, currentTime)
+        : findFirstTransitionIndexAfterTime(transitions, currentTime);
+      const next = nextIndex === null ? null : transitions[nextIndex];
+      if (!next) {
+        return;
+      }
+      setPlaybackTime(log, next.tUs, {
+        navigateToActiveNode: shouldAutoNavigatePlayback(),
+        scrollList: true,
+        focusNode: shouldAutoNavigatePlayback(),
+        persist: true,
+        updateBlackboard: true
+      });
+      return;
+    }
     const currentFrameIndex = runtime.state.playbackFrameIndex;
     const nextIndex = direction < 0
       ? findLastTransitionIndexBeforeFrame(transitions, currentFrameIndex)
@@ -1752,7 +3331,32 @@
       playbackFrameUpdateHandle = 0;
       const update = pendingPlaybackFrameUpdate;
       pendingPlaybackFrameUpdate = null;
-      if (update) {
+      if (!update) {
+        return;
+      }
+      if (update.timeBased) {
+        setPlaybackTime(update.log, update.tUs, update.options);
+      } else {
+        setPlaybackFrame(update.log, update.frameIndex, update.options);
+      }
+    });
+  }
+
+  function requestPlaybackTime(log, tUs, options = {}) {
+    pendingPlaybackFrameUpdate = { log, tUs, options, timeBased: true };
+    if (playbackFrameUpdateHandle) {
+      return;
+    }
+    playbackFrameUpdateHandle = requestAnimationFrame(() => {
+      playbackFrameUpdateHandle = 0;
+      const update = pendingPlaybackFrameUpdate;
+      pendingPlaybackFrameUpdate = null;
+      if (!update) {
+        return;
+      }
+      if (update.timeBased) {
+        setPlaybackTime(update.log, update.tUs, update.options);
+      } else {
         setPlaybackFrame(update.log, update.frameIndex, update.options);
       }
     });
@@ -1764,6 +3368,7 @@
     }
     const maxFrameIndex = Math.max(0, (log.frames?.length || 1) - 1);
     runtime.state.playbackFrameIndex = clampInteger(frameIndex, 0, maxFrameIndex);
+    runtime.state.playbackTimeUs = getPlaybackFrameTimeUs(log, runtime.state.playbackFrameIndex);
 
     if (options.navigateToActiveNode) {
       const activeTransition = getActiveTransition(log, runtime.state.playbackFrameIndex);
@@ -1772,7 +3377,7 @@
         const treeChanged = runtime.state.selectedTreeId !== location.treeId;
         runtime.state.selectedTreeId = location.treeId;
         runtime.state.selectedNodePath = location.nodePath;
-        if (treeChanged) {
+        if (treeChanged && !isExpandedTreeRenderMode("playback")) {
           renderPlaybackLog({
             ensureActiveTreeVisible: true,
             focusActiveNode: options.focusNode === true,
@@ -1792,12 +3397,46 @@
     }
   }
 
+  function setPlaybackTime(log, tUs, options = {}) {
+    if (!log?.preview) {
+      return;
+    }
+    runtime.state.playbackTimeUs = clampPlaybackTimeUs(log, tUs);
+    runtime.state.playbackFrameIndex = findPlaybackFrameIndexAtOrBeforeTime(log, runtime.state.playbackTimeUs);
+
+    if (options.navigateToActiveNode) {
+      const activeTransition = getActiveTransitionAtTime(log, runtime.state.playbackTimeUs);
+      const location = activeTransition ? findPlaybackNodeLocation(activeTransition.uid) : null;
+      if (location) {
+        const treeChanged = runtime.state.selectedTreeId !== location.treeId;
+        runtime.state.selectedTreeId = location.treeId;
+        runtime.state.selectedNodePath = location.nodePath;
+        if (treeChanged && !isExpandedTreeRenderMode("playback")) {
+          renderPlaybackLog({
+            ensureActiveTreeVisible: true,
+            focusActiveNode: options.focusNode === true,
+            preserveViewport: true
+          });
+          return;
+        }
+      }
+    }
+
+    syncPlaybackFrameUi(log, { ...options, timeBased: true });
+    if (runtime.state.playbackIsPlaying) {
+      reschedulePlaybackAutoAdvance(log);
+    }
+    if (options.persist) {
+      persistUiState();
+    }
+  }
+
   function shouldAutoNavigatePlayback() {
     return runtime.state.currentSettings?.playbackAutoNavigateToTree !== false;
   }
 
   function syncPlaybackFrameUi(log, options = {}) {
-    const playbackSnapshot = buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex, {
+    const playbackSnapshot = buildCurrentPlaybackSnapshot(log, {
       includeBlackboard: options.updateBlackboard !== false
     });
     runtime.state.playbackStatusByUid = playbackSnapshot.statusByUid;
@@ -1836,22 +3475,26 @@
 
   function updatePlaybackCanvasStatuses() {
     const domCache = getPlaybackDomCache();
-    domCache.nodeCardsByUid.forEach((card, uid) => {
-      syncPlaybackStatusClass(card, getPlaybackStatusClassForUid(uid, false), "playback-status", true);
+    domCache.nodeCardsByUid.forEach((cards, uid) => {
+      cards.forEach((card) => {
+        syncPlaybackStatusClass(card, getPlaybackStatusClassForUid(uid, false), "playback-status", true);
+      });
     });
 
-    domCache.edgePathsByUid.forEach((edge, uid) => {
-      syncPlaybackStatusClass(edge, getPlaybackStatusClassForUid(uid, true), "playback-edge-status", false);
+    domCache.edgePathsByUid.forEach((edges, uid) => {
+      edges.forEach((edge) => {
+        syncPlaybackStatusClass(edge, getPlaybackStatusClassForUid(uid, true), "playback-edge-status", false);
+      });
     });
   }
 
   function updatePlaybackCanvasSelection() {
     const domCache = getPlaybackDomCache();
-    domCache.selectedCard?.classList.remove("is-selected");
+    (domCache.selectedCards || []).forEach((card) => card.classList.remove("is-selected"));
     const key = `${runtime.state.selectedTreeId || ""}::${runtime.state.selectedNodePath || ""}`;
-    const selected = domCache.nodeCardsByTreePath.get(key) || null;
-    selected?.classList.add("is-selected");
-    domCache.selectedCard = selected;
+    const selectedCards = domCache.nodeCardsByTreePath.get(key) || [];
+    selectedCards.forEach((card) => card.classList.add("is-selected"));
+    domCache.selectedCards = selectedCards;
     runtime.treeSwitcher.updateActive?.();
   }
 
@@ -1861,16 +3504,26 @@
     if (slider) {
       slider.value = String(runtime.state.playbackFrameIndex);
     }
+    const durationSlider = document.querySelector(".playback-duration-slider");
+    if (durationSlider) {
+      durationSlider.value = String(runtime.state.playbackFrameIndex);
+    }
     const time = document.querySelector(".playback-current-time");
     if (time) {
       const frame = log.frames?.[runtime.state.playbackFrameIndex] || null;
-      time.textContent = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : playbackCopy.noFrames;
+      const currentTime = getCurrentPlaybackTimeUs(log, null);
+      time.textContent = frame
+        ? (time.classList.contains("playback-duration-time")
+          ? formatPlaybackTimelineClock(log, currentTime)
+          : `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}`)
+        : playbackCopy.noFrames;
     }
+    syncPlaybackDurationTimeline(log);
     updatePlaybackTimelineControls(log);
   }
 
   function updatePlaybackActiveTransition(log, scrollList) {
-    const activeTransitionIndex = getActiveTransitionIndex(log, runtime.state.playbackFrameIndex);
+    const activeTransitionIndex = getCurrentPlaybackActiveTransitionIndex(log);
     if (scrollList && activeTransitionIndex !== null) {
       const list = document.querySelector(".playback-transition-list");
       if (list && scrollPlaybackTransitionListToIndex(log, list, activeTransitionIndex)) {
@@ -2186,7 +3839,7 @@
       return;
     }
 
-    const snapshot = buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex);
+    const snapshot = buildCurrentPlaybackSnapshot(log);
     const context = buildPlaybackTraceContext(log, snapshot, runtime.i18n.getPlaybackCopy());
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     runtime.state.traceMessages.push({ role: "user", content: question });
@@ -2215,7 +3868,7 @@
     }
     runtime.state.tracePendingAnswer += delta;
     const log = runtime.state.playbackLog;
-    const snapshot = log ? buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex) : null;
+    const snapshot = log ? buildCurrentPlaybackSnapshot(log) : null;
     updatePlaybackTracePanel(log, snapshot);
   }
 
@@ -2255,7 +3908,7 @@
     runtime.state.tracePendingRequestId = "";
     runtime.state.tracePendingAnswer = "";
     const log = runtime.state.playbackLog;
-    const snapshot = log ? buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex) : null;
+    const snapshot = log ? buildCurrentPlaybackSnapshot(log) : null;
     updatePlaybackTracePanel(log, snapshot);
   }
 
@@ -2318,11 +3971,16 @@
 
   function buildPlaybackTraceContext(log, snapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
     const frame = log.frames?.[runtime.state.playbackFrameIndex] || null;
-    const activeTransition = getActiveTransition(log, runtime.state.playbackFrameIndex);
+    const activeTransition = isPlaybackTimeBasedMode()
+      ? getActiveTransitionAtTime(log, getCurrentPlaybackTimeUs(log, null))
+      : getActiveTransition(log, runtime.state.playbackFrameIndex);
     const activeTransitionName = activeTransition ? resolvePlaybackNodeName(log, activeTransition) : playbackCopy.noActiveTransition;
     const selectedTree = getSelectedTree(log.preview);
     const treeLabel = selectedTree?.id || log.preview?.defaultTreeId || "MainTree";
-    const frameLabel = frame ? `${formatRelativeTime(log, frame.tUs)}  ${formatWallTime(frame.wallUs)}` : playbackCopy.noFrames;
+    const currentTime = getCurrentPlaybackTimeUs(log, null);
+    const frameLabel = frame
+      ? `${formatRelativeTime(log, currentTime)}  ${formatPlaybackTimelineClock(log, currentTime)}`
+      : playbackCopy.noFrames;
     const transitionLabel = activeTransition
       ? `${activeTransitionName} · ${activeTransition.prevStatus} → ${activeTransition.status}`
       : playbackCopy.noTransition;
@@ -2570,20 +4228,20 @@
 
       const uid = String(node.dataset.playbackUid || "");
       if (uid) {
-        nodeCardsByUid.set(uid, card);
+        appendDomCacheEntry(nodeCardsByUid, uid, card);
       }
 
       const treeId = node.dataset.treeId || "";
       const nodePath = node.dataset.nodePath || "";
       if (treeId && nodePath) {
-        nodeCardsByTreePath.set(`${treeId}::${nodePath}`, card);
+        appendDomCacheEntry(nodeCardsByTreePath, `${treeId}::${nodePath}`, card);
       }
     });
 
     root.querySelectorAll(".canvas-edge-path-base[data-playback-uid]").forEach((edge) => {
       const uid = String(edge.dataset.playbackUid || "");
       if (uid) {
-        edgePathsByUid.set(uid, edge);
+        appendDomCacheEntry(edgePathsByUid, uid, edge);
       }
     });
 
@@ -2597,10 +4255,16 @@
       nodeCardsByTreePath,
       edgePathsByUid,
       transitionRowsByIndex,
-      selectedCard: root.querySelector(".flow-card.is-selected"),
+      selectedCards: Array.from(root.querySelectorAll(".flow-card.is-selected")),
       activeTransitionRow: root.querySelector(".playback-transition-row.is-active")
     };
     return playbackDomCache;
+  }
+
+  function appendDomCacheEntry(map, key, element) {
+    const entries = map.get(key) || [];
+    entries.push(element);
+    map.set(key, entries);
   }
 
   function getPlaybackStatusClassForUid(uid, edge) {
@@ -2611,8 +4275,23 @@
     return runtime.playbackData.getActiveTransition(log, frameIndex);
   }
 
+  function getActiveTransitionAtTime(log, tUs) {
+    return runtime.playbackData.getActiveTransitionAtTime(log, tUs);
+  }
+
   function getActiveTransitionIndex(log, frameIndex) {
     return runtime.playbackData.getActiveTransitionIndex(log, frameIndex);
+  }
+
+  function getActiveTransitionIndexAtTime(log, tUs) {
+    return runtime.playbackData.getActiveTransitionIndexAtTime(log, tUs);
+  }
+
+  function getCurrentPlaybackActiveTransitionIndex(log) {
+    if (isPlaybackTimeBasedMode()) {
+      return getActiveTransitionIndexAtTime(log, getCurrentPlaybackTimeUs(log, null));
+    }
+    return getActiveTransitionIndex(log, runtime.state.playbackFrameIndex);
   }
 
   function findLastTransitionIndexAtOrBeforeFrame(transitions, frameIndex) {
@@ -2625,6 +4304,18 @@
 
   function findFirstTransitionIndexAfterFrame(transitions, frameIndex) {
     return runtime.playbackData.findFirstTransitionIndexAfterFrame(transitions, frameIndex);
+  }
+
+  function findLastTransitionIndexAtOrBeforeTime(transitions, tUs) {
+    return runtime.playbackData.findLastTransitionIndexAtOrBeforeTime(transitions, tUs);
+  }
+
+  function findLastTransitionIndexBeforeTime(transitions, tUs) {
+    return runtime.playbackData.findLastTransitionIndexBeforeTime(transitions, tUs);
+  }
+
+  function findFirstTransitionIndexAfterTime(transitions, tUs) {
+    return runtime.playbackData.findFirstTransitionIndexAfterTime(transitions, tUs);
   }
 
   function getPlaybackTransitionListModel(log, filter = normalizeFilter(runtime.state.playbackTransitionFilter)) {
@@ -2645,6 +4336,17 @@
 
   function buildPlaybackSnapshot(log, frameIndex, options = {}) {
     return runtime.playbackData.buildPlaybackSnapshot(log, frameIndex, options);
+  }
+
+  function buildPlaybackSnapshotAtTime(log, tUs, options = {}) {
+    return runtime.playbackData.buildPlaybackSnapshotAtTime(log, tUs, options);
+  }
+
+  function buildCurrentPlaybackSnapshot(log, options = {}) {
+    if (isPlaybackTimeBasedMode()) {
+      return buildPlaybackSnapshotAtTime(log, getCurrentPlaybackTimeUs(log, null), options);
+    }
+    return buildPlaybackSnapshot(log, runtime.state.playbackFrameIndex, options);
   }
 
   function getPlaybackCache(log) {
@@ -2674,6 +4376,24 @@
     }
     const date = new Date(Math.floor(numeric / 1000));
     return date.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function formatPlaybackTimelineClock(log, tUs) {
+    const frames = log?.frames || [];
+    const firstFrame = frames[0] || null;
+    const firstWallUs = Number(firstFrame?.wallUs);
+    const firstTime = Number(firstFrame?.tUs);
+    const currentTime = Number(tUs);
+    if (Number.isFinite(firstWallUs) && firstWallUs > 0 && Number.isFinite(firstTime) && Number.isFinite(currentTime)) {
+      const label = formatWallTime(firstWallUs + currentTime - firstTime);
+      if (label) {
+        return label;
+      }
+    }
+
+    const nearestFrameIndex = findPlaybackFrameIndexAtTime(log, tUs);
+    const nearestFrame = frames[nearestFrameIndex] || null;
+    return formatWallTime(nearestFrame?.wallUs) || formatRelativeTime(log, tUs);
   }
 
   function normalizeStatusClass(status) {
@@ -2707,24 +4427,31 @@
 
   function renderCurrentTree(result, options = {}) {
     const preserveViewport = Boolean(options.preserveViewport && runtime.state.currentCanvasState);
-    const viewportState = !runtime.state.splitViewEnabled && preserveViewport
+    const renderContext = getTreeRenderContext(result, "edit");
+    ensureRenderSelection(renderContext);
+    const useSplitView = runtime.state.splitViewEnabled && !renderContext.expanded;
+    const viewportState = !useSplitView && preserveViewport
       ? getCanvasViewportState(runtime.state.currentCanvasState)
       : null;
-    const splitViewportStates = runtime.state.splitViewEnabled && preserveViewport
+    const splitViewportStates = useSplitView && preserveViewport
       ? getSplitViewportStates()
       : {};
 
-    if (runtime.state.splitViewEnabled) {
+    if (useSplitView) {
       ensureSplitPaneState(result);
     }
-    runtime.treeSwitcher.render(result, { ensureActiveVisible: options.ensureActiveTreeVisible === true });
+    runtime.treeSwitcher.render(renderContext.switcherResult, {
+      ensureActiveVisible: options.ensureActiveTreeVisible === true,
+      activeTreeId: renderContext.expanded ? renderContext.rootTreeId : undefined,
+      selectResult: result
+    });
 
-    if (runtime.state.splitViewEnabled) {
+    if (useSplitView) {
       renderSplitTreeView(result, splitViewportStates);
       return;
     }
 
-    const selectedTree = getSelectedTree(result);
+    const selectedTree = renderContext.tree;
     if (!selectedTree) {
       const appCopy = runtime.i18n.getAppCopy();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
@@ -2736,7 +4463,9 @@
     }
 
     runtime.state.canvasStatesByPane = {};
-    runtime.state.selectedNodePath = pickNodePath(selectedTree, runtime.state.selectedNodePath);
+    if (!renderContext.expanded) {
+      runtime.state.selectedNodePath = pickNodePath(selectedTree, runtime.state.selectedNodePath);
+    }
     persistUiState();
     runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
     runtime.refs.treeContent.replaceChildren(runtime.canvas.renderTree(selectedTree, result, viewportState));
@@ -2861,7 +4590,36 @@
     return {
       zoom: canvasState.zoom || runtime.state.currentZoom || 1,
       panX: canvasState.panX || 0,
-      panY: canvasState.panY || 0
+      panY: canvasState.panY || 0,
+      anchor: captureCanvasViewportAnchor(canvasState)
+    };
+  }
+
+  function captureCanvasViewportAnchor(canvasState) {
+    if (!canvasState?.layout || !canvasState.shell) {
+      return null;
+    }
+
+    const selectedTreeId = runtime.state.selectedTreeId || "";
+    const selectedNodePath = runtime.state.selectedNodePath || "";
+    const entry = canvasState.layout.nodes.find((item) => {
+      const node = item.node;
+      return (
+        node?.nodePath === selectedNodePath &&
+        (!selectedTreeId || !node?.sourceTreeId || node.sourceTreeId === selectedTreeId)
+      );
+    });
+    if (!entry) {
+      return null;
+    }
+
+    const zoom = canvasState.zoom || runtime.state.currentZoom || 1;
+    return {
+      treeId: entry.node?.sourceTreeId || selectedTreeId,
+      nodePath: entry.node?.nodePath || selectedNodePath,
+      renderPath: entry.node?.renderPath || "",
+      screenX: entry.centerX * zoom + (canvasState.panX || 0),
+      screenY: (entry.y + entry.height / 2) * zoom + (canvasState.panY || 0)
     };
   }
 
@@ -3054,12 +4812,20 @@
       splitPaneTreeIds: runtime.state.splitPaneTreeIds,
       splitPaneNodePaths: runtime.state.splitPaneNodePaths,
       playbackFrameIndex: runtime.state.playbackFrameIndex,
+      playbackTimeUs: runtime.state.playbackTimeUs,
       playbackLeftVisible: runtime.state.playbackLeftVisible,
       playbackRightVisible: runtime.state.playbackRightVisible,
       playbackRightTab: runtime.state.playbackRightTab,
       playbackLeftWidth: runtime.state.playbackLeftWidth,
       playbackRightWidth: runtime.state.playbackRightWidth,
+      playbackDashboardBottomVisible: runtime.state.playbackDashboardBottomVisible,
+      playbackDashboardBottomHeight: runtime.state.playbackDashboardBottomHeight,
+      playbackDashboardLeftWidth: runtime.state.playbackDashboardLeftWidth,
+      playbackDurationLaneHeight: runtime.state.playbackDurationLaneHeight,
+      playbackDurationTimeScale: runtime.state.playbackDurationTimeScale,
+      playbackDurationTaskPanelVisible: runtime.state.playbackDurationTaskPanelVisible,
       playbackTransitionFilter: runtime.state.playbackTransitionFilter,
+      playbackTransitionFilterDraft: runtime.state.playbackTransitionFilterDraft,
       playbackTransitionScrollTop: runtime.state.playbackTransitionScrollTop || 0,
       playbackPlaybackSpeed: runtime.state.playbackPlaybackSpeed,
       playbackBlackboardFilter: runtime.state.playbackBlackboardFilter,

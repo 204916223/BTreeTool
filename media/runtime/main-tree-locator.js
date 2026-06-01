@@ -8,6 +8,11 @@
       return;
     }
 
+    if (runtime.modeRules?.isEditingEnabled && !runtime.modeRules.isEditingEnabled()) {
+      clearMainTreeLocator();
+      return;
+    }
+
     const mainTree = getMainTreeForLocator(result);
     if (
       runtime.state.currentSettings?.showMainTreeLocator === false ||

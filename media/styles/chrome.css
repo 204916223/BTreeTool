@@ -236,6 +236,21 @@ body.is-playback-mode .drop-slot-overlay {
   white-space: nowrap;
 }
 
+.file-label.is-actionable {
+  cursor: pointer;
+}
+
+.file-label.is-actionable:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.file-label.is-actionable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 .warning-list {
   display: flex;
   gap: 6px;

@@ -224,6 +224,10 @@
     const shouldShowDeleteTarget =
       !catalogPanel.hidden && runtime.state.currentDragState?.kind === "move";
     catalogPanel.classList.toggle("is-delete-target", shouldShowDeleteTarget);
+    if (!shouldShowDeleteTarget) {
+      catalogPanel.classList.remove("is-delete-target-active");
+    }
+    catalogPanel.dataset.deleteHint = runtime.i18n.getCatalogCopy().deleteDropHint;
 
     const header = catalogPanel.querySelector(".catalog-header");
     if (header) {
@@ -251,7 +255,17 @@
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       canvas.clearDropMarkers();
+      catalogPanel.classList.add("is-delete-target-active");
       syncDeleteTargetIndicator();
+    });
+
+    catalogPanel.addEventListener("dragleave", (event) => {
+      const nextTarget = event.relatedTarget;
+      if (nextTarget instanceof Node && catalogPanel.contains(nextTarget)) {
+        return;
+      }
+
+      catalogPanel.classList.remove("is-delete-target-active");
     });
 
     catalogPanel.addEventListener("drop", (event) => {
@@ -270,12 +284,13 @@
         parentPath: state.currentDragState.sourceParentPath,
         nodeTitle: state.currentDragState.nodeTitle
       });
+      catalogPanel.classList.remove("is-delete-target-active");
       canvas.clearDragState();
     });
   }
 
   function clearCatalogDeleteTarget() {
-    runtime.refs.catalogPanel?.classList.remove("is-delete-target");
+    runtime.refs.catalogPanel?.classList.remove("is-delete-target", "is-delete-target-active");
   }
 
   function init() {

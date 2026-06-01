@@ -457,7 +457,11 @@ export class BehaviorTreePreviewPanel {
       requireNodeDeleteConfirmation: false,
       copyNodeWithDescendants: true,
       playbackAutoNavigateToTree: true,
+      allowUnclosedPlaybackLog: false,
       nodeAttributeLayout: "inline",
+      editTreeRenderMode: "paged",
+      playbackTreeRenderMode: "paged",
+      playbackPanelLayout: "classic",
       simplifyHiddenSections: [],
       presetNodes: []
     },
@@ -1555,7 +1559,9 @@ export class BehaviorTreePreviewPanel {
     }
 
     try {
-      const playbackLog = decodeBtlogFile(file.fsPath, this.currentSettings);
+      const playbackLog = decodeBtlogFile(file.fsPath, this.currentSettings, {
+        allowTruncatedLog: this.currentSettings.allowUnclosedPlaybackLog === true
+      });
       this.latestPlaybackLog = playbackLog;
       this.panel.title = `BTreeTool: ${playbackLog.fileName}`;
       this.panel.webview.postMessage({
@@ -1940,6 +1946,9 @@ export class BehaviorTreePreviewPanel {
     const playbackDataScriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "playback-data.js")
     );
+    const playbackTimelineTasksScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "runtime", "playback-timeline-tasks.js")
+    );
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "main.js"));
     const nonce = getNonce();
     const initialTheme = initialSettings?.themePreset || "midnight";
@@ -2112,6 +2121,7 @@ ${overlayPartScriptUris.map((uri) => `    <script nonce="${nonce}" src="${uri}">
 <script nonce="${nonce}" src="${canvasScriptUri}"></script>
 <script nonce="${nonce}" src="${viewportScriptUri}"></script>
 <script nonce="${nonce}" src="${playbackDataScriptUri}"></script>
+<script nonce="${nonce}" src="${playbackTimelineTasksScriptUri}"></script>
 <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;

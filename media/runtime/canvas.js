@@ -141,14 +141,15 @@
     svg.setAttribute("height", String(layout.height));
 
     layout.edges.forEach((edge) => {
-      const playbackClass = getPlaybackStatusClassForPath(tree.id, edge.childNodePath, true);
+      const edgeTreeId = edge.childTreeId || tree.id;
+      const playbackClass = getPlaybackStatusClassForPath(edgeTreeId, edge.childNodePath, true);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", renderZEdgePath(edge));
       path.setAttribute("class", `canvas-edge-path canvas-edge-path-base ${playbackClass}`.trim());
       if (edge.childNodePath) {
         path.dataset.nodePath = edge.childNodePath;
       }
-      const edgeUid = runtime.state.playbackUidByTreePath?.[`${tree.id}::${edge.childNodePath}`];
+      const edgeUid = runtime.state.playbackUidByTreePath?.[`${edgeTreeId}::${edge.childNodePath}`];
       if (edgeUid) {
         path.dataset.playbackUid = String(edgeUid);
       }
@@ -230,13 +231,17 @@
   }
 
   function renderCanvasNode(entry, result, currentTreeId, options = {}) {
+    const nodeTreeId = getNodeTreeId(entry.node, currentTreeId);
     const selectedNodePath = Object.prototype.hasOwnProperty.call(options, "selectedNodePath")
       ? options.selectedNodePath
       : runtime.state.selectedNodePath;
     const wrapper = document.createElement("div");
     wrapper.className = "canvas-node";
     wrapper.dataset.nodePath = entry.node.nodePath;
-    wrapper.dataset.treeId = currentTreeId;
+    wrapper.dataset.treeId = nodeTreeId;
+    if (entry.node.renderPath) {
+      wrapper.dataset.renderPath = entry.node.renderPath;
+    }
     if (entry.node.attributes?._uid) {
       wrapper.dataset.playbackUid = String(entry.node.attributes._uid);
     }
@@ -263,8 +268,8 @@
 
     const card = buildNodeCard(entry.node, result, {
       interactive: true,
-      selected: entry.node.nodePath === selectedNodePath,
-      currentTreeId,
+      selected: entry.node.nodePath === selectedNodePath && nodeTreeId === runtime.state.selectedTreeId,
+      currentTreeId: nodeTreeId,
       paneId: options.paneId
     });
     wrapper.appendChild(card);
@@ -414,6 +419,7 @@
         runtime.overlays.hideNodeContextMenu();
         runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
         runtime.state.selectedNodePath = node.nodePath;
+        runtime.app.stagePlaybackTransitionUidFilter?.(node.attributes?._uid);
         runtime.app.persistUiState();
         runtime.viewport.updateCanvasSelection(node.nodePath, options.currentTreeId);
       });
@@ -425,6 +431,7 @@
           return;
         }
         runtime.overlays.hideNodeContextMenu();
+        runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
         runtime.state.selectedNodePath = node.nodePath;
         runtime.app.persistUiState();
         runtime.overlays.showNodeEditorDialog({
@@ -606,6 +613,10 @@
       return `${prefix}-${normalized}`;
     }
     return `${prefix}-unknown`;
+  }
+
+  function getNodeTreeId(node, fallbackTreeId) {
+    return node?.sourceTreeId || fallbackTreeId;
   }
 
   function getNodeIndex(nodePath) {
@@ -794,7 +805,9 @@
     return {
       tagName: node.kind,
       attributes: { ...(node.attributes || {}) },
-      children: (node.children || []).map(toNodeCopyTemplate)
+      children: (node.children || [])
+        .filter((child) => child.expandedSubtreeInjection !== true)
+        .map(toNodeCopyTemplate)
     };
   }
 
@@ -955,7 +968,9 @@
       hasError: hasBlockingWarning,
       warnings,
       children,
-      isVirtualRoot: true
+      isVirtualRoot: true,
+      sourceTreeId: tree?.sourceTreeId || tree?.id || "",
+      renderPath: `${tree?.sourceTreeId || tree?.id || ""}::__btree_root__`
     };
   }
 

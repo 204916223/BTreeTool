@@ -48,8 +48,15 @@
 }
 
 body.is-resizing-panels {
-  cursor: col-resize;
   user-select: none;
+}
+
+body.is-resizing-columns {
+  cursor: col-resize;
+}
+
+body.is-resizing-rows {
+  cursor: row-resize;
 }
 
 .tree-workspace.show-catalog #catalog-resizer {

@@ -33,8 +33,21 @@
         latestTransitionByUid: {},
         lastTerminalStatusByUid: {}
       },
+      nodeTimeSnapshot: {
+        tUs: -Infinity,
+        transitionCursor: 0,
+        statusByUid: {},
+        latestTransitionByUid: {},
+        lastTerminalStatusByUid: {}
+      },
       blackboardSnapshot: {
         frameIndex: -1,
+        eventCursor: 0,
+        latestBlackboardEvent: null,
+        blackboardValues: null
+      },
+      blackboardTimeSnapshot: {
+        tUs: -Infinity,
         eventCursor: 0,
         latestBlackboardEvent: null,
         blackboardValues: null
@@ -56,6 +69,29 @@
         blackboardValues: null
       }
       : buildPlaybackBlackboardSnapshot(cache, frameIndex);
+
+    return {
+      statusByUid,
+      latestTransitionByUid: nodeSnapshot.latestTransitionByUid,
+      lastTerminalStatusByUid: nodeSnapshot.lastTerminalStatusByUid,
+      currentFrameTransitionKeys: nodeSnapshot.currentFrameTransitionKeys,
+      latestBlackboardEvent: blackboardSnapshot.latestBlackboardEvent,
+      blackboardValues: blackboardSnapshot.blackboardValues || {}
+    };
+  }
+
+  function buildPlaybackSnapshotAtTime(log, tUs, options = {}) {
+    const cache = getPlaybackCache(log);
+    const time = normalizeTimeValue(tUs);
+    const nodeSnapshot = buildPlaybackNodeSnapshotAtTime(cache, time);
+    const statusByUid = { ...nodeSnapshot.statusByUid };
+    applyRunningStatusToAncestors(statusByUid, cache.ancestorEntries);
+    const blackboardSnapshot = options.includeBlackboard === false
+      ? {
+        latestBlackboardEvent: null,
+        blackboardValues: null
+      }
+      : buildPlaybackBlackboardSnapshotAtTime(cache, time);
 
     return {
       statusByUid,
@@ -117,11 +153,73 @@
     };
   }
 
+  function buildPlaybackNodeSnapshotAtTime(cache, tUs) {
+    const transitions = cache.transitions || [];
+    let snapshot = cache.nodeTimeSnapshot;
+    if (!snapshot || tUs < snapshot.tUs) {
+      snapshot = {
+        tUs: -Infinity,
+        transitionCursor: 0,
+        statusByUid: {},
+        latestTransitionByUid: {},
+        lastTerminalStatusByUid: {}
+      };
+    }
+
+    const statusByUid = { ...snapshot.statusByUid };
+    const latestTransitionByUid = { ...snapshot.latestTransitionByUid };
+    const lastTerminalStatusByUid = { ...snapshot.lastTerminalStatusByUid };
+    let transitionCursor = snapshot.transitionCursor || 0;
+
+    while (transitionCursor < transitions.length) {
+      const transition = transitions[transitionCursor];
+      if (normalizeTimeValue(transition.tUs) > tUs) {
+        break;
+      }
+      const key = String(transition.uid);
+      statusByUid[key] = transition.status;
+      latestTransitionByUid[key] = transition;
+      if (transition.status === "SUCCESS" || transition.status === "FAILURE") {
+        lastTerminalStatusByUid[key] = transition.status;
+      }
+      transitionCursor += 1;
+    }
+
+    const currentFrameTransitionKeys = collectCurrentTimeTransitionKeys(transitions, tUs, transitionCursor);
+
+    cache.nodeTimeSnapshot = {
+      tUs,
+      transitionCursor,
+      statusByUid,
+      latestTransitionByUid,
+      lastTerminalStatusByUid
+    };
+
+    return {
+      statusByUid,
+      latestTransitionByUid,
+      lastTerminalStatusByUid,
+      currentFrameTransitionKeys
+    };
+  }
+
   function collectCurrentFrameTransitionKeys(transitions, frameIndex, endCursor) {
     const keys = new Set();
     for (let index = endCursor - 1; index >= 0; index -= 1) {
       const transition = transitions[index];
       if (transition.frameIndex !== frameIndex) {
+        break;
+      }
+      keys.add(`${transition.uid}:${transition.seq}`);
+    }
+    return keys;
+  }
+
+  function collectCurrentTimeTransitionKeys(transitions, tUs, endCursor) {
+    const keys = new Set();
+    for (let index = endCursor - 1; index >= 0; index -= 1) {
+      const transition = transitions[index];
+      if (normalizeTimeValue(transition.tUs) !== tUs) {
         break;
       }
       keys.add(`${transition.uid}:${transition.seq}`);
@@ -161,6 +259,49 @@
 
     cache.blackboardSnapshot = {
       frameIndex,
+      eventCursor,
+      latestBlackboardEvent,
+      blackboardValues
+    };
+
+    return {
+      latestBlackboardEvent,
+      blackboardValues: blackboardValues || {}
+    };
+  }
+
+  function buildPlaybackBlackboardSnapshotAtTime(cache, tUs) {
+    const blackboardEvents = cache.blackboardEvents || [];
+    let snapshot = cache.blackboardTimeSnapshot;
+    if (!snapshot || tUs < snapshot.tUs) {
+      snapshot = {
+        tUs: -Infinity,
+        eventCursor: 0,
+        latestBlackboardEvent: null,
+        blackboardValues: null
+      };
+    }
+
+    let latestBlackboardEvent = snapshot.latestBlackboardEvent;
+    let blackboardValues = snapshot.blackboardValues;
+    let eventCursor = snapshot.eventCursor || 0;
+
+    while (eventCursor < blackboardEvents.length) {
+      const event = blackboardEvents[eventCursor];
+      if (normalizeTimeValue(event.tUs) > tUs) {
+        break;
+      }
+      latestBlackboardEvent = event;
+      if (event.kind === "snapshot") {
+        blackboardValues = cloneJsonValue(event.values || {});
+      } else {
+        blackboardValues = applyBlackboardPatch(blackboardValues || {}, event.patch);
+      }
+      eventCursor += 1;
+    }
+
+    cache.blackboardTimeSnapshot = {
+      tUs,
       eventCursor,
       latestBlackboardEvent,
       blackboardValues
@@ -294,12 +435,21 @@
     return index === null ? null : log.transitions?.[index] || null;
   }
 
+  function getActiveTransitionAtTime(log, tUs) {
+    const index = getActiveTransitionIndexAtTime(log, tUs);
+    return index === null ? null : log.transitions?.[index] || null;
+  }
+
   function getActiveTransitionIndex(log, frameIndex) {
     const frame = log.frames?.[frameIndex] || null;
     if (Number.isInteger(frame?.transitionIndex)) {
       return frame.transitionIndex;
     }
     return findLastTransitionIndexAtOrBeforeFrame(log.transitions || [], frameIndex);
+  }
+
+  function getActiveTransitionIndexAtTime(log, tUs) {
+    return findLastTransitionIndexAtOrBeforeTime(log.transitions || [], tUs);
   }
 
   function findLastTransitionIndexAtOrBeforeFrame(transitions, frameIndex) {
@@ -350,6 +500,57 @@
     return match;
   }
 
+  function findLastTransitionIndexAtOrBeforeTime(transitions, tUs) {
+    const target = normalizeTimeValue(tUs);
+    let left = 0;
+    let right = transitions.length - 1;
+    let match = null;
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      if (normalizeTimeValue(transitions[mid].tUs) <= target) {
+        match = mid;
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+    return match;
+  }
+
+  function findLastTransitionIndexBeforeTime(transitions, tUs) {
+    const target = normalizeTimeValue(tUs);
+    let left = 0;
+    let right = transitions.length - 1;
+    let match = null;
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      if (normalizeTimeValue(transitions[mid].tUs) < target) {
+        match = mid;
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+    return match;
+  }
+
+  function findFirstTransitionIndexAfterTime(transitions, tUs) {
+    const target = normalizeTimeValue(tUs);
+    let left = 0;
+    let right = transitions.length - 1;
+    let match = null;
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      if (normalizeTimeValue(transitions[mid].tUs) > target) {
+        match = mid;
+        right = mid - 1;
+      } else {
+        left = mid + 1;
+      }
+    }
+    return match;
+  }
+
   function getPlaybackTransitionListModel(log, filter = normalizeFilter(runtime.state.playbackTransitionFilter)) {
     const cache = getPlaybackCache(log);
     const transitions = log.transitions || [];
@@ -367,9 +568,10 @@
       return cache.transitionListModel;
     }
 
+    const filterSpec = parsePlaybackTransitionFilter(filter);
     const indexes = [];
     transitions.forEach((transition, index) => {
-      if (resolvePlaybackNodeName(log, transition).toLowerCase().includes(filter)) {
+      if (matchesPlaybackTransitionFilter(log, transition, filterSpec)) {
         indexes.push(index);
       }
     });
@@ -381,6 +583,28 @@
       indexes
     };
     return cache.transitionListModel;
+  }
+
+  function parsePlaybackTransitionFilter(filter) {
+    const value = normalizeFilter(filter);
+    const uidMatch = value.match(/^(?:uid\s*[:=]?\s*)?(\d+)$/);
+    if (uidMatch) {
+      return {
+        type: "uid",
+        uid: uidMatch[1]
+      };
+    }
+    return {
+      type: "name",
+      text: value
+    };
+  }
+
+  function matchesPlaybackTransitionFilter(log, transition, filterSpec) {
+    if (filterSpec.type === "uid") {
+      return String(transition.uid) === filterSpec.uid;
+    }
+    return resolvePlaybackNodeName(log, transition).toLowerCase().includes(filterSpec.text);
   }
 
   function getPlaybackTransitionIndexAtPosition(model, position) {
@@ -458,14 +682,25 @@
     return Math.min(max, Math.max(min, numeric));
   }
 
+  function normalizeTimeValue(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
   Object.assign(playbackData, {
     getPlaybackCache,
     buildPlaybackSnapshot,
+    buildPlaybackSnapshotAtTime,
     getActiveTransition,
+    getActiveTransitionAtTime,
     getActiveTransitionIndex,
+    getActiveTransitionIndexAtTime,
     findLastTransitionIndexAtOrBeforeFrame,
     findLastTransitionIndexBeforeFrame,
     findFirstTransitionIndexAfterFrame,
+    findLastTransitionIndexAtOrBeforeTime,
+    findLastTransitionIndexBeforeTime,
+    findFirstTransitionIndexAfterTime,
     getPlaybackTransitionListModel,
     getPlaybackTransitionIndexAtPosition,
     getPlaybackTransitionPosition,

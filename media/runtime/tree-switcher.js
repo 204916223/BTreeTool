@@ -3,6 +3,9 @@
 
   function renderTreeSwitcher(result, options = {}) {
     const ensureActiveVisible = options.ensureActiveVisible === true;
+    const activeTreeId = options.activeTreeId || runtime.state.selectedTreeId;
+    const selectResult = options.selectResult || result;
+    runtime.state.treeSwitcherActiveTreeId = options.activeTreeId || null;
     const previousScrollLeft = runtime.refs.treeSwitcher?.scrollLeft || runtime.state.treeSwitcherScrollLeft || 0;
     const fragment = document.createDocumentFragment();
     let activeButton = null;
@@ -10,13 +13,13 @@
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.treeId = tree.id;
-      button.className = tree.id === runtime.state.selectedTreeId ? "tree-tab is-active" : "tree-tab";
+      button.className = tree.id === activeTreeId ? "tree-tab is-active" : "tree-tab";
       button.textContent = tree.id;
-      if (tree.id === runtime.state.selectedTreeId) {
+      if (tree.id === activeTreeId) {
         activeButton = button;
       }
       button.addEventListener("click", () => {
-        runtime.app.selectTreeInActivePane(tree.id, result);
+        runtime.app.selectTreeInActivePane(tree.id, selectResult);
       });
       fragment.appendChild(button);
     });
@@ -37,8 +40,9 @@
   }
 
   function updateActiveTreeSwitcherButton() {
+    const activeTreeId = runtime.state.treeSwitcherActiveTreeId || runtime.state.selectedTreeId;
     runtime.refs.treeSwitcher?.querySelectorAll(".tree-tab").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.treeId === runtime.state.selectedTreeId);
+      button.classList.toggle("is-active", button.dataset.treeId === activeTreeId);
     });
   }
 

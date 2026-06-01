@@ -30,11 +30,22 @@
         inline: "Left-right layout",
         stacked: "Top-bottom layout"
       },
+      treeRenderMode: "Tree Render",
+      treeRenderModeOptions: {
+        paged: "Tree tabs",
+        expanded: "Full tree"
+      },
+      playbackPanelLayout: "Playback Layout",
+      playbackPanelLayoutOptions: {
+        classic: "Panels",
+        dashboard: "Timeline"
+      },
       locatorShort: "Locator",
       rootShort: "ROOT",
       deleteConfirmShort: "Delete confirm",
       copyDescendantsShort: "Copy descendants",
       playbackAutoNavigateShort: "Auto jump tree",
+      playbackAllowUnclosedLogShort: "Allow unclosed log",
       traceConfigDirectory: "Trace config directory",
       traceConfigDirectoryUnavailable: "Trace config directory is not ready.",
       traceOpenConfig: "Open config file",
@@ -72,11 +83,22 @@
           inline: "左右布局",
           stacked: "上下布局"
         },
+        treeRenderMode: "树渲染方式",
+        treeRenderModeOptions: {
+          paged: "分树渲染",
+          expanded: "完整展开"
+        },
+        playbackPanelLayout: "回放布局",
+        playbackPanelLayoutOptions: {
+          classic: "面板布局",
+          dashboard: "时间轴布局"
+        },
         locatorShort: "定位图",
         rootShort: "ROOT",
         deleteConfirmShort: "删除前确认",
         copyDescendantsShort: "复制子节点",
         playbackAutoNavigateShort: "自动跳转树",
+        playbackAllowUnclosedLogShort: "允许读取未闭合日志",
         traceConfigDirectory: "塔斯配置目录",
         traceConfigDirectoryUnavailable: "塔斯配置目录尚未就绪。",
         traceOpenConfig: "打开配置文件",
@@ -472,7 +494,12 @@
       transitions: "Transitions",
       blackboard: "Blackboard",
       trace: "Trace",
-      filterByNodeName: "Filter by Node Name",
+      filterByNodeName: "Filter by Node Name or UID",
+      applyTransitionFilter: "Apply transition filter",
+      currentTasks: "Current tasks",
+      showCurrentTasks: "Show current tasks",
+      hideCurrentTasks: "Hide current tasks",
+      noCurrentTasks: "No task at current time",
       filterBlackboard: "Filter blackboard",
       transitionColumns: {
         time: "Time",
@@ -533,7 +560,12 @@
         transitions: "状态流",
         blackboard: "黑板",
         trace: "塔斯",
-        filterByNodeName: "按节点名筛选",
+        filterByNodeName: "按节点名或 UID 筛选",
+        applyTransitionFilter: "应用状态变化筛选",
+        currentTasks: "当前任务",
+        showCurrentTasks: "显示当前任务",
+        hideCurrentTasks: "隐藏当前任务",
+        noCurrentTasks: "当前时间点没有任务",
         filterBlackboard: "筛选黑板",
         transitionColumns: {
           time: "时间",

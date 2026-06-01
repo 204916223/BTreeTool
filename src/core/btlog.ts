@@ -70,9 +70,18 @@ export interface BtPlaybackLog {
   nodeDefinitions: BtPlaybackNodeDefinition[];
 }
 
-export function decodeBtlogFile(filePath: string, settings: BtUserSettings): BtPlaybackLog {
+export interface BtPlaybackDecodeOptions {
+  allowTruncatedLog?: boolean;
+}
+
+export function decodeBtlogFile(
+  filePath: string,
+  settings: BtUserSettings,
+  options: BtPlaybackDecodeOptions = {}
+): BtPlaybackLog {
+  const allowTruncatedLog = options.allowTruncatedLog === true;
   const compressed = fs.readFileSync(filePath);
-  const bytes = maybeGunzip(compressed);
+  const bytes = maybeGunzip(compressed, allowTruncatedLog);
   if (bytes.length < MAGIC.length || !bytes.subarray(0, MAGIC.length).equals(MAGIC)) {
     throw new Error("Unsupported btlog format: missing SBTLOG1 header.");
   }
@@ -86,17 +95,35 @@ export function decodeBtlogFile(filePath: string, settings: BtUserSettings): BtP
 
   while (offset < bytes.length) {
     if (offset + 4 > bytes.length) {
+      if (allowTruncatedLog) {
+        break;
+      }
       throw new Error("Corrupt btlog: truncated frame length.");
     }
 
     const frameLength = bytes.readUInt32LE(offset);
     offset += 4;
-    if (frameLength < 0 || offset + frameLength > bytes.length) {
+    const frameEnd = offset + frameLength;
+    if (frameLength < 0 || frameEnd > bytes.length) {
+      if (allowTruncatedLog) {
+        break;
+      }
       throw new Error("Corrupt btlog: frame payload exceeds file size.");
     }
 
-    const payload = decodeMsgpack(bytes.subarray(offset, offset + frameLength));
-    offset += frameLength;
+    let payload: unknown;
+    try {
+      payload = decodeMsgpack(bytes.subarray(offset, frameEnd));
+    } catch (error) {
+      if (allowTruncatedLog && frameEnd >= bytes.length) {
+        break;
+      }
+      if (allowTruncatedLog && isTruncationError(error)) {
+        break;
+      }
+      throw error;
+    }
+    offset = frameEnd;
 
     if (isRecord(payload) && payload.type === "header") {
       header = normalizeHeader(payload);
@@ -159,12 +186,23 @@ export function decodeBtlogFile(filePath: string, settings: BtUserSettings): BtP
   };
 }
 
-function maybeGunzip(bytes: Buffer): Buffer {
+function maybeGunzip(bytes: Buffer, allowTruncatedLog: boolean): Buffer {
   if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    if (allowTruncatedLog) {
+      return zlib.gunzipSync(bytes, { finishFlush: zlib.constants.Z_SYNC_FLUSH });
+    }
     return zlib.gunzipSync(bytes);
   }
 
   return bytes;
+}
+
+function isTruncationError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.message.includes("unexpected end of frame");
 }
 
 function normalizeHeader(value: Record<string, unknown>): BtPlaybackHeader {

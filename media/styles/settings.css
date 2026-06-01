@@ -156,6 +156,12 @@
   min-width: 0;
 }
 
+.settings-inline-field-horizontal {
+  grid-template-columns: minmax(120px, 0.36fr) minmax(220px, 1fr);
+  align-items: center;
+  column-gap: 16px;
+}
+
 .settings-inline-label {
   color: var(--muted);
   font-size: 11px;

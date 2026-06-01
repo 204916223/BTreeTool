@@ -45,6 +45,7 @@
     commonSection.body.appendChild(themeRow.element);
 
     const nodeLayoutRow = createInlineField("Node Layout");
+    nodeLayoutRow.element.classList.add("settings-inline-field-horizontal");
     const nodeLayoutControl = createSegmentedControl([
       { value: "stacked", label: "上下布局" },
       { value: "inline", label: "左右布局" }
@@ -66,6 +67,15 @@
 
     const editSection = createSettingsSection("Edit Mode");
     editSection.element.classList.add("settings-section-edit");
+    const editTreeRenderModeRow = createInlineField("Tree Render");
+    editTreeRenderModeRow.element.classList.add("settings-inline-field-horizontal");
+    const editTreeRenderModeControl = createSegmentedControl([
+      { value: "paged", label: "Tree tabs" },
+      { value: "expanded", label: "Full tree" }
+    ]);
+    editTreeRenderModeRow.control.appendChild(editTreeRenderModeControl.element);
+    editSection.body.appendChild(editTreeRenderModeRow.element);
+
     const editRow = document.createElement("div");
     editRow.className = "settings-toggle-row";
 
@@ -92,6 +102,24 @@
 
     const playbackSection = createSettingsSection("Playback Mode");
     playbackSection.element.classList.add("settings-section-playback");
+    const playbackTreeRenderModeRow = createInlineField("Tree Render");
+    playbackTreeRenderModeRow.element.classList.add("settings-inline-field-horizontal");
+    const playbackTreeRenderModeControl = createSegmentedControl([
+      { value: "paged", label: "Tree tabs" },
+      { value: "expanded", label: "Full tree" }
+    ]);
+    playbackTreeRenderModeRow.control.appendChild(playbackTreeRenderModeControl.element);
+    playbackSection.body.appendChild(playbackTreeRenderModeRow.element);
+
+    const playbackPanelLayoutRow = createInlineField("Playback Layout");
+    playbackPanelLayoutRow.element.classList.add("settings-inline-field-horizontal");
+    const playbackPanelLayoutControl = createSegmentedControl([
+      { value: "classic", label: "Panels" },
+      { value: "dashboard", label: "Timeline" }
+    ]);
+    playbackPanelLayoutRow.control.appendChild(playbackPanelLayoutControl.element);
+    playbackSection.body.appendChild(playbackPanelLayoutRow.element);
+
     const playbackRow = document.createElement("div");
     playbackRow.className = "settings-toggle-row";
 
@@ -99,6 +127,11 @@
     const playbackAutoNavigateInput = playbackAutoNavigateSwitch.input;
     const playbackAutoNavigateText = playbackAutoNavigateSwitch.text;
     playbackRow.appendChild(playbackAutoNavigateSwitch.element);
+
+    const playbackAllowUnclosedLogSwitch = createSettingsSwitch("Allow Unclosed Log");
+    const playbackAllowUnclosedLogInput = playbackAllowUnclosedLogSwitch.input;
+    const playbackAllowUnclosedLogText = playbackAllowUnclosedLogSwitch.text;
+    playbackRow.appendChild(playbackAllowUnclosedLogSwitch.element);
     playbackSection.body.appendChild(playbackRow);
 
     const traceSection = createSettingsSection("Trace Mode");
@@ -157,15 +190,22 @@
         language: languageSelect.value,
         themePreset: themeSelect.value,
         nodeAttributeLayout: nodeLayoutControl.getValue(),
+        editTreeRenderMode: editTreeRenderModeControl.getValue(),
+        playbackTreeRenderMode: playbackTreeRenderModeControl.getValue(),
+        playbackPanelLayout: playbackPanelLayoutControl.getValue(),
         showMainTreeLocator: mainTreeLocatorInput.checked,
         showBehaviorTreeRoot: behaviorTreeRootInput.checked,
         requireNodeDeleteConfirmation: deleteConfirmInput.checked,
         copyNodeWithDescendants: copyDescendantsInput.checked,
         playbackAutoNavigateToTree: playbackAutoNavigateInput.checked,
+        allowUnclosedPlaybackLog: playbackAllowUnclosedLogInput.checked,
         simplifyHiddenSections: detailSwitches.filter((entry) => !entry.switchControl.input.checked).map((entry) => entry.key)
       };
       const preserveViewport =
         currentSettings.nodeAttributeLayout === nextSettings.nodeAttributeLayout &&
+        currentSettings.editTreeRenderMode === nextSettings.editTreeRenderMode &&
+        currentSettings.playbackTreeRenderMode === nextSettings.playbackTreeRenderMode &&
+        currentSettings.playbackPanelLayout === nextSettings.playbackPanelLayout &&
         currentSettings.showBehaviorTreeRoot === nextSettings.showBehaviorTreeRoot &&
         JSON.stringify(currentSettings.simplifyHiddenSections || []) ===
           JSON.stringify(nextSettings.simplifyHiddenSections || []);
@@ -210,6 +250,8 @@
       nodeLayoutRow,
       nodeLayoutControl,
       editSectionTitle: editSection.title,
+      editTreeRenderModeRow,
+      editTreeRenderModeControl,
       mainTreeLocatorInput,
       mainTreeLocatorText,
       behaviorTreeRootInput,
@@ -221,8 +263,14 @@
       detailTitle,
       detailSwitches,
       playbackSectionTitle: playbackSection.title,
+      playbackTreeRenderModeRow,
+      playbackTreeRenderModeControl,
+      playbackPanelLayoutRow,
+      playbackPanelLayoutControl,
       playbackAutoNavigateInput,
       playbackAutoNavigateText,
+      playbackAllowUnclosedLogInput,
+      playbackAllowUnclosedLogText,
       traceSectionTitle: traceSection.title,
       traceFieldLabel,
       traceDirectoryValue,
@@ -372,6 +420,11 @@
     overlayState.settingsDialog.languageRow.text.textContent = copy.language;
     overlayState.settingsDialog.themeRow.text.textContent = copy.theme;
     overlayState.settingsDialog.editSectionTitle.textContent = copy.editMode;
+    overlayState.settingsDialog.editTreeRenderModeRow.text.textContent = copy.treeRenderMode;
+    overlayState.settingsDialog.editTreeRenderModeControl.setLabels({
+      paged: copy.treeRenderModeOptions.paged,
+      expanded: copy.treeRenderModeOptions.expanded
+    });
     overlayState.settingsDialog.mainTreeLocatorText.textContent = copy.locatorShort;
     overlayState.settingsDialog.behaviorTreeRootText.textContent = copy.rootShort;
     overlayState.settingsDialog.deleteConfirmText.textContent = copy.deleteConfirmShort;
@@ -381,7 +434,18 @@
       entry.switchControl.text.textContent = copy.nodeDetailOptions[entry.key];
     });
     overlayState.settingsDialog.playbackSectionTitle.textContent = copy.playbackMode;
+    overlayState.settingsDialog.playbackTreeRenderModeRow.text.textContent = copy.treeRenderMode;
+    overlayState.settingsDialog.playbackTreeRenderModeControl.setLabels({
+      paged: copy.treeRenderModeOptions.paged,
+      expanded: copy.treeRenderModeOptions.expanded
+    });
+    overlayState.settingsDialog.playbackPanelLayoutRow.text.textContent = copy.playbackPanelLayout;
+    overlayState.settingsDialog.playbackPanelLayoutControl.setLabels({
+      classic: copy.playbackPanelLayoutOptions.classic,
+      dashboard: copy.playbackPanelLayoutOptions.dashboard
+    });
     overlayState.settingsDialog.playbackAutoNavigateText.textContent = copy.playbackAutoNavigateShort;
+    overlayState.settingsDialog.playbackAllowUnclosedLogText.textContent = copy.playbackAllowUnclosedLogShort;
     overlayState.settingsDialog.traceSectionTitle.textContent = copy.traceMode;
     overlayState.settingsDialog.traceFieldLabel.textContent = copy.traceConfigDirectory;
     overlayState.settingsDialog.traceOpenButton.textContent = copy.traceOpenConfig;
@@ -420,6 +484,8 @@
       runtime.state.currentSettings?.copyNodeWithDescendants !== false;
     overlayState.settingsDialog.playbackAutoNavigateInput.checked =
       runtime.state.currentSettings?.playbackAutoNavigateToTree !== false;
+    overlayState.settingsDialog.playbackAllowUnclosedLogInput.checked =
+      runtime.state.currentSettings?.allowUnclosedPlaybackLog === true;
     const hiddenSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);
     overlayState.settingsDialog.detailSwitches.forEach((entry) => {
       entry.switchControl.input.checked = !hiddenSections.has(entry.key);
@@ -427,6 +493,15 @@
     overlayState.settingsDialog.element.hidden = false;
     overlayState.settingsDialog.nodeLayoutControl.setValue(
       runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline"
+    );
+    overlayState.settingsDialog.editTreeRenderModeControl.setValue(
+      runtime.state.currentSettings?.editTreeRenderMode === "expanded" ? "expanded" : "paged"
+    );
+    overlayState.settingsDialog.playbackTreeRenderModeControl.setValue(
+      runtime.state.currentSettings?.playbackTreeRenderMode === "expanded" ? "expanded" : "paged"
+    );
+    overlayState.settingsDialog.playbackPanelLayoutControl.setValue(
+      runtime.state.currentSettings?.playbackPanelLayout === "dashboard" ? "dashboard" : "classic"
     );
     shared.syncBlockingOverlay();
   }
