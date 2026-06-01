@@ -1,7 +1,9 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
+import { Buffer } from "node:buffer";
 import { BtNodeModel, BtPortModel } from "./btAst";
 import { parseBehaviorTreeDocument } from "./parse";
+import { decodeXmlEntities } from "./xmlEntities";
 
 const NODE_LIBRARY_CATEGORY_NAMES = ["Action", "Condition", "Control", "Decorator"] as const;
 const NODE_LIBRARY_CATEGORIES = new Set<string>(NODE_LIBRARY_CATEGORY_NAMES);
@@ -316,13 +318,4 @@ function escapeXml(value: string): string {
     .replaceAll(`"`, "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
-}
-
-function decodeXmlEntities(value: string): string {
-  return value
-    .replaceAll("&quot;", `"`)
-    .replaceAll("&apos;", `'`)
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&amp;", "&");
 }

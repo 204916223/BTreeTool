@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as zlib from "zlib";
+import { Buffer } from "node:buffer";
 import { parseBehaviorTreeDocument } from "./parse";
 import { buildPreviewDocument } from "./viewModel";
 import type { BtPreviewDocument } from "./viewModel";

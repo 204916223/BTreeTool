@@ -1,6 +1,7 @@
 (function () {
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
   const playbackData = (runtime.playbackData = runtime.playbackData || {});
+  const { clampInteger, clampNumber } = runtime.math;
   const playbackCaches = new WeakMap();
 
   function normalizeStatusClass(status) {
@@ -664,22 +665,6 @@
       return `${prefix}-${normalized}`;
     }
     return `${prefix}-unknown`;
-  }
-
-  function clampInteger(value, min, max) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-      return min;
-    }
-    return Math.min(max, Math.max(min, Math.round(numeric)));
-  }
-
-  function clampNumber(value, min, max) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-      return min;
-    }
-    return Math.min(max, Math.max(min, numeric));
   }
 
   function normalizeTimeValue(value) {

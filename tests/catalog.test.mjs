@@ -5,7 +5,7 @@ import path from "node:path";
 import vm from "node:vm";
 
 function loadCatalogRuntime(collapsedCatalogGroups = {}) {
-  const source = fs.readFileSync(path.join(process.cwd(), "media", "runtime", "catalog.js"), "utf8");
+  const source = fs.readFileSync(path.join(process.cwd(), "media", "runtime", "catalog", "catalog.js"), "utf8");
   const context = {
     window: {
       BTreeToolRuntime: {

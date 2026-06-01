@@ -476,14 +476,14 @@
       inline: copy.nodeAttributeLayoutOptions.inline,
       stacked: copy.nodeAttributeLayoutOptions.stacked
     });
-    overlayState.settingsDialog.mainTreeLocatorInput.checked = runtime.state.currentSettings?.showMainTreeLocator !== false;
+    overlayState.settingsDialog.mainTreeLocatorInput.checked = runtime.state.currentSettings?.showMainTreeLocator === true;
     overlayState.settingsDialog.behaviorTreeRootInput.checked = runtime.state.currentSettings?.showBehaviorTreeRoot !== false;
     overlayState.settingsDialog.deleteConfirmInput.checked =
       runtime.state.currentSettings?.requireNodeDeleteConfirmation === true;
     overlayState.settingsDialog.copyDescendantsInput.checked =
-      runtime.state.currentSettings?.copyNodeWithDescendants !== false;
+      runtime.state.currentSettings?.copyNodeWithDescendants === true;
     overlayState.settingsDialog.playbackAutoNavigateInput.checked =
-      runtime.state.currentSettings?.playbackAutoNavigateToTree !== false;
+      runtime.state.currentSettings?.playbackAutoNavigateToTree === true;
     overlayState.settingsDialog.playbackAllowUnclosedLogInput.checked =
       runtime.state.currentSettings?.allowUnclosedPlaybackLog === true;
     const hiddenSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);

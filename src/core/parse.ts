@@ -9,6 +9,7 @@ import {
 } from "./btAst";
 import { ensureInferredNodeModels } from "./modelInference";
 import { validateBehaviorTreeDocument } from "./validate";
+import { decodeXmlEntities } from "./xmlEntities";
 
 type XmlElement = {
   name: string;
@@ -440,13 +441,4 @@ function findTagEnd(source: string, start: number): number {
   }
 
   throw new Error("Unterminated XML tag.");
-}
-
-function decodeXmlEntities(value: string): string {
-  return value
-    .replaceAll("&quot;", `"`)
-    .replaceAll("&apos;", `'`)
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&amp;", "&");
 }

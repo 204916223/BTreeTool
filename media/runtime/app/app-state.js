@@ -1,0 +1,143 @@
+(function () {
+  const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
+
+  const DEFAULT_USER_SETTINGS = {
+    language: "en-US",
+    themePreset: "midnight",
+    showMainTreeLocator: false,
+    showBehaviorTreeRoot: true,
+    requireNodeDeleteConfirmation: false,
+    copyNodeWithDescendants: false,
+    playbackAutoNavigateToTree: false,
+    allowUnclosedPlaybackLog: true,
+    nodeAttributeLayout: "inline",
+    editTreeRenderMode: "paged",
+    playbackTreeRenderMode: "paged",
+    playbackPanelLayout: "classic",
+    simplifyHiddenSections: [],
+    presetNodes: []
+  };
+
+  function createInitialState(persistedState = {}, initialMode = "edit", initialSettings = {}) {
+    const clampNumber = runtime.viewport?.clampNumber || ((_value, _min, _max, fallback) => fallback);
+    const initialThemePreset = normalizeThemePreset(initialSettings.themePreset || persistedState.uiPreferences?.themePreset);
+    const rawInitialLanguage = initialSettings.language || persistedState.uiPreferences?.language;
+    const initialLanguage = rawInitialLanguage === "zh-CN" ? "zh-CN" : "en-US";
+
+    return {
+      selectedTreeId: persistedState.selectedTreeId || null,
+      selectedNodePath: persistedState.selectedNodePath || "0",
+      showCatalog: persistedState.showCatalog || false,
+      editModeEnabled: initialMode === "playback" ? false : persistedState.editModeEnabled !== false,
+      collapsedCatalogGroups: persistedState.collapsedCatalogGroups || {},
+      collapsedNodePickerGroups: persistedState.collapsedNodePickerGroups || {},
+      catalogWidth: clampNumber(persistedState.catalogWidth, 220, 460, 280),
+      currentDocumentPath: "",
+      currentHasDocument: false,
+      currentFileName: "No active document",
+      hasUnsavedXmlChanges: false,
+      currentHasBlockingIssues: false,
+      treeSwitcherScrollLeft: Number.isFinite(persistedState.treeSwitcherScrollLeft)
+        ? persistedState.treeSwitcherScrollLeft
+        : 0,
+      searchVisible: false,
+      searchQuery: "",
+      searchAdvancedVisible: false,
+      searchIncludeDescription: false,
+      searchIncludeAttributes: false,
+      searchResults: [],
+      activeSearchResultIndex: -1,
+      searchMatchedNodePaths: new Set(),
+      currentCanvasState: null,
+      canvasStatesByPane: {},
+      latestPayload: null,
+      currentPreview: null,
+      currentCatalogGroups: [],
+      splitViewEnabled: persistedState.splitViewEnabled === true,
+      activeTreePane: persistedState.activeTreePane === "right" ? "right" : "left",
+      splitPaneTreeIds: {
+        left: persistedState.splitPaneTreeIds?.left || persistedState.selectedTreeId || null,
+        right: persistedState.splitPaneTreeIds?.right || null
+      },
+      splitPaneNodePaths: persistedState.splitPaneNodePaths || {},
+      playbackLog: null,
+      playbackFrameIndex: Number.isInteger(persistedState.playbackFrameIndex) ? persistedState.playbackFrameIndex : 0,
+      playbackTimeUs: Number.isFinite(persistedState.playbackTimeUs) ? persistedState.playbackTimeUs : null,
+      playbackLeftVisible: persistedState.playbackLeftVisible !== false,
+      playbackRightVisible: persistedState.playbackRightVisible !== false,
+      playbackRightTab:
+        persistedState.playbackRightTab === "trace" || persistedState.playbackRightTab === "ai" ? "trace" : "blackboard",
+      playbackLeftWidth: clampNumber(persistedState.playbackLeftWidth, 220, 520, 300),
+      playbackRightWidth: clampNumber(persistedState.playbackRightWidth, 220, 560, 320),
+      playbackDashboardBottomVisible: persistedState.playbackDashboardBottomVisible !== false,
+      playbackDashboardBottomHeight: clampNumber(persistedState.playbackDashboardBottomHeight, 180, 720, 320),
+      playbackDashboardLeftWidth: clampNumber(persistedState.playbackDashboardLeftWidth, 240, 960, 520),
+      playbackDurationLaneHeight: clampNumber(persistedState.playbackDurationLaneHeight, 18, 72, 42),
+      playbackDurationTimeScale: clampNumber(persistedState.playbackDurationTimeScale, 0.5, 12, 1),
+      playbackDurationTaskPanelVisible: persistedState.playbackDurationTaskPanelVisible === true,
+      playbackStatusByUid: {},
+      playbackLatestTransitionByUid: {},
+      playbackLastTerminalStatusByUid: {},
+      playbackCurrentFrameTransitionKeys: new Set(),
+      playbackUidByTreePath: {},
+      playbackNodeLocationsByUid: {},
+      playbackChildrenByUid: {},
+      playbackDepthByUid: {},
+      playbackTransitionFilter: persistedState.playbackTransitionFilter || "",
+      playbackTransitionFilterDraft: persistedState.playbackTransitionFilterDraft || persistedState.playbackTransitionFilter || "",
+      playbackTransitionScrollTop: Number.isFinite(persistedState.playbackTransitionScrollTop)
+        ? persistedState.playbackTransitionScrollTop
+        : 0,
+      playbackBlackboardFilter: persistedState.playbackBlackboardFilter || "",
+      playbackExpandedBlackboardKeys: new Set(persistedState.playbackExpandedBlackboardKeys || []),
+      playbackBlackboardScrollTop: Number.isFinite(persistedState.playbackBlackboardScrollTop)
+        ? persistedState.playbackBlackboardScrollTop
+        : 0,
+      traceConfig: null,
+      traceMessages: [],
+      tracePendingRequestId: "",
+      tracePendingAnswer: "",
+      playbackIsPlaying: false,
+      playbackPlaybackSpeed: Number.isFinite(persistedState.playbackPlaybackSpeed)
+        ? persistedState.playbackPlaybackSpeed
+        : 1,
+      currentSettings: {
+        ...DEFAULT_USER_SETTINGS,
+        language: initialLanguage,
+        themePreset: initialThemePreset,
+        simplifyHiddenSections: [...DEFAULT_USER_SETTINGS.simplifyHiddenSections],
+        presetNodes: [...DEFAULT_USER_SETTINGS.presetNodes]
+      },
+      copiedNodeTemplate: null,
+      forceHideNodeDetails: false,
+      settingsFilePath: "",
+      currentZoom: 1,
+      treeNavigationParents: persistedState.treeNavigationParents || {},
+      suppressNodeClickUntil: 0,
+      isSpacePressed: false,
+      currentDragState: null,
+      MIN_ZOOM: 0.45,
+      MAX_ZOOM: 1.8
+    };
+  }
+
+  function normalizeThemePreset(value) {
+    return [
+      "midnight",
+      "graphite",
+      "ocean",
+      "forest",
+      "paper",
+      "sand",
+      "mist",
+      "rose"
+    ].includes(value)
+      ? value
+      : DEFAULT_USER_SETTINGS.themePreset;
+  }
+
+  runtime.appState = {
+    DEFAULT_USER_SETTINGS,
+    createInitialState
+  };
+})();

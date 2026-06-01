@@ -7,7 +7,7 @@ import {
   resolveNodeCatalogEntry
 } from "./nodeCatalog";
 import { isBlockingWarning } from "./issueRules";
-import { BtUserSettings, cloneUserSettings } from "../userSettings";
+import { BtUserSettings, cloneUserSettings, DEFAULT_USER_SETTINGS } from "../userSettings";
 
 export interface BtPreviewAttribute {
   key: string;
@@ -96,24 +96,7 @@ export interface BtPreviewDocument {
 }
 
 export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettings): BtPreviewDocument {
-  const normalizedSettings = cloneUserSettings(
-    settings || {
-      language: "en-US",
-      themePreset: "midnight",
-      showMainTreeLocator: true,
-      showBehaviorTreeRoot: true,
-      requireNodeDeleteConfirmation: false,
-      copyNodeWithDescendants: true,
-      playbackAutoNavigateToTree: true,
-      allowUnclosedPlaybackLog: false,
-      nodeAttributeLayout: "inline",
-      editTreeRenderMode: "paged",
-      playbackTreeRenderMode: "paged",
-      playbackPanelLayout: "classic",
-      simplifyHiddenSections: [],
-      presetNodes: []
-    }
-  );
+  const normalizedSettings = cloneUserSettings(settings || DEFAULT_USER_SETTINGS);
   const catalog = buildNodeCatalog(ast, normalizedSettings);
   const warningIndex = buildWarningIndex(ast.warnings);
   const behaviorTrees = ast.behaviorTrees.map((tree) => ({

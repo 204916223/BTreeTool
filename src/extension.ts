@@ -1,14 +1,10 @@
 import * as vscode from "vscode";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { BehaviorTreePreviewPanel } from "./panel";
+import { createPreviewStatusBarController } from "./extension/statusBar";
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("btreeTool");
-  const previewButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  previewButton.command = "btreeTool.openPreview";
-  previewButton.name = "BTreeTool Preview";
-  previewButton.text = "$(preview) Visualize BT";
-  previewButton.tooltip = "Open the BTreeTool visualization for the current XML file";
 
   const isBehaviorTreeDocument = (document: vscode.TextDocument | undefined): boolean => {
     if (!document) {
@@ -18,14 +14,7 @@ export function activate(context: vscode.ExtensionContext): void {
     return document.languageId === "xml" || document.uri.fsPath.toLowerCase().endsWith(".xml");
   };
 
-  const updatePreviewButton = (editor: vscode.TextEditor | undefined): void => {
-    if (isBehaviorTreeDocument(editor?.document)) {
-      previewButton.show();
-      return;
-    }
-
-    previewButton.hide();
-  };
+  const previewButton = createPreviewStatusBarController(isBehaviorTreeDocument);
 
   const buildRange = (document: vscode.TextDocument): vscode.Range => {
     if (document.lineCount === 0) {
@@ -103,11 +92,11 @@ export function activate(context: vscode.ExtensionContext): void {
       const document = await resolveBehaviorTreeDocument(resource);
 
       if (!document) {
-        BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, undefined);
+        await BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, undefined);
         return;
       }
 
-      BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, document);
+      await BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, document);
     })
   );
   const shortcutCommands: Array<[string, "copy" | "pasteSmart" | "undo" | "pasteAsChild" | "pasteBefore" | "pasteAfter"]> = [
@@ -127,12 +116,12 @@ export function activate(context: vscode.ExtensionContext): void {
     );
   });
 
-  context.subscriptions.push(previewButton);
+  context.subscriptions.push(previewButton.item);
   context.subscriptions.push(diagnostics);
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
-      updatePreviewButton(editor);
+      previewButton.update(editor);
     })
   );
 
@@ -161,7 +150,7 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  updatePreviewButton(vscode.window.activeTextEditor);
+  previewButton.update(vscode.window.activeTextEditor);
   vscode.workspace.textDocuments.forEach((document) => updateDiagnostics(document));
 }
 

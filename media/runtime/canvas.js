@@ -1114,8 +1114,8 @@
         event.stopPropagation();
         if (event.key === "Enter") {
           event.preventDefault();
-          input.blur();
           commitNodeAttributeValue(node, field, input, options.currentTreeId);
+          input.blur();
         } else if (event.key === "Escape") {
           event.preventDefault();
           input.value = input.dataset.originalValue || "";
@@ -1140,6 +1140,10 @@
   }
 
   function commitNodeAttributeValue(node, field, input, treeId) {
+    if (input.dataset.commitInFlight === "true") {
+      return;
+    }
+
     const nextValue = input.value || "";
     const originalValue = input.dataset.originalValue || "";
     if (nextValue === originalValue) {
@@ -1162,6 +1166,11 @@
     input.classList.remove("is-invalid");
     input.classList.add("is-saving");
     input.dataset.originalValue = nextValue;
+    input.dataset.commitInFlight = "true";
+    runtime.state.selectedTreeId = treeId || runtime.state.selectedTreeId;
+    runtime.state.selectedNodePath = node.nodePath;
+    stageAttributeEditViewportAnchor(node, input, runtime.state.selectedTreeId);
+    runtime.app.persistUiState();
     runtime.vscode.postMessage({
       type: "updateNodeAttributes",
       payload: {
@@ -1170,6 +1179,18 @@
         attributes
       }
     });
+  }
+
+  function stageAttributeEditViewportAnchor(node, input, treeId) {
+    const canvasState = input.closest(".canvas-shell")?.__btreeCanvasState || runtime.state.currentCanvasState;
+    if (!canvasState || typeof runtime.viewport.captureNodePositionViewportAnchor !== "function") {
+      return;
+    }
+
+    const anchor = runtime.viewport.captureNodePositionViewportAnchor(canvasState, node.nodePath, treeId);
+    if (anchor) {
+      runtime.state.pendingViewportAnchor = anchor;
+    }
   }
 
   function renderDescriptionSection(container, text) {

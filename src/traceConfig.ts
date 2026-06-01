@@ -1,6 +1,7 @@
 import * as https from "https";
 import * as path from "path";
 import * as vscode from "vscode";
+import { Buffer } from "node:buffer";
 
 export type TraceProviderKind = "openai-compatible" | "claude";
 

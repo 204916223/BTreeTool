@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { Buffer } from "node:buffer";
 
 export type BtSettingsLanguage = "zh-CN" | "en-US";
 export type BtThemePreset =
@@ -58,12 +59,12 @@ const SETTINGS_FILE_NAME = "user-settings.json";
 export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   language: "en-US",
   themePreset: "midnight",
-  showMainTreeLocator: true,
+  showMainTreeLocator: false,
   showBehaviorTreeRoot: true,
   requireNodeDeleteConfirmation: false,
-  copyNodeWithDescendants: true,
-  playbackAutoNavigateToTree: true,
-  allowUnclosedPlaybackLog: false,
+  copyNodeWithDescendants: false,
+  playbackAutoNavigateToTree: false,
+  allowUnclosedPlaybackLog: true,
   nodeAttributeLayout: "inline",
   editTreeRenderMode: "paged",
   playbackTreeRenderMode: "paged",
@@ -176,12 +177,12 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
   return {
     language: settings.language,
     themePreset: settings.themePreset,
-    showMainTreeLocator: settings.showMainTreeLocator !== false,
+    showMainTreeLocator: settings.showMainTreeLocator === true,
     showBehaviorTreeRoot: settings.showBehaviorTreeRoot !== false,
     requireNodeDeleteConfirmation: settings.requireNodeDeleteConfirmation === true,
-    copyNodeWithDescendants: settings.copyNodeWithDescendants !== false,
-    playbackAutoNavigateToTree: settings.playbackAutoNavigateToTree !== false,
-    allowUnclosedPlaybackLog: settings.allowUnclosedPlaybackLog === true,
+    copyNodeWithDescendants: settings.copyNodeWithDescendants === true,
+    playbackAutoNavigateToTree: settings.playbackAutoNavigateToTree === true,
+    allowUnclosedPlaybackLog: settings.allowUnclosedPlaybackLog !== false,
     nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
     editTreeRenderMode: normalizeTreeRenderMode(settings.editTreeRenderMode),
     playbackTreeRenderMode: normalizeTreeRenderMode(settings.playbackTreeRenderMode),
@@ -206,12 +207,12 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const input = isRecord(value) ? value : {};
   const language = input.language === "zh-CN" ? "zh-CN" : "en-US";
   const themePreset = toThemePreset(input.themePreset, input.treeBackgroundColor);
-  const showMainTreeLocator = input.showMainTreeLocator !== false;
+  const showMainTreeLocator = input.showMainTreeLocator === true;
   const showBehaviorTreeRoot = input.showBehaviorTreeRoot !== false;
   const requireNodeDeleteConfirmation = input.requireNodeDeleteConfirmation === true;
-  const copyNodeWithDescendants = input.copyNodeWithDescendants !== false;
-  const playbackAutoNavigateToTree = input.playbackAutoNavigateToTree !== false;
-  const allowUnclosedPlaybackLog = input.allowUnclosedPlaybackLog === true;
+  const copyNodeWithDescendants = input.copyNodeWithDescendants === true;
+  const playbackAutoNavigateToTree = input.playbackAutoNavigateToTree === true;
+  const allowUnclosedPlaybackLog = input.allowUnclosedPlaybackLog !== false;
   const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
   const editTreeRenderMode = normalizeTreeRenderMode(input.editTreeRenderMode);
   const playbackTreeRenderMode = normalizeTreeRenderMode(input.playbackTreeRenderMode);

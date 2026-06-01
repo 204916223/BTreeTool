@@ -1,6 +1,7 @@
 (function () {
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
   const timelineTasks = (runtime.playbackTimelineTasks = runtime.playbackTimelineTasks || {});
+  const { clampNumber } = runtime.math;
   const MIN_SEGMENT_WIDTH_PERCENT = 0.2;
 
   function buildPlaybackDurationModel(log, options = {}) {
@@ -393,14 +394,6 @@
 
   function clampTime(value, firstTime, lastTime) {
     return clampNumber(value, firstTime, Math.max(firstTime, lastTime));
-  }
-
-  function clampNumber(value, min, max) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-      return min;
-    }
-    return Math.min(max, Math.max(min, numeric));
   }
 
   function formatTransitionTime(log, tUs) {

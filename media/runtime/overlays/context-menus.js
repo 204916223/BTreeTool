@@ -345,6 +345,7 @@
       return;
     }
 
+    hideCanvasContextMenu();
     const overlayCopy = runtime.i18n.getOverlayCopy();
     runtime.app.activateTreePane(state?.paneId, state?.treeId, state?.nodePath);
     overlayState.nodeContextMenu.state = state;
@@ -408,6 +409,7 @@
       return;
     }
 
+    hideNodeContextMenu();
     const overlayCopy = runtime.i18n.getOverlayCopy();
     overlayState.canvasContextMenu.toggleDetailsButton.textContent = runtime.state.forceHideNodeDetails
       ? overlayCopy.showConfiguredNodeDetails

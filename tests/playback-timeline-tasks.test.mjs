@@ -233,7 +233,9 @@ function loadPlaybackTimelineTasksRuntime() {
       BTreeToolRuntime: runtime
     }
   };
-  const scriptPath = path.resolve("media/runtime/playback-timeline-tasks.js");
+  const mathScriptPath = path.resolve("media/runtime/shared/math.js");
+  vm.runInNewContext(fs.readFileSync(mathScriptPath, "utf8"), context, { filename: mathScriptPath });
+  const scriptPath = path.resolve("media/runtime/playback/playback-timeline-tasks.js");
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
   return runtime;
 }

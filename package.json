@@ -25,6 +25,7 @@
     "onCommand:btreeTool.pasteNodeAsChild",
     "onCommand:btreeTool.pasteNodeBefore",
     "onCommand:btreeTool.pasteNodeAfter",
+    "onStartupFinished",
     "onLanguage:xml"
   ],
   "main": "./dist/extension.js",
@@ -81,12 +82,6 @@
       }
     ],
     "menus": {
-      "editor/title": [
-      {
-        "command": "btreeTool.openPreview",
-        "group": "navigation"
-      }
-      ],
       "editor/context": [
         {
           "command": "btreeTool.openPreview",

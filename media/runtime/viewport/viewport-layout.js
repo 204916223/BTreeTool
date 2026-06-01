@@ -377,8 +377,11 @@
       panX: 0,
       panY: 0,
       zoom: viewportState?.zoom || 1,
-      selectedCard: null
+      selectedCard: null,
+      viewportReady: false,
+      restoringViewportState: viewportState || null
     };
+    stage.style.visibility = "hidden";
     shell.__btreeCanvasState = canvasState;
     runtime.state.canvasStatesByPane = {
       ...(runtime.state.canvasStatesByPane || {}),
@@ -395,6 +398,11 @@
     } else {
       fitCanvasWhenReady(canvasState, options.active !== false);
     }
+    window.setTimeout(() => {
+      if (!canvasState.viewportReady) {
+        revealCanvasStage(canvasState);
+      }
+    }, 600);
   }
 
   function waitForStableCanvasSize(canvasState, onReady, previousSize = null, frame = 0) {
@@ -429,6 +437,7 @@
   function fitCanvasWhenReady(canvasState, activateAfterFit) {
     waitForStableCanvasSize(canvasState, () => {
       fitCanvas(canvasState);
+      revealCanvasStage(canvasState);
       if (activateAfterFit) {
         activateCanvasState(canvasState);
       }
@@ -440,18 +449,114 @@
       canvasState.zoom = viewportState.zoom || 1;
       const anchorEntry = findViewportAnchorEntry(canvasState, viewportState.anchor);
       if (anchorEntry && viewportState.anchor) {
+        const anchorWorldX = Number.isFinite(viewportState.anchor.localX)
+          ? anchorEntry.x + viewportState.anchor.localX
+          : anchorEntry.centerX;
+        const anchorWorldY = Number.isFinite(viewportState.anchor.localY)
+          ? anchorEntry.y + viewportState.anchor.localY
+          : anchorEntry.y + anchorEntry.height / 2;
         setCanvasPan(
-          viewportState.anchor.screenX - anchorEntry.centerX * canvasState.zoom,
-          viewportState.anchor.screenY - (anchorEntry.y + anchorEntry.height / 2) * canvasState.zoom,
+          viewportState.anchor.screenX - anchorWorldX * canvasState.zoom,
+          viewportState.anchor.screenY - anchorWorldY * canvasState.zoom,
           canvasState
         );
       } else {
         setCanvasPan(viewportState.panX || 0, viewportState.panY || 0, canvasState);
       }
+      canvasState.restoringViewportState = null;
+      revealCanvasStage(canvasState);
       if (activateAfterRestore) {
         activateCanvasState(canvasState);
       }
     });
+  }
+
+  function getCanvasViewportState(canvasState) {
+    if (!canvasState) {
+      return null;
+    }
+
+    if (!canvasState.viewportReady && canvasState.restoringViewportState) {
+      return canvasState.restoringViewportState;
+    }
+
+    return {
+      zoom: canvasState.zoom || runtime.state.currentZoom || 1,
+      panX: canvasState.panX || 0,
+      panY: canvasState.panY || 0,
+      anchor: takePendingViewportAnchor(canvasState) || captureCanvasViewportAnchor(canvasState)
+    };
+  }
+
+  function takePendingViewportAnchor(canvasState) {
+    const pendingAnchor = runtime.state.pendingViewportAnchor;
+    if (!pendingAnchor || !findViewportAnchorEntry(canvasState, pendingAnchor)) {
+      return null;
+    }
+
+    runtime.state.pendingViewportAnchor = null;
+    return pendingAnchor;
+  }
+
+  function captureCanvasViewportAnchor(canvasState) {
+    if (!canvasState?.layout || !canvasState.shell) {
+      return null;
+    }
+
+    const selectedTreeId = runtime.state.selectedTreeId || "";
+    const selectedNodePath = runtime.state.selectedNodePath || "";
+    const entry = canvasState.layout.nodes.find((item) => {
+      const node = item.node;
+      return (
+        node?.nodePath === selectedNodePath &&
+        (!selectedTreeId || !node?.sourceTreeId || node.sourceTreeId === selectedTreeId)
+      );
+    });
+    if (!entry) {
+      return null;
+    }
+
+    const zoom = canvasState.zoom || runtime.state.currentZoom || 1;
+    return {
+      treeId: entry.node?.sourceTreeId || selectedTreeId,
+      nodePath: entry.node?.nodePath || selectedNodePath,
+      renderPath: entry.node?.renderPath || "",
+      screenX: entry.centerX * zoom + (canvasState.panX || 0),
+      screenY: (entry.y + entry.height / 2) * zoom + (canvasState.panY || 0)
+    };
+  }
+
+  function captureNodePositionViewportAnchor(canvasState, nodePath, treeId) {
+    if (!canvasState?.layout || !canvasState.shell || !nodePath) {
+      return null;
+    }
+
+    const entry = findViewportAnchorEntry(canvasState, {
+      treeId: treeId || "",
+      nodePath
+    });
+    if (!entry) {
+      return null;
+    }
+
+    const zoom = canvasState.zoom || runtime.state.currentZoom || 1;
+    return {
+      treeId: entry.node?.sourceTreeId || treeId || "",
+      nodePath: entry.node?.nodePath || nodePath,
+      renderPath: entry.node?.renderPath || "",
+      screenX: entry.x * zoom + (canvasState.panX || 0),
+      screenY: entry.y * zoom + (canvasState.panY || 0),
+      localX: 0,
+      localY: 0
+    };
+  }
+
+  function revealCanvasStage(canvasState) {
+    if (!canvasState?.stage) {
+      return;
+    }
+    canvasState.viewportReady = true;
+    canvasState.stage.style.visibility = "";
   }
 
   function findViewportAnchorEntry(canvasState, anchor) {
@@ -924,6 +1029,8 @@
     setupCanvas,
     activateCanvasState,
     enableHorizontalWheelScroll,
+    getCanvasViewportState,
+    captureNodePositionViewportAnchor,
     fitCanvas,
     updateZoomLabel,
     syncCanvasInteractionMode,

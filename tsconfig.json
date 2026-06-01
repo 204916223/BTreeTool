@@ -9,6 +9,10 @@
     "rootDir": "src",
     "sourceMap": true,
     "strict": true,
+    "types": [
+      "node",
+      "vscode"
+    ],
     "esModuleInterop": true,
     "moduleResolution": "node",
     "skipLibCheck": true
