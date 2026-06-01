@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+project_root="$(cd "$script_dir/.." && pwd)"
+cd "$project_root"
+
 name=""
 
 while getopts ":n:h" opt; do
@@ -10,7 +14,7 @@ while getopts ":n:h" opt; do
       ;;
     h)
       cat <<'EOF'
-Usage: ./buildvsix.sh -n output-name
+Usage: Tools/buildvsix.sh -n output-name
 EOF
       exit 0
       ;;
