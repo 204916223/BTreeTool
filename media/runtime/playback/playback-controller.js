@@ -18,10 +18,14 @@
     let playbackFrameUpdateHandle = 0;
     let pendingPlaybackFrameUpdate = null;
     let playbackAutoAdvanceHandle = 0;
+    let playbackAutoAdvanceKind = null;
     let playbackClockAnchor = null;
     const PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS = runtime.playbackConfig.autoAdvanceBaseDelayMs;
+    const PLAYBACK_AUTO_ADVANCE_STALL_MS = 250;
     const PLAYBACK_SPEED_OPTIONS = runtime.playbackConfig.speedOptions;
     let playbackDomCache = null;
+    let lastPlaybackPerformanceWarnMs = 0;
+    let lastPlaybackScheduleWarnMs = 0;
 
     const { clampInteger, clampNumber } = runtime.math;
     const getTreeRenderMode = runtime.treeRender.getTreeRenderMode;
@@ -342,18 +346,12 @@
     function pausePlayback() {
       runtime.state.playbackIsPlaying = false;
       playbackClockAnchor = null;
-      if (playbackAutoAdvanceHandle) {
-        clearTimeout(playbackAutoAdvanceHandle);
-        playbackAutoAdvanceHandle = 0;
-      }
+      cancelPlaybackAutoAdvance();
       updatePlaybackTimelineControls(runtime.state.playbackLog);
     }
 
     function reschedulePlaybackAutoAdvance(log) {
-      if (playbackAutoAdvanceHandle) {
-        clearTimeout(playbackAutoAdvanceHandle);
-        playbackAutoAdvanceHandle = 0;
-      }
+      cancelPlaybackAutoAdvance();
       if (!runtime.state.playbackIsPlaying || runtime.state.playbackLog !== log) {
         return;
       }
@@ -372,20 +370,40 @@
         return;
       }
 
-      playbackAutoAdvanceHandle = window.setTimeout(() => {
-        playbackAutoAdvanceHandle = 0;
+      schedulePlaybackAutoAdvance((firedAt, scheduledAt) => {
         if (!runtime.state.playbackIsPlaying || runtime.state.playbackLog !== log) {
           return;
         }
 
         const anchor = ensurePlaybackClockAnchor(log, "frame");
-        const elapsedMs = Math.max(0, performance.now() - anchor.realMs);
-        const targetFrameIndex = Math.min(
+        const elapsedMs = Math.max(0, firedAt - anchor.realMs);
+        const scheduledDelayMs = firedAt - scheduledAt;
+        const previousFrameIndex = runtime.state.playbackFrameIndex;
+        const uncappedTargetFrameIndex = Math.min(
           log.frames.length - 1,
           anchor.frameIndex + Math.floor((elapsedMs * anchor.speed) / PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS)
         );
+        const maxFrameAdvance = Math.max(1, Math.ceil(anchor.speed));
+        const isStalled = scheduledDelayMs >= PLAYBACK_AUTO_ADVANCE_STALL_MS;
+        const targetFrameIndex = isStalled
+          ? Math.min(uncappedTargetFrameIndex, previousFrameIndex + maxFrameAdvance)
+          : uncappedTargetFrameIndex;
+        warnSlowPlaybackSchedule(log, {
+          mode: "frame",
+          scheduledDelayMs,
+          elapsedMs,
+          speed: anchor.speed,
+          fromFrameIndex: previousFrameIndex,
+          targetFrameIndex,
+          uncappedTargetFrameIndex,
+          frameAdvance: targetFrameIndex - previousFrameIndex,
+          timeUs: runtime.state.playbackTimeUs
+        });
 
         if (targetFrameIndex <= runtime.state.playbackFrameIndex) {
+          if (isStalled) {
+            resetPlaybackClockAnchorTo(log, "frame", firedAt, previousFrameIndex, runtime.state.playbackTimeUs);
+          }
           reschedulePlaybackAutoAdvance(log);
           return;
         }
@@ -397,12 +415,15 @@
           persist: true,
           fromAutoAdvance: true
         });
+        if (isStalled) {
+          resetPlaybackClockAnchorTo(log, "frame", firedAt, runtime.state.playbackFrameIndex, runtime.state.playbackTimeUs);
+        }
         if (targetFrameIndex >= log.frames.length - 1) {
           pausePlayback();
           return;
         }
         reschedulePlaybackAutoAdvance(log);
-      }, PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS);
+      });
     }
 
     function reschedulePlaybackTimeAutoAdvance(log) {
@@ -412,15 +433,35 @@
         return;
       }
 
-      playbackAutoAdvanceHandle = window.setTimeout(() => {
-        playbackAutoAdvanceHandle = 0;
+      schedulePlaybackAutoAdvance((firedAt, scheduledAt) => {
         if (!runtime.state.playbackIsPlaying || runtime.state.playbackLog !== log) {
           return;
         }
 
         const anchor = ensurePlaybackClockAnchor(log, "time");
-        const elapsedMs = Math.max(0, performance.now() - anchor.realMs);
-        const nextTimeUs = Math.min(lastTimeUs, anchor.timeUs + elapsedMs * 1000 * anchor.speed);
+        const elapsedMs = Math.max(0, firedAt - anchor.realMs);
+        const scheduledDelayMs = firedAt - scheduledAt;
+        const isStalled = scheduledDelayMs >= PLAYBACK_AUTO_ADVANCE_STALL_MS;
+        const previousTimeUs = runtime.state.playbackTimeUs;
+        const previousFrameIndex = runtime.state.playbackFrameIndex;
+        const uncappedNextTimeUs = Math.min(lastTimeUs, anchor.timeUs + elapsedMs * 1000 * anchor.speed);
+        const maxTimeAdvanceUs = PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS * 1000 * anchor.speed;
+        const nextTimeUs = isStalled
+          ? Math.min(uncappedNextTimeUs, previousTimeUs + maxTimeAdvanceUs)
+          : uncappedNextTimeUs;
+        const nextFrameIndex = findPlaybackFrameIndexAtOrBeforeTime(log, nextTimeUs);
+        warnSlowPlaybackSchedule(log, {
+          mode: "time",
+          scheduledDelayMs,
+          elapsedMs,
+          speed: anchor.speed,
+          fromFrameIndex: previousFrameIndex,
+          targetFrameIndex: nextFrameIndex,
+          uncappedTargetFrameIndex: findPlaybackFrameIndexAtOrBeforeTime(log, uncappedNextTimeUs),
+          frameAdvance: nextFrameIndex - previousFrameIndex,
+          timeUs: previousTimeUs,
+          timeAdvanceUs: nextTimeUs - previousTimeUs
+        });
         setPlaybackTime(log, nextTimeUs, {
           navigateToActiveNode: shouldAutoNavigatePlayback(),
           scrollList: true,
@@ -429,23 +470,59 @@
           updateBlackboard: true,
           fromAutoAdvance: true
         });
+        if (isStalled) {
+          resetPlaybackClockAnchorTo(log, "time", firedAt, runtime.state.playbackFrameIndex, runtime.state.playbackTimeUs);
+        }
         if (nextTimeUs >= lastTimeUs) {
           pausePlayback();
           return;
         }
         reschedulePlaybackAutoAdvance(log);
-      }, PLAYBACK_AUTO_ADVANCE_BASE_DELAY_MS);
+      });
+    }
+
+    function schedulePlaybackAutoAdvance(callback) {
+      const scheduledAt = performance.now();
+      playbackAutoAdvanceKind = "animationFrame";
+      playbackAutoAdvanceHandle = requestAnimationFrame((firedAt) => {
+        playbackAutoAdvanceHandle = 0;
+        playbackAutoAdvanceKind = null;
+        callback(Number.isFinite(firedAt) ? firedAt : performance.now(), scheduledAt);
+      });
+    }
+
+    function cancelPlaybackAutoAdvance() {
+      if (!playbackAutoAdvanceHandle) {
+        return;
+      }
+      if (playbackAutoAdvanceKind === "animationFrame") {
+        cancelAnimationFrame(playbackAutoAdvanceHandle);
+      } else {
+        clearTimeout(playbackAutoAdvanceHandle);
+      }
+      playbackAutoAdvanceHandle = 0;
+      playbackAutoAdvanceKind = null;
     }
 
     function resetPlaybackClockAnchor(log) {
       const mode = isPlaybackTimeBasedMode() ? "time" : "frame";
+      resetPlaybackClockAnchorTo(
+        log,
+        mode,
+        performance.now(),
+        runtime.state.playbackFrameIndex,
+        getCurrentPlaybackTimeUs(log, null)
+      );
+    }
+
+    function resetPlaybackClockAnchorTo(log, mode, realMs, frameIndex, timeUs) {
       playbackClockAnchor = {
         log,
         mode,
-        realMs: performance.now(),
+        realMs,
         speed: normalizePlaybackSpeed(runtime.state.playbackPlaybackSpeed),
-        frameIndex: runtime.state.playbackFrameIndex,
-        timeUs: getCurrentPlaybackTimeUs(log, null)
+        frameIndex,
+        timeUs
       };
     }
 
@@ -683,24 +760,111 @@
     }
 
     function syncPlaybackFrameUi(log, options = {}) {
+      const perf = options.fromAutoAdvance === true ? createPlaybackPerformanceSample(log, options) : null;
+      let mark = performance.now();
       const playbackSnapshot = buildCurrentPlaybackSnapshot(log, {
         includeBlackboard: options.updateBlackboard !== false
       });
+      mark = recordPlaybackPerformanceStep(perf, "snapshot", mark);
       runtime.state.playbackStatusByUid = playbackSnapshot.statusByUid;
       runtime.state.playbackLatestTransitionByUid = playbackSnapshot.latestTransitionByUid;
       runtime.state.playbackLastTerminalStatusByUid = playbackSnapshot.lastTerminalStatusByUid;
       runtime.state.playbackCurrentFrameTransitionKeys = playbackSnapshot.currentFrameTransitionKeys;
       updatePlaybackCanvasStatuses();
+      mark = recordPlaybackPerformanceStep(perf, "canvasStatus", mark);
       updatePlaybackCanvasSelection();
+      mark = recordPlaybackPerformanceStep(perf, "canvasSelection", mark);
       updatePlaybackTimeline(log);
+      mark = recordPlaybackPerformanceStep(perf, "timeline", mark);
       updatePlaybackActiveTransition(log, options.scrollList === true);
+      mark = recordPlaybackPerformanceStep(perf, "transitionList", mark);
       if (options.updateBlackboard !== false) {
         updatePlaybackBlackboardPanel(log, playbackSnapshot);
       }
+      mark = recordPlaybackPerformanceStep(perf, "blackboard", mark);
       updatePlaybackTracePanel(log, playbackSnapshot, null, { refreshContent: false });
+      mark = recordPlaybackPerformanceStep(perf, "trace", mark);
       if (options.focusNode) {
         schedulePlaybackFocus();
       }
+      warnSlowPlaybackFrame(perf);
+    }
+
+    function createPlaybackPerformanceSample(log, options = {}) {
+      return {
+        log,
+        options,
+        frameIndex: runtime.state.playbackFrameIndex,
+        timeUs: runtime.state.playbackTimeUs,
+        startedAt: performance.now(),
+        steps: []
+      };
+    }
+
+    function recordPlaybackPerformanceStep(sample, name, startedAt) {
+      const now = performance.now();
+      if (sample) {
+        sample.steps.push({
+          name,
+          ms: now - startedAt
+        });
+      }
+      return now;
+    }
+
+    function warnSlowPlaybackFrame(sample) {
+      if (!sample) {
+        return;
+      }
+      const now = performance.now();
+      const totalMs = now - sample.startedAt;
+      if (totalMs < 80 || now - lastPlaybackPerformanceWarnMs < 1000) {
+        return;
+      }
+      lastPlaybackPerformanceWarnMs = now;
+      console.warn("BTreeTool: slow playback frame", {
+        fileName: sample.log?.fileName || "",
+        layout: getPlaybackPanelLayout(),
+        treeRenderMode: getTreeRenderMode("playback"),
+        frameIndex: sample.frameIndex,
+        timeUs: sample.timeUs,
+        speed: runtime.state.playbackPlaybackSpeed,
+        updateBlackboard: sample.options.updateBlackboard !== false,
+        scrollList: sample.options.scrollList === true,
+        totalMs: Number(totalMs.toFixed(1)),
+        steps: sample.steps.map((step) => ({
+          name: step.name,
+          ms: Number(step.ms.toFixed(1))
+        }))
+      });
+    }
+
+    function warnSlowPlaybackSchedule(log, sample) {
+      const now = performance.now();
+      const expectedFrameAdvance = Math.max(1, Math.ceil(Number(sample.speed) || 1));
+      const abnormalFrameAdvance = Number(sample.frameAdvance) > expectedFrameAdvance * 3 + 2;
+      if (sample.scheduledDelayMs < 80 && !abnormalFrameAdvance) {
+        return;
+      }
+      if (now - lastPlaybackScheduleWarnMs < 1000) {
+        return;
+      }
+      lastPlaybackScheduleWarnMs = now;
+      console.warn("BTreeTool: slow playback schedule", {
+        fileName: log?.fileName || "",
+        layout: getPlaybackPanelLayout(),
+        treeRenderMode: getTreeRenderMode("playback"),
+        mode: sample.mode,
+        speed: runtime.state.playbackPlaybackSpeed,
+        timerDelayMs: Number(sample.scheduledDelayMs.toFixed(1)),
+        elapsedMs: Number(sample.elapsedMs.toFixed(1)),
+        fromFrameIndex: sample.fromFrameIndex,
+        targetFrameIndex: sample.targetFrameIndex,
+        uncappedTargetFrameIndex: sample.uncappedTargetFrameIndex,
+        frameAdvance: sample.frameAdvance,
+        timeUs: sample.timeUs,
+        timeAdvanceUs: typeof sample.timeAdvanceUs === "number" ? Math.round(sample.timeAdvanceUs) : undefined
+      });
     }
 
     function schedulePlaybackFocus(frame = 0) {

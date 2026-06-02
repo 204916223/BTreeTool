@@ -287,6 +287,13 @@ export class BehaviorTreePreviewPanel {
       if (this.panel.active) {
         BehaviorTreePreviewPanel.activePanel = this;
       }
+      this.panel.webview.postMessage({
+        type: "panelVisibility",
+        payload: {
+          visible: this.panel.visible,
+          active: this.panel.active
+        }
+      });
     }, null, this.disposables);
     vscode.workspace.onDidSaveTextDocument((document) => {
       if (this.traceConfigFileUri && document.uri.toString() === this.traceConfigFileUri.toString()) {

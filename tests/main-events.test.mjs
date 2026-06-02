@@ -49,6 +49,10 @@ function loadMainEventsRuntime(mode = "playback") {
       }
     },
     document: {
+      hidden: false,
+      addEventListener(type, handler) {
+        listeners[`document:${type}`] = handler;
+      },
       body: {
         classList: {
           contains() {
@@ -62,7 +66,7 @@ function loadMainEventsRuntime(mode = "playback") {
 
   const scriptPath = path.resolve("media/runtime/app/main-events.js");
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
-  return { runtime, listeners, HTMLElementStub };
+  return { runtime, listeners, document: context.document, HTMLElementStub };
 }
 
 function createKeyEvent(HTMLElementStub, options = {}) {
@@ -135,4 +139,28 @@ test("space does not toggle playback from text inputs", () => {
 
   assert.equal(toggleCount, 0);
   assert.equal(event.defaultPrevented, false);
+});
+
+test("panel visibility and page hide pause playback", () => {
+  const { runtime, listeners, document } = loadMainEventsRuntime("playback");
+  let pauseCount = 0;
+
+  runtime.mainEvents.bindWebviewMessages({
+    pausePlayback() {
+      pauseCount += 1;
+    }
+  });
+
+  listeners.message({ data: { type: "panelVisibility", payload: { visible: true } } });
+  assert.equal(pauseCount, 0);
+
+  listeners.message({ data: { type: "panelVisibility", payload: { visible: false } } });
+  assert.equal(pauseCount, 1);
+
+  document.hidden = true;
+  listeners["document:visibilitychange"]();
+  assert.equal(pauseCount, 2);
+
+  listeners.pagehide();
+  assert.equal(pauseCount, 3);
 });

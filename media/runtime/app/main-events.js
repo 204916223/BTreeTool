@@ -76,6 +76,23 @@
         handlers.handleTraceAnswerChunk(message.payload);
         return;
       }
+
+      if (message?.type === "panelVisibility") {
+        if (message.payload?.visible === false) {
+          handlers.pausePlayback();
+        }
+        return;
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        handlers.pausePlayback();
+      }
+    });
+
+    window.addEventListener("pagehide", () => {
+      handlers.pausePlayback();
     });
   }
 
