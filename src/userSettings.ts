@@ -144,8 +144,17 @@ export async function loadUserSettings(globalStorageUri: vscode.Uri): Promise<{ 
       settings: normalizeUserSettings(parsed),
       configUri
     };
-  } catch (_error) {
+  } catch (error) {
     const settings = cloneUserSettings(DEFAULT_USER_SETTINGS);
+    if (!isFileNotFoundError(error)) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`BTreeTool: failed to load user settings. Using defaults without overwriting. ${message}`);
+      return {
+        settings,
+        configUri
+      };
+    }
+
     await saveUserSettings(configUri, settings);
     return {
       settings,
@@ -354,6 +363,25 @@ function toThemePreset(themePreset: unknown, legacyTreeBackgroundColor: unknown)
   }
 
   return DEFAULT_USER_SETTINGS.themePreset;
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as { code?: unknown; name?: unknown; message?: unknown };
+  const code = typeof candidate.code === "string" ? candidate.code : "";
+  const name = typeof candidate.name === "string" ? candidate.name : "";
+  const message = typeof candidate.message === "string" ? candidate.message : "";
+  return (
+    code === "ENOENT" ||
+    code === "FileNotFound" ||
+    name === "EntryNotFound" ||
+    message.includes("ENOENT") ||
+    message.includes("FileNotFound") ||
+    message.includes("EntryNotFound")
+  );
 }
 
 function createPresetField(

@@ -19,7 +19,9 @@ test("main entry delegates startup to the edit controller", () => {
       BTreeToolInitialMode: "playback",
       BTreeToolInitialSettings: {
         themePreset: "rose",
-        language: "zh-CN"
+        language: "zh-CN",
+        nodeAttributeLayout: "stacked",
+        simplifyHiddenSections: ["description"]
       }
     },
     acquireVsCodeApi() {
@@ -39,7 +41,9 @@ test("main entry delegates startup to the edit controller", () => {
   assert.equal(calls[0].initialMode, "playback");
   assert.deepEqual(calls[0].initialSettings, {
     themePreset: "rose",
-    language: "zh-CN"
+    language: "zh-CN",
+    nodeAttributeLayout: "stacked",
+    simplifyHiddenSections: ["description"]
   });
   assert.equal(typeof calls[0].vscode.getState, "function");
 });

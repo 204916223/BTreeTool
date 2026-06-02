@@ -270,10 +270,7 @@ export class BehaviorTreePreviewPanel {
       webview: this.panel.webview,
       extensionUri: this.extensionUri,
       hasDocument: Boolean(document),
-      initialSettings: {
-        language: this.currentSettings.language,
-        themePreset: this.currentSettings.themePreset
-      }
+      initialSettings: this.currentSettings
     });
     if (document?.fileName) {
       this.updatePanelTitle(document.fileName);

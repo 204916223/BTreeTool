@@ -20,9 +20,7 @@
 
   function createInitialState(persistedState = {}, initialMode = "edit", initialSettings = {}) {
     const clampNumber = runtime.viewport?.clampNumber || ((_value, _min, _max, fallback) => fallback);
-    const initialThemePreset = normalizeThemePreset(initialSettings.themePreset || persistedState.uiPreferences?.themePreset);
-    const rawInitialLanguage = initialSettings.language || persistedState.uiPreferences?.language;
-    const initialLanguage = rawInitialLanguage === "zh-CN" ? "zh-CN" : "en-US";
+    const normalizedInitialSettings = normalizeInitialSettings(initialSettings, persistedState);
 
     return {
       selectedTreeId: persistedState.selectedTreeId || null,
@@ -101,13 +99,7 @@
       playbackPlaybackSpeed: Number.isFinite(persistedState.playbackPlaybackSpeed)
         ? persistedState.playbackPlaybackSpeed
         : 1,
-      currentSettings: {
-        ...DEFAULT_USER_SETTINGS,
-        language: initialLanguage,
-        themePreset: initialThemePreset,
-        simplifyHiddenSections: [...DEFAULT_USER_SETTINGS.simplifyHiddenSections],
-        presetNodes: [...DEFAULT_USER_SETTINGS.presetNodes]
-      },
+      currentSettings: normalizedInitialSettings,
       copiedNodeTemplate: null,
       forceHideNodeDetails: false,
       settingsFilePath: "",
@@ -134,6 +126,41 @@
     ].includes(value)
       ? value
       : DEFAULT_USER_SETTINGS.themePreset;
+  }
+
+  function normalizeInitialSettings(initialSettings, persistedState) {
+    const input = initialSettings && typeof initialSettings === "object" ? initialSettings : {};
+    const themePreset = normalizeThemePreset(input.themePreset || persistedState.uiPreferences?.themePreset);
+    const rawLanguage = input.language || persistedState.uiPreferences?.language;
+    const language = rawLanguage === "zh-CN" ? "zh-CN" : "en-US";
+
+    return {
+      language,
+      themePreset,
+      showMainTreeLocator: input.showMainTreeLocator === true,
+      showBehaviorTreeRoot: input.showBehaviorTreeRoot !== false,
+      requireNodeDeleteConfirmation: input.requireNodeDeleteConfirmation === true,
+      copyNodeWithDescendants: input.copyNodeWithDescendants === true,
+      playbackAutoNavigateToTree: input.playbackAutoNavigateToTree === true,
+      allowUnclosedPlaybackLog: input.allowUnclosedPlaybackLog !== false,
+      nodeAttributeLayout: input.nodeAttributeLayout === "stacked" ? "stacked" : "inline",
+      editTreeRenderMode: input.editTreeRenderMode === "expanded" ? "expanded" : "paged",
+      playbackTreeRenderMode: input.playbackTreeRenderMode === "expanded" ? "expanded" : "paged",
+      playbackPanelLayout: input.playbackPanelLayout === "dashboard" ? "dashboard" : "classic",
+      simplifyHiddenSections: Array.isArray(input.simplifyHiddenSections) ? [...input.simplifyHiddenSections] : [],
+      presetNodes: Array.isArray(input.presetNodes) ? input.presetNodes.map(clonePresetNodeSettings) : []
+    };
+  }
+
+  function clonePresetNodeSettings(node) {
+    if (!node || typeof node !== "object") {
+      return node;
+    }
+
+    return {
+      ...node,
+      fields: Array.isArray(node.fields) ? node.fields.map((field) => ({ ...field })) : []
+    };
   }
 
   runtime.appState = {

@@ -83,3 +83,50 @@ test("app state seeds current settings from initial theme settings", () => {
   assert.equal(state.currentSettings.themePreset, "rose");
   assert.equal(state.currentSettings.language, "en-US");
 });
+
+test("app state seeds full current settings from initial settings", () => {
+  const appState = loadAppStateRuntime();
+  const state = appState.createInitialState(
+    {},
+    "edit",
+    {
+      language: "zh-CN",
+      themePreset: "paper",
+      showMainTreeLocator: true,
+      showBehaviorTreeRoot: false,
+      requireNodeDeleteConfirmation: true,
+      copyNodeWithDescendants: true,
+      playbackAutoNavigateToTree: true,
+      allowUnclosedPlaybackLog: false,
+      nodeAttributeLayout: "stacked",
+      editTreeRenderMode: "expanded",
+      playbackTreeRenderMode: "expanded",
+      playbackPanelLayout: "dashboard",
+      simplifyHiddenSections: ["description"],
+      presetNodes: [{ key: "Custom", fields: [{ key: "value" }] }]
+    }
+  );
+
+  assert.equal(JSON.stringify(state.currentSettings), JSON.stringify({
+    language: "zh-CN",
+    themePreset: "paper",
+    showMainTreeLocator: true,
+    showBehaviorTreeRoot: false,
+    requireNodeDeleteConfirmation: true,
+    copyNodeWithDescendants: true,
+    playbackAutoNavigateToTree: true,
+    allowUnclosedPlaybackLog: false,
+    nodeAttributeLayout: "stacked",
+    editTreeRenderMode: "expanded",
+    playbackTreeRenderMode: "expanded",
+    playbackPanelLayout: "dashboard",
+    simplifyHiddenSections: ["description"],
+    presetNodes: [{ key: "Custom", fields: [{ key: "value" }] }]
+  }));
+
+  state.currentSettings.presetNodes[0].fields[0].key = "changed";
+  const nextState = appState.createInitialState({}, "edit", {
+    presetNodes: [{ key: "Custom", fields: [{ key: "value" }] }]
+  });
+  assert.equal(nextState.currentSettings.presetNodes[0].fields[0].key, "value");
+});

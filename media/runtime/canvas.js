@@ -1103,6 +1103,17 @@
         event.preventDefault();
         event.stopPropagation();
       });
+      input.addEventListener("compositionstart", () => {
+        input.dataset.isComposing = "true";
+        input.dataset.justComposed = "false";
+      });
+      input.addEventListener("compositionend", () => {
+        input.dataset.isComposing = "false";
+        input.dataset.justComposed = "true";
+        window.setTimeout(() => {
+          input.dataset.justComposed = "false";
+        }, 80);
+      });
       input.addEventListener("change", () => {
         commitNodeAttributeValue(node, field, input, options.currentTreeId);
       });
@@ -1113,6 +1124,9 @@
 
         event.stopPropagation();
         if (event.key === "Enter") {
+          if (isInputCompositionEnter(event, input)) {
+            return;
+          }
           event.preventDefault();
           commitNodeAttributeValue(node, field, input, options.currentTreeId);
           input.blur();
@@ -1133,6 +1147,15 @@
     }
 
     return ["a", "c", "v", "x", "y", "z"].includes(String(event.key || "").toLowerCase());
+  }
+
+  function isInputCompositionEnter(event, input) {
+    return (
+      event.isComposing === true ||
+      event.keyCode === 229 ||
+      input.dataset.isComposing === "true" ||
+      input.dataset.justComposed === "true"
+    );
   }
 
   function stopInputEvent(event) {

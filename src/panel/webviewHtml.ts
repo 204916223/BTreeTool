@@ -5,7 +5,7 @@ export type GetWebviewHtmlOptions = {
   webview: vscode.Webview;
   extensionUri: vscode.Uri;
   hasDocument: boolean;
-  initialSettings?: Pick<BtUserSettings, "language" | "themePreset">;
+  initialSettings?: BtUserSettings;
 };
 
 export function getWebviewHtml(options: GetWebviewHtmlOptions): string {
@@ -127,6 +127,12 @@ export function getWebviewHtml(options: GetWebviewHtmlOptions): string {
     const nonce = getNonce();
     const initialTheme = initialSettings?.themePreset || "midnight";
     const initialLanguage = initialSettings?.language || "en-US";
+    const initialSettingsScript = stringifyScriptJson(
+      initialSettings || {
+        themePreset: initialTheme,
+        language: initialLanguage
+      }
+    );
 
     return `<!DOCTYPE html>
 <html lang="${initialLanguage}" data-btree-theme="${initialTheme}">
@@ -143,10 +149,7 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
   <body>
     <script nonce="${nonce}">
       window.BTreeToolInitialMode = ${JSON.stringify(hasDocument ? "edit" : "playback")};
-      window.BTreeToolInitialSettings = ${JSON.stringify({
-        themePreset: initialTheme,
-        language: initialLanguage
-      })};
+      window.BTreeToolInitialSettings = ${initialSettingsScript};
     </script>
     <main class="app-shell">
       <section class="card tree-card">
@@ -323,6 +326,10 @@ ${overlayPartScriptUris.map((uri) => `    <script nonce="${nonce}" src="${uri}">
 <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;
+}
+
+function stringifyScriptJson(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 function getNonce(): string {
