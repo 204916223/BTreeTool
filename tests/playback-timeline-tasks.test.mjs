@@ -4,6 +4,59 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 
+test("playback timeline tasks prefer StageAndReturn phase event markers", () => {
+  const runtime = loadPlaybackTimelineTasksRuntime();
+  const log = {
+    frames: [
+      { index: 0, tUs: 1_000, wallUs: 1_000 },
+      { index: 1, tUs: 5_000, wallUs: 5_000 },
+      { index: 2, tUs: 9_000, wallUs: 9_000 }
+    ],
+    transitions: [
+      { frameIndex: 0, tUs: 2_000, uid: 31, status: "SUCCESS" },
+      { frameIndex: 0, tUs: 3_000, uid: 33, status: "SUCCESS" },
+      { frameIndex: 1, tUs: 4_000, uid: 34, status: "SUCCESS" },
+      { frameIndex: 2, tUs: 7_000, uid: 32, status: "SUCCESS" }
+    ],
+    preview: {
+      behaviorTrees: [
+        {
+          id: "Main",
+          node: {
+            title: "Sequence",
+            kind: "Sequence",
+            nodePath: "0",
+            attributes: { _uid: "10" },
+            description: "",
+            children: [
+              createStageAndReturnNode("0.0", "31", "库位取货", "start"),
+              createStageAndReturnNode("0.1", "33", "孤立结束", "e"),
+              createStageAndReturnNode("0.2", "34", "未闭合阶段", "s"),
+              createStageAndReturnNode("0.3", "32", "库位取货", "end")
+            ]
+          }
+        }
+      ]
+    }
+  };
+
+  const model = runtime.playbackTimelineTasks.buildPlaybackDurationModel(log, {
+    laneHeight: 40,
+    blockHeight: 30
+  });
+
+  assert.equal(model.taskRuleId, 10);
+  assert.equal(model.taskRuleName, "stage-and-return-marker");
+  assert.equal(model.segments.length, 2);
+  assert.equal(
+    JSON.stringify(model.segments.map((segment) => [segment.source, segment.label, segment.start, segment.end])),
+    JSON.stringify([
+      ["stage-and-return-marker", "库位取货", 2_000, 7_000],
+      ["stage-and-return-marker", "未闭合阶段", 4_000, 9_000]
+    ])
+  );
+});
+
 test("playback timeline tasks prefer paired Description s/e markers", () => {
   const runtime = loadPlaybackTimelineTasksRuntime();
   const log = {
@@ -57,7 +110,7 @@ test("playback timeline tasks prefer paired Description s/e markers", () => {
 
   assert.equal(model.firstTime, 1_000);
   assert.equal(model.total, 8_000);
-  assert.equal(model.taskRuleId, 10);
+  assert.equal(model.taskRuleId, 15);
   assert.equal(model.taskRuleName, "description-marker");
   assert.equal(model.segments.length, 1);
   assert.equal(model.segments[0].source, "description-marker");
@@ -238,4 +291,20 @@ function loadPlaybackTimelineTasksRuntime() {
   const scriptPath = path.resolve("media/runtime/playback/playback-timeline-tasks.js");
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
   return runtime;
+}
+
+function createStageAndReturnNode(nodePath, uid, phase, event) {
+  return {
+    title: "StageAndReturn",
+    kind: "StageAndReturn",
+    nodePath,
+    attributes: {
+      _uid: uid,
+      phase,
+      event,
+      return_status: "SUCCESS"
+    },
+    description: "",
+    children: []
+  };
 }

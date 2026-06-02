@@ -56,6 +56,11 @@
     return [
       {
         id: 10,
+        name: "stage-and-return-marker",
+        build: buildStageAndReturnMarkedTasks
+      },
+      {
+        id: 15,
         name: "description-marker",
         build: buildDescriptionMarkedTasks
       },
@@ -65,6 +70,160 @@
         build: buildTreeGroupedTasks
       }
     ];
+  }
+
+  function buildStageAndReturnMarkedTasks(log, firstTime, lastTime) {
+    const markers = getStageAndReturnMarkers(log);
+    if (markers.length === 0) {
+      return [];
+    }
+
+    const markerEvents = buildStageAndReturnMarkerEvents(log, markers);
+    if (markerEvents.length === 0) {
+      return [];
+    }
+
+    const tasks = [];
+    const openByPhase = new Map();
+    markerEvents.forEach((event) => {
+      if (event.kind === "s") {
+        const open = openByPhase.get(event.phase) || [];
+        open.push(event);
+        openByPhase.set(event.phase, open);
+        return;
+      }
+
+      const open = openByPhase.get(event.phase) || [];
+      const startEvent = open.shift();
+      if (!startEvent) {
+        return;
+      }
+      if (open.length === 0) {
+        openByPhase.delete(event.phase);
+      }
+      pushStageAndReturnTask(tasks, startEvent, event, firstTime, lastTime);
+    });
+
+    openByPhase.forEach((open) => {
+      open.forEach((startEvent) => {
+        pushStageAndReturnTask(tasks, startEvent, null, firstTime, lastTime);
+      });
+    });
+
+    return tasks;
+  }
+
+  function getStageAndReturnMarkers(log) {
+    const cache = runtime.playbackData.getPlaybackCache(log);
+    if (cache.timelineStageAndReturnMarkers) {
+      return cache.timelineStageAndReturnMarkers;
+    }
+
+    const markers = [];
+    let order = 0;
+    (log.preview?.behaviorTrees || []).forEach((tree) => {
+      walkPreviewNode(tree.node, (node) => {
+        if (!isStageAndReturnNode(node)) {
+          return;
+        }
+
+        const uid = getNodeUid(node);
+        const phase = String(node?.attributes?.phase || "").trim();
+        const kind = normalizeStageAndReturnEvent(node?.attributes?.event);
+        if (!uid || !phase || !kind) {
+          return;
+        }
+
+        markers.push({
+          uid,
+          treeId: tree.id,
+          nodePath: node.nodePath,
+          nodeTitle: node.title,
+          phase,
+          kind,
+          order: order++
+        });
+      });
+    });
+
+    cache.timelineStageAndReturnMarkers = markers;
+    return markers;
+  }
+
+  function isStageAndReturnNode(node) {
+    const kind = String(node?.kind || "");
+    const title = String(node?.title || "");
+    const id = String(node?.attributes?.ID || node?.attributes?.id || "");
+    return kind === "StageAndReturn" || title === "StageAndReturn" || id === "StageAndReturn";
+  }
+
+  function normalizeStageAndReturnEvent(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "s" || normalized === "start") {
+      return "s";
+    }
+    if (normalized === "e" || normalized === "end") {
+      return "e";
+    }
+    return "";
+  }
+
+  function buildStageAndReturnMarkerEvents(log, markers) {
+    const transitionsByUid = indexTransitionsByUid(log.transitions || []);
+    const events = [];
+    markers.forEach((marker) => {
+      getMarkerExecutionTransitions(transitionsByUid.get(marker.uid) || []).forEach((transition) => {
+        const time = Number(transition.tUs);
+        if (!Number.isFinite(time)) {
+          return;
+        }
+
+        events.push({
+          ...marker,
+          transition,
+          time,
+          frameIndex: transition.frameIndex,
+          transitionIndex: transition._timelineIndex
+        });
+      });
+    });
+    events.sort((left, right) =>
+      left.time - right.time ||
+      left.transitionIndex - right.transitionIndex ||
+      left.order - right.order
+    );
+    return events;
+  }
+
+  function getMarkerExecutionTransitions(transitions) {
+    const nonIdle = transitions.filter((transition) => normalizeStatusName(transition.status) !== "IDLE");
+    return nonIdle.length > 0 ? nonIdle : transitions;
+  }
+
+  function pushStageAndReturnTask(tasks, startEvent, endEvent, firstTime, lastTime) {
+    const start = Number(startEvent.time);
+    const end = endEvent ? Number(endEvent.time) : lastTime;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+      return;
+    }
+
+    const endTransition = endEvent?.transition || null;
+    tasks.push({
+      id: `${startEvent.phase}:${startEvent.transitionIndex}`,
+      treeId: startEvent.treeId || endEvent?.treeId || "",
+      startUid: startEvent.uid,
+      endUid: endEvent?.uid || "",
+      source: "stage-and-return-marker",
+      frameIndex: startEvent.frameIndex,
+      firstTransitionIndex: startEvent.transitionIndex,
+      lastTransitionIndex: endEvent?.transitionIndex ?? startEvent.transitionIndex,
+      start: clampTime(start, firstTime, lastTime),
+      end: clampTime(end, firstTime, lastTime),
+      lastTickTime: clampTime(end, firstTime, lastTime),
+      status: endTransition?.status || startEvent.transition.status,
+      label: startEvent.phase,
+      order: startEvent.transitionIndex
+    });
   }
 
   function buildDescriptionMarkedTasks(log, firstTime, lastTime) {
