@@ -132,6 +132,12 @@ export type WebviewMessage =
       type: "addTraceProvider";
     }
   | {
+      type: "setTraceProvider";
+      payload?: {
+        providerId?: string;
+      };
+    }
+  | {
       type: "traceAsk";
       payload?: {
         requestId?: string;
@@ -144,6 +150,20 @@ export type WebviewMessage =
       type: "traceCancel";
       payload?: {
         requestId?: string;
+      };
+    }
+  | {
+      type: "traceFeedback";
+      payload?: {
+        requestId?: string;
+        verdict?: "reasonable" | "nonsense";
+        logFilePath?: string;
+        frameIndex?: number;
+        question?: string;
+        answer?: string;
+        context?: string;
+        feedbackTarget?: string;
+        sectionLabel?: string;
       };
     }
   | {

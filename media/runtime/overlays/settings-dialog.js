@@ -158,6 +158,14 @@
     traceField.appendChild(traceFieldControl);
     traceSection.body.appendChild(traceField);
 
+    const traceLearningRow = document.createElement("div");
+    traceLearningRow.className = "settings-toggle-row";
+    const traceLearningSwitch = createSettingsSwitch("Learning");
+    const traceLearningInput = traceLearningSwitch.input;
+    const traceLearningText = traceLearningSwitch.text;
+    traceLearningRow.appendChild(traceLearningSwitch.element);
+    traceSection.body.appendChild(traceLearningRow);
+
     const actions = document.createElement("div");
     actions.className = "settings-actions";
 
@@ -199,6 +207,7 @@
         copyNodeWithDescendants: copyDescendantsInput.checked,
         playbackAutoNavigateToTree: playbackAutoNavigateInput.checked,
         allowUnclosedPlaybackLog: playbackAllowUnclosedLogInput.checked,
+        traceLearningEnabled: traceLearningInput.checked,
         simplifyHiddenSections: detailSwitches.filter((entry) => !entry.switchControl.input.checked).map((entry) => entry.key)
       };
       const preserveViewport =
@@ -275,6 +284,8 @@
       traceFieldLabel,
       traceDirectoryValue,
       traceOpenButton,
+      traceLearningInput,
+      traceLearningText,
       clearImportedNodesButton,
       importNodesButton,
       saveButton
@@ -448,6 +459,7 @@
     overlayState.settingsDialog.playbackAllowUnclosedLogText.textContent = copy.playbackAllowUnclosedLogShort;
     overlayState.settingsDialog.traceSectionTitle.textContent = copy.traceMode;
     overlayState.settingsDialog.traceFieldLabel.textContent = copy.traceConfigDirectory;
+    overlayState.settingsDialog.traceLearningText.textContent = copy.traceLearningShort;
     overlayState.settingsDialog.traceOpenButton.textContent = copy.traceOpenConfig;
     overlayState.settingsDialog.traceOpenButton.title = copy.traceOpenConfig;
     overlayState.settingsDialog.traceOpenButton.setAttribute("aria-label", copy.traceOpenConfig);
@@ -486,6 +498,8 @@
       runtime.state.currentSettings?.playbackAutoNavigateToTree === true;
     overlayState.settingsDialog.playbackAllowUnclosedLogInput.checked =
       runtime.state.currentSettings?.allowUnclosedPlaybackLog === true;
+    overlayState.settingsDialog.traceLearningInput.checked =
+      runtime.state.currentSettings?.traceLearningEnabled === true;
     const hiddenSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);
     overlayState.settingsDialog.detailSwitches.forEach((entry) => {
       entry.switchControl.input.checked = !hiddenSections.has(entry.key);

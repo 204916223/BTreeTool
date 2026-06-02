@@ -5,6 +5,7 @@
     const {
       vscode,
       buildCurrentPlaybackSnapshot,
+      setPlaybackFrame,
       getCurrentPlaybackTimeUs,
       isPlaybackTimeBasedMode,
       getActiveTransitionAtTime,
@@ -153,9 +154,20 @@
 
       const statusbar = document.createElement("div");
       statusbar.className = "playback-trace-statusbar";
-      const provider = document.createElement("span");
-      provider.dataset.traceProvider = "true";
-      statusbar.appendChild(provider);
+      const providerSelect = document.createElement("select");
+      providerSelect.className = "playback-trace-provider-select";
+      providerSelect.dataset.traceProviderSelect = "true";
+      providerSelect.addEventListener("change", () => {
+        const providerId = providerSelect.value;
+        if (!providerId || providerId === runtime.state.traceConfig?.activeProvider) {
+          return;
+        }
+        vscode.postMessage({
+          type: "setTraceProvider",
+          payload: { providerId }
+        });
+      });
+      statusbar.appendChild(providerSelect);
 
       const send = document.createElement("button");
       send.type = "submit";
@@ -212,13 +224,41 @@
         send.replaceChildren(isPending ? createPlaybackStopIcon() : createPlaybackSendIcon());
       }
 
-      const provider = panel.querySelector("[data-trace-provider]");
+      const providerSelect = panel.querySelector("[data-trace-provider-select]");
       const config = runtime.state.traceConfig;
-      if (provider) {
-        provider.textContent = config?.ready
-          ? playbackCopy.traceCurrentProvider(config.activeProviderLabel, config.activeModel)
-          : playbackCopy.providerNotConfigured;
+      if (providerSelect) {
+        updateTraceProviderSelect(providerSelect, config, playbackCopy, Boolean(runtime.state.tracePendingRequestId));
       }
+    }
+
+    function updateTraceProviderSelect(select, config, playbackCopy, isPending) {
+      const providers = (config?.providers || []).filter((provider) => provider.configured === true);
+      const activeProvider = config?.activeProvider || "";
+      const activeKey = providers
+        .map((provider) => `${provider.id}:${provider.label}:${provider.model}`)
+        .join("|");
+      if (select.dataset.providerListKey !== activeKey) {
+        select.dataset.providerListKey = activeKey;
+        select.replaceChildren();
+        if (providers.length === 0) {
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = playbackCopy.providerNotConfigured;
+          select.appendChild(option);
+        } else {
+          providers.forEach((provider) => {
+            const option = document.createElement("option");
+            option.value = provider.id;
+            option.textContent = playbackCopy.traceCurrentProvider(provider.label, provider.model);
+            select.appendChild(option);
+          });
+        }
+      }
+      select.value = providers.some((provider) => provider.id === activeProvider)
+        ? activeProvider
+        : providers[0]?.id || "";
+      select.disabled = providers.length === 0 || isPending;
+      select.title = providers.length === 0 ? playbackCopy.providerNotConfigured : "";
     }
 
     function renderTraceMessages(container, playbackCopy = runtime.i18n.getPlaybackCopy()) {
@@ -249,13 +289,77 @@
       item.className = `playback-trace-message ${message.role || "assistant"}`;
       const label = document.createElement("span");
       label.className = "playback-trace-message-role";
-      label.textContent = message.role === "user" ? playbackCopy.traceQuestion : playbackCopy.traceAnswer;
+      label.textContent = message.role === "user"
+        ? playbackCopy.traceQuestion
+        : [playbackCopy.traceAnswer, message.sectionLabel].filter(Boolean).join(" · ");
       const content = document.createElement("div");
       content.className = "playback-trace-message-content";
       content.textContent = message.content || "";
       item.appendChild(label);
       item.appendChild(content);
+      if (
+        runtime.state.currentSettings?.traceLearningEnabled === true &&
+        message.role === "assistant" &&
+        message.requestId &&
+        !message.error
+      ) {
+        item.appendChild(createTraceFeedbackActions(message));
+      }
       return item;
+    }
+
+    function createTraceFeedbackActions(message) {
+      const actions = document.createElement("div");
+      actions.className = "playback-trace-feedback";
+      if (message.feedback) {
+        const status = document.createElement("span");
+        status.className = "playback-trace-feedback-status";
+        status.textContent = message.feedback === "reasonable" ? "已标记：合理" : "已标记：放屁";
+        actions.appendChild(status);
+        return actions;
+      }
+      actions.appendChild(createTraceFeedbackButton("合理", "reasonable", message));
+      actions.appendChild(createTraceFeedbackButton("放屁", "nonsense", message));
+      return actions;
+    }
+
+    function createTraceFeedbackButton(label, verdict, message) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `canvas-btn playback-trace-feedback-btn ${verdict}`;
+      button.textContent = label;
+      button.addEventListener("click", () => {
+        submitTraceFeedback(message, verdict);
+      });
+      return button;
+    }
+
+    function submitTraceFeedback(message, verdict) {
+      const target = runtime.state.traceMessages.find((entry) =>
+        entry.requestId === message.requestId &&
+        entry.role === "assistant" &&
+        entry.feedbackTarget === message.feedbackTarget
+      );
+      if (target) {
+        target.feedback = verdict;
+      }
+      const log = runtime.state.playbackLog;
+      vscode.postMessage({
+        type: "traceFeedback",
+        payload: {
+          requestId: message.requestId,
+          verdict,
+          logFilePath: log?.filePath || "",
+          frameIndex: Number.isInteger(message.frameIndex) ? message.frameIndex : runtime.state.playbackFrameIndex,
+          question: message.question || "",
+          answer: message.content || "",
+          context: message.context || "",
+          feedbackTarget: message.feedbackTarget || "answer",
+          sectionLabel: message.sectionLabel || ""
+        }
+      });
+      const snapshot = log ? buildCurrentPlaybackSnapshot(log) : null;
+      updatePlaybackTracePanel(log, snapshot);
     }
 
     function sendTraceQuestion(log, input) {
@@ -268,8 +372,13 @@
       const snapshot = buildCurrentPlaybackSnapshot(log);
       const context = buildPlaybackTraceContext(log, snapshot, runtime.i18n.getPlaybackCopy());
       const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      runtime.state.traceMessages.push({ role: "user", content: question });
+      runtime.state.traceMessages.push({ role: "user", content: question, requestId });
       runtime.state.tracePendingRequestId = requestId;
+      runtime.state.tracePendingQuestion = question;
+      runtime.state.tracePendingContext = context.prompt;
+      runtime.state.tracePendingFrameIndex = runtime.state.playbackFrameIndex;
+      runtime.state.tracePendingFocusFrameIndex = context.focusFrameIndex;
+      runtime.state.tracePendingShouldNavigate = context.shouldAutoNavigate === true;
       runtime.state.tracePendingAnswer = "";
       input.value = "";
       updatePlaybackTracePanel(log, snapshot);
@@ -305,6 +414,7 @@
 
       const pendingAnswer = runtime.state.tracePendingAnswer.trim();
       const cancelled = payload.cancelled === true;
+      const log = runtime.state.playbackLog;
       const errorMessage = cancelled
         ? runtime.i18n.getPlaybackCopy().traceRequestCancelled
         : runtime.i18n.getPlaybackCopy().traceRequestFailed(payload.error || "");
@@ -312,35 +422,149 @@
         if (pendingAnswer) {
           runtime.state.traceMessages.push({
             role: "assistant",
-            content: pendingAnswer
+            content: pendingAnswer,
+            requestId: payload.requestId,
+            question: runtime.state.tracePendingQuestion || "",
+            context: runtime.state.tracePendingContext || "",
+            frameIndex: runtime.state.tracePendingFrameIndex
           });
         } else {
           runtime.state.traceMessages.push({
             role: "assistant",
-            content: errorMessage
+            content: errorMessage,
+            error: true
           });
         }
       } else if (payload.ok) {
-        runtime.state.traceMessages.push({
-          role: "assistant",
-          content: payload.answer || pendingAnswer
-        });
+        const answerParts = splitTraceAnswerSections(payload.answer || pendingAnswer);
+        runtime.state.traceMessages.push(createTraceAnswerMessage(payload.requestId, answerParts.conclusion, {
+          sectionLabel: "结论",
+          feedbackTarget: "conclusion"
+        }));
+        runtime.state.traceMessages.push(createTraceAnswerMessage(payload.requestId, answerParts.evidence, {
+          sectionLabel: "核心证据",
+          feedbackTarget: "evidence"
+        }));
+        if (answerParts.guess) {
+          runtime.state.traceMessages.push(createTraceAnswerMessage(payload.requestId, answerParts.guess, {
+            sectionLabel: "猜测",
+            feedbackTarget: "guess"
+          }));
+        }
+        navigateToTraceFocusFrame(log);
       } else {
         runtime.state.traceMessages.push({
           role: "assistant",
-          content: errorMessage
+          content: errorMessage,
+          error: true
         });
       }
       runtime.state.tracePendingRequestId = "";
+      runtime.state.tracePendingQuestion = "";
+      runtime.state.tracePendingContext = "";
+      runtime.state.tracePendingFrameIndex = null;
+      runtime.state.tracePendingFocusFrameIndex = null;
+      runtime.state.tracePendingShouldNavigate = false;
       runtime.state.tracePendingAnswer = "";
-      const log = runtime.state.playbackLog;
       const snapshot = log ? buildCurrentPlaybackSnapshot(log) : null;
       updatePlaybackTracePanel(log, snapshot);
+    }
+
+    function createTraceAnswerMessage(requestId, content, options = {}) {
+      return {
+        role: "assistant",
+        content: content || "未提供明确内容。",
+        requestId,
+        question: runtime.state.tracePendingQuestion || "",
+        context: runtime.state.tracePendingContext || "",
+        frameIndex: runtime.state.tracePendingFrameIndex,
+        sectionLabel: options.sectionLabel || "",
+        feedbackTarget: options.feedbackTarget || "answer"
+      };
+    }
+
+    function navigateToTraceFocusFrame(log) {
+      if (!log || runtime.state.tracePendingShouldNavigate !== true) {
+        return;
+      }
+      const frameIndex = runtime.state.tracePendingFocusFrameIndex;
+      if (!Number.isInteger(frameIndex) || frameIndex < 0 || frameIndex === runtime.state.playbackFrameIndex) {
+        return;
+      }
+      setPlaybackFrame?.(log, frameIndex, {
+        scrollList: true,
+        focusNode: true,
+        navigateToActiveNode: true,
+        updateBlackboard: true,
+        persist: true
+      });
+    }
+
+    function splitTraceAnswerSections(answer) {
+      const text = String(answer || "").trim();
+      if (!text) {
+        return {
+          conclusion: "未获得有效结论。",
+          evidence: "未获得核心证据。",
+          guess: ""
+        };
+      }
+      const conclusionMatch = findTraceSectionLabel(text, ["结论", "Conclusion"]);
+      const evidenceMatch = findTraceSectionLabel(text, ["核心证据", "证据", "Evidence", "Core Evidence", "分析过程", "过程"]);
+      const guessMatch = findTraceSectionLabel(text, ["猜测", "推测", "可能", "Guess", "Hypothesis"]);
+      if (conclusionMatch && evidenceMatch && conclusionMatch.index < evidenceMatch.index) {
+        const evidenceEnd = guessMatch && evidenceMatch.index < guessMatch.index ? guessMatch.index : text.length;
+        return {
+          conclusion: text.slice(conclusionMatch.end, evidenceMatch.index).trim() || "未获得有效结论。",
+          evidence: text.slice(evidenceMatch.end, evidenceEnd).trim() || "未获得核心证据。",
+          guess: guessMatch && guessMatch.index > evidenceMatch.index ? text.slice(guessMatch.end).trim() : ""
+        };
+      }
+
+      const paragraphs = text.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+      if (paragraphs.length >= 2) {
+        return {
+          conclusion: stripTraceSectionLabel(paragraphs[0]) || "未获得有效结论。",
+          evidence: stripTraceSectionLabel(paragraphs[1]) || "未获得核心证据。",
+          guess: paragraphs.slice(2).map(stripTraceSectionLabel).join("\n\n")
+        };
+      }
+
+      const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+      if (lines.length >= 2) {
+        return {
+          conclusion: stripTraceSectionLabel(lines[0]) || "未获得有效结论。",
+          evidence: stripTraceSectionLabel(lines[1]) || "未获得核心证据。",
+          guess: lines.slice(2).map(stripTraceSectionLabel).join("\n")
+        };
+      }
+
+      return {
+        conclusion: stripTraceSectionLabel(text) || "未获得有效结论。",
+        evidence: "未获得核心证据。",
+        guess: ""
+      };
+    }
+
+    function findTraceSectionLabel(text, labels) {
+      const escaped = labels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+      const pattern = new RegExp(`(^|\\n)\\s*(?:${escaped})\\s*[:：]?\\s*`, "i");
+      const match = pattern.exec(text);
+      return match ? { index: match.index + match[1].length, end: match.index + match[0].length } : null;
+    }
+
+    function stripTraceSectionLabel(text) {
+      return String(text || "").replace(/^\s*(结论|核心证据|证据|猜测|推测|可能|Conclusion|Evidence|Core Evidence|Guess|Hypothesis|分析过程|过程)\s*[:：]?\s*/i, "").trim();
     }
 
     function clearTraceMessages() {
       runtime.state.traceMessages = [];
       runtime.state.tracePendingRequestId = "";
+      runtime.state.tracePendingQuestion = "";
+      runtime.state.tracePendingContext = "";
+      runtime.state.tracePendingFrameIndex = null;
+      runtime.state.tracePendingFocusFrameIndex = null;
+      runtime.state.tracePendingShouldNavigate = false;
       runtime.state.tracePendingAnswer = "";
     }
 
@@ -401,11 +625,20 @@
         ? getActiveTransitionAtTime(log, getCurrentPlaybackTimeUs(log, null))
         : getActiveTransition(log, runtime.state.playbackFrameIndex);
       const activeTransitionName = activeTransition ? resolvePlaybackNodeName(log, activeTransition) : playbackCopy.noActiveTransition;
+      const anchorFrameIndex = Math.max(0, (log.frames?.length || 1) - 1);
+      const anchorFrame = log.frames?.[anchorFrameIndex] || null;
+      const anchorSnapshot = runtime.playbackData?.buildPlaybackSnapshot
+        ? runtime.playbackData.buildPlaybackSnapshot(log, anchorFrameIndex)
+        : snapshot;
       const selectedTree = getSelectedTree(log.preview);
       const treeLabel = selectedTree?.id || log.preview?.defaultTreeId || "MainTree";
+      const diagnostics = buildPlaybackTraceDiagnostics(log, anchorFrameIndex, anchorSnapshot, selectedTree);
       const currentTime = getCurrentPlaybackTimeUs(log, null);
       const frameLabel = frame
         ? `${formatRelativeTime(log, currentTime)}  ${formatPlaybackTimelineClock(log, currentTime)}`
+        : playbackCopy.noFrames;
+      const anchorFrameLabel = anchorFrame
+        ? `${formatRelativeTime(log, anchorFrame.tUs)}  ${formatPlaybackTimelineClock(log, anchorFrame.tUs)}`
         : playbackCopy.noFrames;
       const transitionLabel = activeTransition
         ? `${activeTransitionName} · ${activeTransition.prevStatus} → ${activeTransition.status}`
@@ -420,6 +653,26 @@
         playbackCopy.promptBlackboardEntries(blackboardRows.length),
         playbackCopy.promptSelectedNodePath(runtime.state.selectedNodePath || "0"),
         "",
+        "Diagnostic rules:",
+        "- Use the final frame as the diagnostic anchor because reported errors often appear shortly before the log ends.",
+        "- Check blackboard keys out_error_id, out_error_name, and out_error_details first.",
+        "- If out_error_id or out_error_name matches a known error code/name, classify it directly before explaining.",
+        "- Empty error blackboard fields are not the root cause; continue searching earlier failure, distance, action-context, and servo-context clues.",
+        "- List blackboard values with no usable parameter/value.",
+        "- In the 100 frames before the final frame, look for child FAILURE transitions.",
+        "- Treat a child FAILURE as a chain failure only when ancestor transitions propagate FAILURE without a retry/success before that failure.",
+        "- In the 100 frames before the final frame, check distance-like blackboard values; flag -1, 99999, below 0, or above 100.",
+        "- Check action-context fields such as current_action, next_action, cached/current action names, task_starting_dist_data, and task_ending_dist_data for mismatch.",
+        "- Check servo/navigation context fields such as servo_type, configure_string, servo_mode, current_dist, prepare_dist, and DecelerateNavi values.",
+        "- If the final/root status is RUNNING or otherwise non-terminal, conclude that this btlog is incomplete or inconclusive. Do not conclude success or failure from intermediate clues.",
+        "- If the root node and relevant chain return SUCCESS near the final frame and there is no concrete error evidence, conclude only that the btlog shows normal successful completion.",
+        "- Do not say behavior abnormality is likely without concrete evidence in this btlog. Missing external context belongs in next checks, not in the conclusion.",
+        "- Answer as two required short sections: 结论 and 核心证据. Add 猜测 only after 核心证据 when uncertainty remains. Do not repeat every candidate.",
+        "",
+        `Diagnostic anchor frame: #${anchorFrameIndex} ${anchorFrameLabel}`,
+        `Trace focus frame: #${diagnostics.focusFrameIndex} (${diagnostics.focusReason})`,
+        diagnostics.prompt,
+        "",
         playbackCopy.promptFocus
       ].join("\n");
 
@@ -428,8 +681,501 @@
         frameLabel,
         transitionLabel,
         blackboardLabel,
-        prompt
+        prompt,
+        focusFrameIndex: diagnostics.focusFrameIndex,
+        shouldAutoNavigate: diagnostics.shouldAutoNavigate
       };
+    }
+
+    function buildPlaybackTraceDiagnostics(log, anchorFrameIndex, anchorSnapshot, selectedTree) {
+      const previousWindowStart = Math.max(0, anchorFrameIndex - 100);
+      const blackboardEntries = flattenTraceBlackboardEntries(anchorSnapshot?.blackboardValues || {});
+      const errorKeys = ["out_error_id", "out_error_name", "out_error_details"].map((key) =>
+        describeTraceBlackboardKey(blackboardEntries, key)
+      );
+      const emptyValues = blackboardEntries
+        .filter((entry) => isMissingTraceValue(entry.value))
+        .slice(0, 30);
+      const failureCandidates = collectTraceFailureCandidates(log, previousWindowStart, anchorFrameIndex);
+      const distanceAnomalies = collectTraceDistanceAnomalies(log, previousWindowStart, anchorFrameIndex);
+      const knownError = classifyTraceKnownError(errorKeys);
+      const actionContext = collectTraceBlackboardSignals(blackboardEntries, [
+        "current_action",
+        "next_action",
+        "缓存动作名",
+        "当前动作名",
+        "task_starting_dist_data",
+        "task_ending_dist_data",
+        "fork_height",
+        "dist_to_target",
+        "dist_to_start"
+      ]);
+      const servoContext = collectTraceBlackboardSignals(blackboardEntries, [
+        "servo_type",
+        "configure_string",
+        "servo_mode",
+        "current_dist",
+        "prepare_dist",
+        "DecelerateNavi"
+      ]);
+      const rootStatus = describeTraceRootStatus(log, selectedTree, previousWindowStart, anchorFrameIndex, anchorSnapshot);
+      const assessment = assessTraceBtlogAbnormality(errorKeys, failureCandidates, distanceAnomalies, rootStatus, knownError);
+      const focus = determineTraceFocusFrame(anchorFrameIndex, knownError, failureCandidates, distanceAnomalies, rootStatus);
+
+      return {
+        focusFrameIndex: focus.frameIndex,
+        focusReason: focus.reason,
+        shouldAutoNavigate: focus.shouldAutoNavigate,
+        prompt: [
+          `Btlog anomaly assessment: ${assessment}`,
+          `Root status near final frame: ${formatTraceRootStatus(rootStatus)}`,
+          `Known error classification: ${knownError ? `${knownError.name} (${knownError.evidence})` : "none"}`,
+          formatTraceSection("Error blackboard keys", errorKeys.map(formatTraceBlackboardKey)),
+          formatTraceSection("Blackboard values without usable parameters", emptyValues.map(formatTraceBlackboardEntry)),
+          formatTraceSection("Action context signals", actionContext.map(formatTraceBlackboardEntry)),
+          formatTraceSection("Servo/navigation context signals", servoContext.map(formatTraceBlackboardEntry)),
+          formatTraceSection(
+            `Child FAILURE candidates in frames ${previousWindowStart}-${anchorFrameIndex}`,
+            failureCandidates.map(formatTraceFailureCandidate)
+          ),
+          formatTraceSection(
+            `Distance anomalies in frames ${previousWindowStart}-${anchorFrameIndex}`,
+            distanceAnomalies.map(formatTraceDistanceAnomaly)
+          )
+        ].join("\n")
+      };
+    }
+
+    function determineTraceFocusFrame(anchorFrameIndex, knownError, failureCandidates, distanceAnomalies, rootStatus) {
+      if (isTraceNonTerminalStatus(rootStatus?.lastTransition?.status || rootStatus?.snapshotStatus || "")) {
+        return {
+          frameIndex: anchorFrameIndex,
+          reason: "final/root status is non-terminal",
+          shouldAutoNavigate: true
+        };
+      }
+      const confirmedFailure = failureCandidates.find((candidate) => candidate.chain.confirmed);
+      if (confirmedFailure) {
+        return {
+          frameIndex: confirmedFailure.transition.frameIndex,
+          reason: `confirmed failure chain at ${confirmedFailure.nodeName}#${confirmedFailure.transition.uid}`,
+          shouldAutoNavigate: true
+        };
+      }
+      if (rootStatus?.lastTransition?.status === "FAILURE") {
+        return {
+          frameIndex: rootStatus.lastTransition.frameIndex,
+          reason: `root FAILURE at ${rootStatus.nodeName}#${rootStatus.uid}`,
+          shouldAutoNavigate: true
+        };
+      }
+      if (rootStatus?.lastTransition?.status === "SUCCESS") {
+        const firstDistanceAnomaly = distanceAnomalies[0];
+        if (firstDistanceAnomaly) {
+          return {
+            frameIndex: firstDistanceAnomaly.frameIndex,
+            reason: `first distance anomaly ${firstDistanceAnomaly.sourceKey}`,
+            shouldAutoNavigate: true
+          };
+        }
+        if (knownError) {
+          return {
+            frameIndex: anchorFrameIndex,
+            reason: "known error blackboard near final frame",
+            shouldAutoNavigate: true
+          };
+        }
+        return {
+          frameIndex: anchorFrameIndex,
+          reason: "root SUCCESS and no concrete btlog error evidence",
+          shouldAutoNavigate: false
+        };
+      }
+      const firstFailure = failureCandidates[0];
+      if (firstFailure) {
+        return {
+          frameIndex: firstFailure.transition.frameIndex,
+          reason: `first failure candidate at ${firstFailure.nodeName}#${firstFailure.transition.uid}`,
+          shouldAutoNavigate: true
+        };
+      }
+      const firstDistanceAnomaly = distanceAnomalies[0];
+      if (firstDistanceAnomaly) {
+        return {
+          frameIndex: firstDistanceAnomaly.frameIndex,
+          reason: `first distance anomaly ${firstDistanceAnomaly.sourceKey}`,
+          shouldAutoNavigate: true
+        };
+      }
+      if (knownError) {
+        return {
+          frameIndex: anchorFrameIndex,
+          reason: "known error blackboard near final frame",
+          shouldAutoNavigate: true
+        };
+      }
+      return {
+        frameIndex: anchorFrameIndex,
+        reason: "final frame anchor",
+        shouldAutoNavigate: false
+      };
+    }
+
+    function describeTraceBlackboardKey(entries, key) {
+      const match = entries.find((entry) => entry.key === key || entry.sourceKey === key);
+      return {
+        key,
+        present: Boolean(match),
+        value: match?.value
+      };
+    }
+
+    function collectTraceFailureCandidates(log, startFrameIndex, endFrameIndex) {
+      const transitions = log.transitions || [];
+      const parentByUid = buildTraceParentByUid(log);
+      const candidates = [];
+      transitions.forEach((transition, index) => {
+        if (
+          transition.frameIndex < startFrameIndex ||
+          transition.frameIndex > endFrameIndex ||
+          transition.status !== "FAILURE" ||
+          !parentByUid[String(transition.uid)]
+        ) {
+          return;
+        }
+        const chain = evaluateTraceFailureChain(log, index, parentByUid, endFrameIndex);
+        candidates.push({
+          transition,
+          index,
+          nodeName: resolvePlaybackNodeName(log, transition),
+          chain
+        });
+      });
+      candidates.sort((left, right) => left.transition.frameIndex - right.transition.frameIndex || left.index - right.index);
+      return candidates.slice(0, 20);
+    }
+
+    function describeTraceRootStatus(log, selectedTree, startFrameIndex, endFrameIndex, anchorSnapshot) {
+      const rootUid = selectedTree?.node?.attributes?._uid ? String(selectedTree.node.attributes._uid) : "";
+      if (!rootUid) {
+        return {
+          uid: "",
+          nodeName: selectedTree?.node?.title || "root",
+          snapshotStatus: "",
+          lastTransition: null
+        };
+      }
+      let lastTransition = null;
+      (log.transitions || []).forEach((transition) => {
+        if (
+          String(transition.uid) === rootUid &&
+          transition.frameIndex >= startFrameIndex &&
+          transition.frameIndex <= endFrameIndex
+        ) {
+          lastTransition = transition;
+        }
+      });
+      return {
+        uid: rootUid,
+        nodeName: selectedTree?.node?.title || `uid ${rootUid}`,
+        snapshotStatus: anchorSnapshot?.statusByUid?.[rootUid] || "",
+        lastTransition
+      };
+    }
+
+    function assessTraceBtlogAbnormality(errorKeys, failureCandidates, distanceAnomalies, rootStatus, knownError) {
+      const hasErrorBlackboard = errorKeys.some((entry) => entry.present && !isMissingTraceValue(entry.value));
+      const hasConfirmedFailureChain = failureCandidates.some((candidate) => candidate.chain.confirmed);
+      const hasDistanceAnomaly = distanceAnomalies.length > 0;
+      const rootTerminalStatus = rootStatus?.lastTransition?.status || rootStatus?.snapshotStatus || "";
+      if (isTraceNonTerminalStatus(rootTerminalStatus)) {
+        return "Btlog is incomplete or inconclusive because the final/root status is non-terminal. Do not conclude success or failure. Put intermediate failures, distance anomalies, and missing external context only in evidence or guess.";
+      }
+      if (knownError || hasErrorBlackboard || hasConfirmedFailureChain || rootTerminalStatus === "FAILURE") {
+        return "Potential btlog error. Give the most likely failure conclusion first, then core evidence only.";
+      }
+      if (rootTerminalStatus === "SUCCESS") {
+        return "Btlog evidence shows normal successful completion because the root returned SUCCESS near the final frame and no concrete error evidence was found. Do not infer behavior abnormality from missing external context.";
+      }
+      if (hasDistanceAnomaly) {
+        return "No confirmed btlog failure chain, but distance anomaly exists. Treat distance as the primary clue and ask for external behavior context if needed.";
+      }
+      return "No clear btlog error from the provided context. If the user expects behavior-abnormality analysis, ask for expected behavior, observed symptom, task/order context, and relevant robot state as next checks.";
+    }
+
+    function isTraceNonTerminalStatus(status) {
+      const normalized = String(status || "").toUpperCase();
+      return normalized === "RUNNING" || normalized === "IDLE" || normalized === "SKIPPED";
+    }
+
+    function evaluateTraceFailureChain(log, transitionIndex, parentByUid, endFrameIndex) {
+      const transition = log.transitions?.[transitionIndex] || null;
+      if (!transition) {
+        return { confirmed: false, evidence: [] };
+      }
+      const ancestorUids = [];
+      let parentUid = parentByUid[String(transition.uid)];
+      while (parentUid) {
+        ancestorUids.push(parentUid);
+        parentUid = parentByUid[parentUid];
+      }
+      const evidence = ancestorUids.map((uid) => findNextTraceStatusForUid(log, uid, transitionIndex + 1, endFrameIndex));
+      const directParentFailed = evidence[0]?.status === "FAILURE";
+      const hasRetryOrSuccessBeforeFailure = evidence.some((entry) => entry.status === "RUNNING" || entry.status === "SUCCESS");
+      const ancestorsWithStatus = evidence.filter((entry) => entry.status);
+      const allObservedAncestorsFailed = ancestorsWithStatus.length > 0 && ancestorsWithStatus.every((entry) => entry.status === "FAILURE");
+      return {
+        confirmed: directParentFailed && allObservedAncestorsFailed && !hasRetryOrSuccessBeforeFailure,
+        evidence
+      };
+    }
+
+    function findNextTraceStatusForUid(log, uid, startTransitionIndex, endFrameIndex) {
+      const transitions = log.transitions || [];
+      for (let index = startTransitionIndex; index < transitions.length; index += 1) {
+        const transition = transitions[index];
+        if (transition.frameIndex > endFrameIndex) {
+          break;
+        }
+        if (String(transition.uid) === String(uid)) {
+          return {
+            uid,
+            frameIndex: transition.frameIndex,
+            status: transition.status,
+            nodeName: resolvePlaybackNodeName(log, transition)
+          };
+        }
+      }
+      return { uid, frameIndex: null, status: "", nodeName: `uid ${uid}` };
+    }
+
+    function collectTraceDistanceAnomalies(log, startFrameIndex, endFrameIndex) {
+      const anomalies = [];
+      const seen = new Set();
+      for (let frameIndex = startFrameIndex; frameIndex <= endFrameIndex; frameIndex += 1) {
+        const snapshot = runtime.playbackData?.buildPlaybackSnapshot
+          ? runtime.playbackData.buildPlaybackSnapshot(log, frameIndex)
+          : null;
+        const entries = flattenTraceBlackboardEntries(snapshot?.blackboardValues || {});
+        entries.forEach((entry) => {
+          if (!isTraceDistanceKey(entry.key) && !isTraceDistanceKey(entry.sourceKey)) {
+            return;
+          }
+          const numeric = parseTraceNumericValue(entry.value);
+          if (!Number.isFinite(numeric) || !isTraceDistanceAnomaly(numeric)) {
+            return;
+          }
+          const key = `${frameIndex}:${entry.sourceKey}:${numeric}`;
+          if (seen.has(key)) {
+            return;
+          }
+          seen.add(key);
+          anomalies.push({ frameIndex, key: entry.key, sourceKey: entry.sourceKey, value: numeric });
+        });
+        if (anomalies.length >= 30) {
+          break;
+        }
+      }
+      return anomalies;
+    }
+
+    function classifyTraceKnownError(errorKeys) {
+      const combined = errorKeys
+        .map((entry) => `${entry.key}=${formatTraceValue(entry.value)}`)
+        .join(" ");
+      const patterns = [
+        {
+          name: "603008 initial_less_than_ready / 初始距离小于准备距离",
+          markers: ["603008", "initial_less_than_ready"]
+        },
+        {
+          name: "603011 fork_abnormal_before_ready_point / 未达准备点前叉齿异常",
+          markers: ["603011", "fork_abnormal_before_ready_point"]
+        },
+        {
+          name: "603012 fork_abnormal_past_ready_point / 越过准备点叉齿异常",
+          markers: ["603012", "fork_abnormal_past_ready_point"]
+        },
+        {
+          name: "603036 has_no_goods_before_unloading / 卸货前检测无货",
+          markers: ["603036", "has_no_goods_before_unloading"]
+        },
+        {
+          name: "603037 goods_stuck / 货物卡住卸载失败",
+          markers: ["603037", "goods_stuck"]
+        },
+        {
+          name: "603331 no_cargo_check_failed / 无货检测失败",
+          markers: ["603331", "no_cargo_check_failed"]
+        },
+        {
+          name: "carrier_ctrl task execute failed / 载具控制任务失败",
+          markers: ["carrier_ctrl", "task_excute_failed", "task_execute_failed", "载具控制"]
+        },
+        {
+          name: "No dock_scene / 对接场景参数缺失",
+          markers: ["No dock_scene", "dock_scene"]
+        }
+      ];
+      const lowerCombined = combined.toLowerCase();
+      const match = patterns.find((pattern) =>
+        pattern.markers.some((marker) => lowerCombined.includes(String(marker).toLowerCase()))
+      );
+      return match ? { name: match.name, evidence: combined } : null;
+    }
+
+    function collectTraceBlackboardSignals(entries, keys) {
+      const normalizedKeys = keys.map((key) => String(key).toLowerCase());
+      return entries
+        .filter((entry) => {
+          const key = `${entry.key} ${entry.sourceKey}`.toLowerCase();
+          return normalizedKeys.some((needle) => key.includes(needle));
+        })
+        .slice(0, 20);
+    }
+
+    function buildTraceParentByUid(log) {
+      const childrenByUid = runtime.playbackData?.getPlaybackCache?.(log)?.nodeIndex?.childrenByUid || {};
+      const parentByUid = {};
+      Object.entries(childrenByUid).forEach(([parentUid, childUids]) => {
+        (childUids || []).forEach((childUid) => {
+          parentByUid[String(childUid)] = String(parentUid);
+        });
+      });
+      return parentByUid;
+    }
+
+    function flattenTraceBlackboardEntries(values) {
+      if (!values || typeof values !== "object" || Array.isArray(values)) {
+        return [];
+      }
+      const entries = [];
+      Object.entries(values).forEach(([scope, scopedValues]) => {
+        if (scopedValues && typeof scopedValues === "object" && !Array.isArray(scopedValues)) {
+          Object.entries(scopedValues).forEach(([key, value]) => {
+            entries.push({
+              key: getTraceDisplayKey(key),
+              sourceKey: scope ? `${scope}/${key}` : key,
+              value
+            });
+          });
+          return;
+        }
+        entries.push({
+          key: getTraceDisplayKey(scope),
+          sourceKey: scope,
+          value: scopedValues
+        });
+      });
+      entries.sort((left, right) => left.key.localeCompare(right.key));
+      return entries;
+    }
+
+    function getTraceDisplayKey(key) {
+      const text = String(key || "");
+      const parts = text.split("/").filter(Boolean);
+      return parts[parts.length - 1] || text || "(value)";
+    }
+
+    function isMissingTraceValue(value) {
+      if (value === null || value === undefined) {
+        return true;
+      }
+      if (typeof value === "string") {
+        return value.trim() === "";
+      }
+      if (Array.isArray(value)) {
+        return value.length === 0;
+      }
+      if (typeof value === "object") {
+        return Object.keys(value).length === 0;
+      }
+      return false;
+    }
+
+    function isTraceDistanceKey(key) {
+      const text = String(key || "").toLowerCase();
+      return (
+        /(^|[^a-z0-9])dist([^a-z0-9]|$)/i.test(text) ||
+        text.includes("endpointdis") ||
+        text.includes("current_dist") ||
+        text.includes("prepare_dist") ||
+        text.includes("dist_to_target") ||
+        text.includes("dist_to_start") ||
+        text.includes("task_starting_dist_data") ||
+        text.includes("task_ending_dist_data")
+      );
+    }
+
+    function parseTraceNumericValue(value) {
+      if (typeof value === "number") {
+        return value;
+      }
+      if (typeof value === "string") {
+        const match = value.trim().match(/^-?\d+(?:\.\d+)?$/);
+        return match ? Number(match[0]) : NaN;
+      }
+      return NaN;
+    }
+
+    function isTraceDistanceAnomaly(value) {
+      return value === -1 || value === 99999 || value < 0 || value > 100;
+    }
+
+    function formatTraceSection(title, lines) {
+      return [`${title}:`, ...(lines.length ? lines.map((line) => `- ${line}`) : ["- None found"])].join("\n");
+    }
+
+    function formatTraceBlackboardKey(entry) {
+      const state = entry.present && !isMissingTraceValue(entry.value) ? "present" : entry.present ? "empty" : "missing";
+      return `${entry.key}: ${state}${entry.present ? ` (${formatTraceValue(entry.value)})` : ""}`;
+    }
+
+    function formatTraceBlackboardEntry(entry) {
+      return `${entry.sourceKey}: ${formatTraceValue(entry.value)}`;
+    }
+
+    function formatTraceFailureCandidate(candidate) {
+      const transition = candidate.transition;
+      const chainState = candidate.chain.confirmed ? "chain-confirmed" : "needs-review";
+      const evidence = candidate.chain.evidence
+        .map((entry) => `${entry.nodeName}#${entry.uid}${entry.status ? ` -> ${entry.status} @ frame ${entry.frameIndex}` : " -> no observed parent status"}`)
+        .join("; ");
+      return `frame ${transition.frameIndex}, ${candidate.nodeName}#${transition.uid} ${transition.prevStatus}->${transition.status}: ${chainState}${evidence ? `; ancestors: ${evidence}` : ""}`;
+    }
+
+    function formatTraceDistanceAnomaly(entry) {
+      return `frame ${entry.frameIndex}, ${entry.sourceKey}: ${entry.value}`;
+    }
+
+    function formatTraceRootStatus(rootStatus) {
+      if (!rootStatus?.uid) {
+        return "unknown root uid";
+      }
+      const transition = rootStatus.lastTransition;
+      if (transition) {
+        return `${rootStatus.nodeName}#${rootStatus.uid} ${transition.prevStatus}->${transition.status} @ frame ${transition.frameIndex}`;
+      }
+      return `${rootStatus.nodeName}#${rootStatus.uid} snapshot=${rootStatus.snapshotStatus || "unknown"}`;
+    }
+
+    function formatTraceValue(value) {
+      if (value === undefined) {
+        return "<undefined>";
+      }
+      if (typeof value === "string") {
+        return truncateTraceText(value || "<empty>");
+      }
+      try {
+        return truncateTraceText(JSON.stringify(value));
+      } catch (_error) {
+        return truncateTraceText(String(value));
+      }
+    }
+
+    function truncateTraceText(value, maxLength = 180) {
+      const text = String(value);
+      return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
     }
 
     return {

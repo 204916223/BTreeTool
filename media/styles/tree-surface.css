@@ -1251,6 +1251,36 @@ body.is-panning-playback-duration .playback-duration-viewport {
   overflow-wrap: anywhere;
 }
 
+.playback-trace-feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.playback-trace-feedback-btn {
+  padding: 3px 8px;
+  min-height: 22px;
+  font-size: 11px;
+}
+
+.playback-trace-feedback-btn.reasonable {
+  border-color: color-mix(in srgb, #37b26c 44%, var(--line));
+  color: color-mix(in srgb, #37b26c 82%, var(--text));
+}
+
+.playback-trace-feedback-btn.nonsense {
+  border-color: color-mix(in srgb, #d84a4a 44%, var(--line));
+  color: color-mix(in srgb, #d84a4a 84%, var(--text));
+}
+
+.playback-trace-feedback-status {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .playback-trace-composer {
   min-width: 0;
   display: grid;
@@ -1308,6 +1338,32 @@ body.is-panning-playback-duration .playback-duration-viewport {
   min-width: 0;
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.playback-trace-provider-select {
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  padding: 2px 20px 2px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.playback-trace-provider-select:hover,
+.playback-trace-provider-select:focus {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--color-surface-subtle) 70%, transparent);
+  color: var(--text);
+  outline: none;
+}
+
+.playback-trace-provider-select:disabled {
+  opacity: 0.82;
 }
 
 .playback-trace-status-actions {

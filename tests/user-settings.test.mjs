@@ -48,6 +48,7 @@ test("default user settings match the product defaults", () => {
   assert.equal(DEFAULT_USER_SETTINGS.copyNodeWithDescendants, false);
   assert.equal(DEFAULT_USER_SETTINGS.playbackAutoNavigateToTree, false);
   assert.equal(DEFAULT_USER_SETTINGS.allowUnclosedPlaybackLog, true);
+  assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnabled, false);
 });
 
 test("cloned user settings keep the new boolean defaults", () => {
@@ -57,6 +58,7 @@ test("cloned user settings keep the new boolean defaults", () => {
   assert.equal(cloned.copyNodeWithDescendants, false);
   assert.equal(cloned.playbackAutoNavigateToTree, false);
   assert.equal(cloned.allowUnclosedPlaybackLog, true);
+  assert.equal(cloned.traceLearningEnabled, false);
 });
 
 test("load user settings creates defaults only when the file is missing", async () => {

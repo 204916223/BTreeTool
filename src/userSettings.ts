@@ -46,6 +46,7 @@ export interface BtUserSettings {
   copyNodeWithDescendants: boolean;
   playbackAutoNavigateToTree: boolean;
   allowUnclosedPlaybackLog: boolean;
+  traceLearningEnabled: boolean;
   nodeAttributeLayout: BtNodeAttributeLayout;
   editTreeRenderMode: BtTreeRenderMode;
   playbackTreeRenderMode: BtTreeRenderMode;
@@ -65,6 +66,7 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   copyNodeWithDescendants: false,
   playbackAutoNavigateToTree: false,
   allowUnclosedPlaybackLog: true,
+  traceLearningEnabled: false,
   nodeAttributeLayout: "inline",
   editTreeRenderMode: "paged",
   playbackTreeRenderMode: "paged",
@@ -192,6 +194,7 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     copyNodeWithDescendants: settings.copyNodeWithDescendants === true,
     playbackAutoNavigateToTree: settings.playbackAutoNavigateToTree === true,
     allowUnclosedPlaybackLog: settings.allowUnclosedPlaybackLog !== false,
+    traceLearningEnabled: settings.traceLearningEnabled === true,
     nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
     editTreeRenderMode: normalizeTreeRenderMode(settings.editTreeRenderMode),
     playbackTreeRenderMode: normalizeTreeRenderMode(settings.playbackTreeRenderMode),
@@ -222,6 +225,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const copyNodeWithDescendants = input.copyNodeWithDescendants === true;
   const playbackAutoNavigateToTree = input.playbackAutoNavigateToTree === true;
   const allowUnclosedPlaybackLog = input.allowUnclosedPlaybackLog !== false;
+  const traceLearningEnabled = input.traceLearningEnabled === true;
   const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
   const editTreeRenderMode = normalizeTreeRenderMode(input.editTreeRenderMode);
   const playbackTreeRenderMode = normalizeTreeRenderMode(input.playbackTreeRenderMode);
@@ -243,6 +247,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     copyNodeWithDescendants,
     playbackAutoNavigateToTree,
     allowUnclosedPlaybackLog,
+    traceLearningEnabled,
     nodeAttributeLayout,
     editTreeRenderMode,
     playbackTreeRenderMode,

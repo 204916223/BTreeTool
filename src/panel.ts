@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
 import { BtPlaybackLog } from "./core/btlog";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
@@ -10,7 +11,7 @@ import {
   mergeRecommendedPresets,
   saveUserSettings
 } from "./userSettings";
-import { addTraceProvider, getTraceConfigState, loadTraceConfig } from "./traceConfig";
+import { addTraceProvider, getTraceConfigState, loadTraceConfig, setActiveTraceProvider } from "./traceConfig";
 import { getWebviewHtml } from "./panel/webviewHtml";
 import {
   PreviewPayload,
@@ -446,6 +447,11 @@ export class BehaviorTreePreviewPanel {
       return true;
     }
 
+    if (message.type === "setTraceProvider" && "payload" in message) {
+      void this.handleSetTraceProvider(message.payload);
+      return true;
+    }
+
     if (message.type === "traceAsk" && "payload" in message) {
       void this.handleTraceAsk(message.payload);
       return true;
@@ -453,6 +459,11 @@ export class BehaviorTreePreviewPanel {
 
     if (message.type === "traceCancel" && "payload" in message) {
       void this.handleTraceCancel(message.payload);
+      return true;
+    }
+
+    if (message.type === "traceFeedback" && "payload" in message) {
+      void this.handleTraceFeedback(message.payload);
       return true;
     }
 
@@ -1050,6 +1061,27 @@ export class BehaviorTreePreviewPanel {
     });
   }
 
+  private async handleSetTraceProvider(payload: { providerId?: string } | undefined): Promise<void> {
+    const providerId = payload?.providerId || "";
+    if (!providerId) {
+      return;
+    }
+
+    try {
+      const { config, configUri } = await loadTraceConfig(this.globalStorageUri);
+      const updated = await setActiveTraceProvider(configUri, config, providerId);
+      this.traceConfigFileUri = configUri;
+      this.panel.webview.postMessage({
+        type: "traceConfigState",
+        payload: getTraceConfigState(updated, configUri.fsPath)
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(`BTreeTool: ${message}`);
+      void this.postTraceConfigState();
+    }
+  }
+
   private async handleTraceAsk(
     payload:
       | {
@@ -1074,6 +1106,70 @@ export class BehaviorTreePreviewPanel {
 
   private async handleTraceCancel(payload: { requestId?: string } | undefined): Promise<void> {
     cancelTraceRequest(this.traceRequestControllers, payload);
+  }
+
+  private async handleTraceFeedback(
+    payload:
+      | {
+          requestId?: string;
+          verdict?: "reasonable" | "nonsense";
+          logFilePath?: string;
+          frameIndex?: number;
+          question?: string;
+          answer?: string;
+          context?: string;
+          feedbackTarget?: string;
+          sectionLabel?: string;
+        }
+      | undefined
+  ): Promise<void> {
+    const verdict = payload?.verdict === "reasonable" ? "reasonable" : payload?.verdict === "nonsense" ? "nonsense" : "";
+    if (!payload?.requestId || !verdict) {
+      return;
+    }
+
+    const record = {
+      createdAt: new Date().toISOString(),
+      action: verdict === "reasonable" ? "learn" : "optimize",
+      requestId: payload.requestId,
+      verdict,
+      logFilePath: payload.logFilePath || "",
+      frameIndex: Number.isInteger(payload.frameIndex) ? payload.frameIndex : null,
+      question: payload.question || "",
+      answer: payload.answer || "",
+      context: payload.context || "",
+      feedbackTarget: payload.feedbackTarget || "answer",
+      sectionLabel: payload.sectionLabel || ""
+    };
+    const directoryPath = this.globalStorageUri.fsPath;
+    const filePath = vscode.Uri.joinPath(this.globalStorageUri, "trace-feedback.jsonl").fsPath;
+    await fs.promises.mkdir(directoryPath, { recursive: true });
+    if (await this.hasTraceFeedbackRecord(filePath, record.requestId, record.feedbackTarget)) {
+      return;
+    }
+    await fs.promises.appendFile(filePath, `${JSON.stringify(record)}\n`, "utf8");
+  }
+
+  private async hasTraceFeedbackRecord(filePath: string, requestId: string, feedbackTarget: string): Promise<boolean> {
+    try {
+      const content = await fs.promises.readFile(filePath, "utf8");
+      return content
+        .split("\n")
+        .filter(Boolean)
+        .some((line) => {
+          try {
+            const entry = JSON.parse(line);
+            return entry?.requestId === requestId && entry?.feedbackTarget === feedbackTarget;
+          } catch (_error) {
+            return false;
+          }
+        });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+        return false;
+      }
+      throw error;
+    }
   }
 
   private async initializeSettings(): Promise<void> {

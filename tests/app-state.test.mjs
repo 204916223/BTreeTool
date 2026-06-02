@@ -56,6 +56,7 @@ test("app state gives each instance independent default settings collections", (
   assert.equal(firstState.currentSettings.copyNodeWithDescendants, false);
   assert.equal(firstState.currentSettings.playbackAutoNavigateToTree, false);
   assert.equal(firstState.currentSettings.allowUnclosedPlaybackLog, true);
+  assert.equal(firstState.currentSettings.traceLearningEnabled, false);
 
   firstState.currentSettings.presetNodes.push({ key: "Custom" });
   firstState.currentSettings.simplifyHiddenSections.push("description");
@@ -98,6 +99,7 @@ test("app state seeds full current settings from initial settings", () => {
       copyNodeWithDescendants: true,
       playbackAutoNavigateToTree: true,
       allowUnclosedPlaybackLog: false,
+      traceLearningEnabled: true,
       nodeAttributeLayout: "stacked",
       editTreeRenderMode: "expanded",
       playbackTreeRenderMode: "expanded",
@@ -116,6 +118,7 @@ test("app state seeds full current settings from initial settings", () => {
     copyNodeWithDescendants: true,
     playbackAutoNavigateToTree: true,
     allowUnclosedPlaybackLog: false,
+    traceLearningEnabled: true,
     nodeAttributeLayout: "stacked",
     editTreeRenderMode: "expanded",
     playbackTreeRenderMode: "expanded",

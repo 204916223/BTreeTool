@@ -168,6 +168,19 @@ export async function addTraceProvider(
   };
 }
 
+export async function setActiveTraceProvider(
+  configUri: vscode.Uri,
+  config: TraceConfig,
+  providerId: string
+): Promise<TraceConfig> {
+  const normalized = normalizeTraceConfig(config);
+  if (!normalized.providers[providerId]) {
+    throw new Error(`Unsupported Trace provider: ${providerId}`);
+  }
+  normalized.activeProvider = providerId;
+  return saveTraceConfig(configUri, normalized);
+}
+
 export function getTraceConfigState(config: TraceConfig, configFilePath: string): TraceConfigState {
   const normalized = normalizeTraceConfig(config);
   const providers = sortProviderStatuses(
@@ -373,6 +386,13 @@ function buildTracePrompt(request: TraceChatRequest): string {
     "You are Trace, an assistant embedded in BTreeTool.",
     "Scope: only diagnose the currently opened btlog playback file and the frame context provided below.",
     "Answer in the user's language. Be concise, evidence-driven, and point to the likely first meaningful failure.",
+    "Always answer with the conclusion first, then the core evidence.",
+    "Format the answer as two required short sections, '结论：...' and '核心证据：...', plus an optional '猜测：...' section only when uncertainty remains.",
+    "Do not list every provided evidence item. Report only the conclusion, the core evidence, and the next check when needed.",
+    "Base the conclusion only on btlog evidence. If the btlog evidence shows the root and relevant chain succeeded with no error evidence, conclude that the btlog shows normal successful completion.",
+    "If the final/root status is RUNNING or otherwise non-terminal, conclude that the btlog is incomplete or inconclusive; do not conclude success or failure.",
+    "Do not describe behavior abnormality as likely unless the provided context contains concrete evidence for it. Put missing external information only in the next-check or guess part.",
+    "Do not put uncertain guesses in the conclusion. Put guesses only after the evidence under '猜测：'.",
     "",
     "Current btlog context:",
     request.context,

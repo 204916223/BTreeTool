@@ -129,6 +129,7 @@
     const playbackTrace = runtime.playbackTrace.create({
       vscode,
       buildCurrentPlaybackSnapshot,
+      setPlaybackFrame,
       getCurrentPlaybackTimeUs,
       isPlaybackTimeBasedMode,
       getActiveTransitionAtTime,
