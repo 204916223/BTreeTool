@@ -664,7 +664,8 @@
         "- In the 100 frames before the final frame, check distance-like blackboard values; flag -1, 99999, below 0, or above 100.",
         "- Check action-context fields such as current_action, next_action, cached/current action names, task_starting_dist_data, and task_ending_dist_data for mismatch.",
         "- Check servo/navigation context fields such as servo_type, configure_string, servo_mode, current_dist, prepare_dist, and DecelerateNavi values.",
-        "- If the final/root status is RUNNING or otherwise non-terminal, conclude that this btlog is incomplete or inconclusive. Do not conclude success or failure from intermediate clues.",
+        "- Concrete error evidence has priority over non-terminal final/root status. Populated out_error fields, known error code/name, root FAILURE, or confirmed failure chain are enough to conclude a btlog error.",
+        "- If the final/root status is RUNNING or otherwise non-terminal and there is no concrete error evidence, conclude that this btlog is incomplete or inconclusive. Do not conclude success or failure from intermediate clues.",
         "- If the root node and relevant chain return SUCCESS near the final frame and there is no concrete error evidence, conclude only that the btlog shows normal successful completion.",
         "- Do not say behavior abnormality is likely without concrete evidence in this btlog. Missing external context belongs in next checks, not in the conclusion.",
         "- Answer as two required short sections: 结论 and 核心证据. Add 猜测 only after 核心证据 when uncertainty remains. Do not repeat every candidate.",
@@ -719,8 +720,9 @@
         "DecelerateNavi"
       ]);
       const rootStatus = describeTraceRootStatus(log, selectedTree, previousWindowStart, anchorFrameIndex, anchorSnapshot);
+      const hasErrorBlackboard = errorKeys.some((entry) => entry.present && !isMissingTraceValue(entry.value));
       const assessment = assessTraceBtlogAbnormality(errorKeys, failureCandidates, distanceAnomalies, rootStatus, knownError);
-      const focus = determineTraceFocusFrame(anchorFrameIndex, knownError, failureCandidates, distanceAnomalies, rootStatus);
+      const focus = determineTraceFocusFrame(anchorFrameIndex, knownError, hasErrorBlackboard, failureCandidates, distanceAnomalies, rootStatus);
 
       return {
         focusFrameIndex: focus.frameIndex,
@@ -746,19 +748,26 @@
       };
     }
 
-    function determineTraceFocusFrame(anchorFrameIndex, knownError, failureCandidates, distanceAnomalies, rootStatus) {
-      if (isTraceNonTerminalStatus(rootStatus?.lastTransition?.status || rootStatus?.snapshotStatus || "")) {
-        return {
-          frameIndex: anchorFrameIndex,
-          reason: "final/root status is non-terminal",
-          shouldAutoNavigate: true
-        };
-      }
+    function determineTraceFocusFrame(anchorFrameIndex, knownError, hasErrorBlackboard, failureCandidates, distanceAnomalies, rootStatus) {
       const confirmedFailure = failureCandidates.find((candidate) => candidate.chain.confirmed);
       if (confirmedFailure) {
         return {
           frameIndex: confirmedFailure.transition.frameIndex,
           reason: `confirmed failure chain at ${confirmedFailure.nodeName}#${confirmedFailure.transition.uid}`,
+          shouldAutoNavigate: true
+        };
+      }
+      if (knownError || hasErrorBlackboard) {
+        return {
+          frameIndex: anchorFrameIndex,
+          reason: "error blackboard near final frame",
+          shouldAutoNavigate: true
+        };
+      }
+      if (isTraceNonTerminalStatus(rootStatus?.lastTransition?.status || rootStatus?.snapshotStatus || "")) {
+        return {
+          frameIndex: anchorFrameIndex,
+          reason: "final/root status is non-terminal without concrete error evidence",
           shouldAutoNavigate: true
         };
       }
@@ -775,13 +784,6 @@
           return {
             frameIndex: firstDistanceAnomaly.frameIndex,
             reason: `first distance anomaly ${firstDistanceAnomaly.sourceKey}`,
-            shouldAutoNavigate: true
-          };
-        }
-        if (knownError) {
-          return {
-            frameIndex: anchorFrameIndex,
-            reason: "known error blackboard near final frame",
             shouldAutoNavigate: true
           };
         }
@@ -804,13 +806,6 @@
         return {
           frameIndex: firstDistanceAnomaly.frameIndex,
           reason: `first distance anomaly ${firstDistanceAnomaly.sourceKey}`,
-          shouldAutoNavigate: true
-        };
-      }
-      if (knownError) {
-        return {
-          frameIndex: anchorFrameIndex,
-          reason: "known error blackboard near final frame",
           shouldAutoNavigate: true
         };
       }
@@ -856,11 +851,12 @@
     }
 
     function describeTraceRootStatus(log, selectedTree, startFrameIndex, endFrameIndex, anchorSnapshot) {
-      const rootUid = selectedTree?.node?.attributes?._uid ? String(selectedTree.node.attributes._uid) : "";
+      const rootNode = findTraceExecutionRootNode(selectedTree?.node);
+      const rootUid = rootNode?.attributes?._uid ? String(rootNode.attributes._uid) : "";
       if (!rootUid) {
         return {
           uid: "",
-          nodeName: selectedTree?.node?.title || "root",
+          nodeName: rootNode?.title || selectedTree?.node?.title || "root",
           snapshotStatus: "",
           lastTransition: null
         };
@@ -877,10 +873,27 @@
       });
       return {
         uid: rootUid,
-        nodeName: selectedTree?.node?.title || `uid ${rootUid}`,
+        nodeName: rootNode?.title || `uid ${rootUid}`,
         snapshotStatus: anchorSnapshot?.statusByUid?.[rootUid] || "",
         lastTransition
       };
+    }
+
+    function findTraceExecutionRootNode(node) {
+      if (!node) {
+        return null;
+      }
+      if (node.attributes?._uid) {
+        return node;
+      }
+      const children = node.children || [];
+      for (const child of children) {
+        const match = findTraceExecutionRootNode(child);
+        if (match) {
+          return match;
+        }
+      }
+      return node;
     }
 
     function assessTraceBtlogAbnormality(errorKeys, failureCandidates, distanceAnomalies, rootStatus, knownError) {
@@ -888,11 +901,11 @@
       const hasConfirmedFailureChain = failureCandidates.some((candidate) => candidate.chain.confirmed);
       const hasDistanceAnomaly = distanceAnomalies.length > 0;
       const rootTerminalStatus = rootStatus?.lastTransition?.status || rootStatus?.snapshotStatus || "";
-      if (isTraceNonTerminalStatus(rootTerminalStatus)) {
-        return "Btlog is incomplete or inconclusive because the final/root status is non-terminal. Do not conclude success or failure. Put intermediate failures, distance anomalies, and missing external context only in evidence or guess.";
-      }
       if (knownError || hasErrorBlackboard || hasConfirmedFailureChain || rootTerminalStatus === "FAILURE") {
         return "Potential btlog error. Give the most likely failure conclusion first, then core evidence only.";
+      }
+      if (isTraceNonTerminalStatus(rootTerminalStatus)) {
+        return "Btlog is incomplete or inconclusive because the final/root status is non-terminal and no concrete error evidence was found. Do not conclude success or failure. Put intermediate failures, distance anomalies, and missing external context only in evidence or guess.";
       }
       if (rootTerminalStatus === "SUCCESS") {
         return "Btlog evidence shows normal successful completion because the root returned SUCCESS near the final frame and no concrete error evidence was found. Do not infer behavior abnormality from missing external context.";

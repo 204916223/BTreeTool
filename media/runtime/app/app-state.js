@@ -74,6 +74,8 @@
       playbackDurationLaneHeight: clampNumber(persistedState.playbackDurationLaneHeight, 18, 72, 42),
       playbackDurationTimeScale: clampNumber(persistedState.playbackDurationTimeScale, 0.5, 12, 1),
       playbackDurationTaskPanelVisible: persistedState.playbackDurationTaskPanelVisible === true,
+      playbackDurationScrollLeft: clampNumber(persistedState.playbackDurationScrollLeft, 0, 1000000, 0),
+      playbackDurationScrollTop: clampNumber(persistedState.playbackDurationScrollTop, 0, 1000000, 0),
       playbackStatusByUid: {},
       playbackLatestTransitionByUid: {},
       playbackLastTerminalStatusByUid: {},
@@ -114,7 +116,7 @@
       suppressNodeClickUntil: 0,
       isSpacePressed: false,
       currentDragState: null,
-      MIN_ZOOM: 0.45,
+      MIN_ZOOM: 0.1,
       MAX_ZOOM: 1.8
     };
   }
@@ -144,11 +146,11 @@
       language,
       themePreset,
       showMainTreeLocator: input.showMainTreeLocator === true,
-      showBehaviorTreeRoot: input.showBehaviorTreeRoot !== false,
+      showBehaviorTreeRoot: true,
       requireNodeDeleteConfirmation: input.requireNodeDeleteConfirmation === true,
       copyNodeWithDescendants: input.copyNodeWithDescendants === true,
       playbackAutoNavigateToTree: input.playbackAutoNavigateToTree === true,
-      allowUnclosedPlaybackLog: input.allowUnclosedPlaybackLog !== false,
+      allowUnclosedPlaybackLog: true,
       traceLearningEnabled: input.traceLearningEnabled === true,
       nodeAttributeLayout: input.nodeAttributeLayout === "stacked" ? "stacked" : "inline",
       editTreeRenderMode: input.editTreeRenderMode === "expanded" ? "expanded" : "paged",

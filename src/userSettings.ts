@@ -189,11 +189,11 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     language: settings.language,
     themePreset: settings.themePreset,
     showMainTreeLocator: settings.showMainTreeLocator === true,
-    showBehaviorTreeRoot: settings.showBehaviorTreeRoot !== false,
+    showBehaviorTreeRoot: true,
     requireNodeDeleteConfirmation: settings.requireNodeDeleteConfirmation === true,
     copyNodeWithDescendants: settings.copyNodeWithDescendants === true,
     playbackAutoNavigateToTree: settings.playbackAutoNavigateToTree === true,
-    allowUnclosedPlaybackLog: settings.allowUnclosedPlaybackLog !== false,
+    allowUnclosedPlaybackLog: true,
     traceLearningEnabled: settings.traceLearningEnabled === true,
     nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
     editTreeRenderMode: normalizeTreeRenderMode(settings.editTreeRenderMode),
@@ -220,11 +220,11 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const language = input.language === "zh-CN" ? "zh-CN" : "en-US";
   const themePreset = toThemePreset(input.themePreset, input.treeBackgroundColor);
   const showMainTreeLocator = input.showMainTreeLocator === true;
-  const showBehaviorTreeRoot = input.showBehaviorTreeRoot !== false;
+  const showBehaviorTreeRoot = true;
   const requireNodeDeleteConfirmation = input.requireNodeDeleteConfirmation === true;
   const copyNodeWithDescendants = input.copyNodeWithDescendants === true;
   const playbackAutoNavigateToTree = input.playbackAutoNavigateToTree === true;
-  const allowUnclosedPlaybackLog = input.allowUnclosedPlaybackLog !== false;
+  const allowUnclosedPlaybackLog = true;
   const traceLearningEnabled = input.traceLearningEnabled === true;
   const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
   const editTreeRenderMode = normalizeTreeRenderMode(input.editTreeRenderMode);

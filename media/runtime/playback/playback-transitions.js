@@ -235,6 +235,7 @@
       row.addEventListener("dblclick", (event) => {
         event.preventDefault();
         event.stopPropagation();
+        jumpToTransition(log, transition, { forceNavigate: true });
       });
 
       row.appendChild(createCell("time", formatTransitionTime(log, transition.tUs)));
@@ -244,11 +245,12 @@
       return row;
     }
 
-    function jumpToTransition(log, transition) {
+    function jumpToTransition(log, transition, optionsOverride = {}) {
+      const shouldNavigate = optionsOverride.forceNavigate === true || shouldAutoNavigatePlayback();
       const options = {
-        navigateToActiveNode: shouldAutoNavigatePlayback(),
+        navigateToActiveNode: shouldNavigate,
         scrollList: true,
-        focusNode: shouldAutoNavigatePlayback(),
+        focusNode: shouldNavigate,
         persist: true
       };
       if (isPlaybackTimeBasedMode()) {

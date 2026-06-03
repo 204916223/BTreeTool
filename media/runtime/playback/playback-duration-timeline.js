@@ -1,6 +1,14 @@
 (function () {
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
 
+  function capturePlaybackDurationViewportState(viewport = document.querySelector(".playback-duration-viewport")) {
+    if (!viewport) {
+      return;
+    }
+    runtime.state.playbackDurationScrollLeft = viewport.scrollLeft || 0;
+    runtime.state.playbackDurationScrollTop = viewport.scrollTop || 0;
+  }
+
   function create(handlers) {
     const {
       persistUiState,
@@ -166,6 +174,7 @@
 
       viewport.appendChild(track);
       viewport.addEventListener("scroll", () => {
+        capturePlaybackDurationViewportState(viewport);
         updatePlaybackDurationRangeLabels(log, model);
       }, { passive: true });
       bindPlaybackDurationOverviewWindow(overviewWindow, overview, viewport, log, model);
@@ -193,7 +202,17 @@
       panel.appendChild(main);
       panel.appendChild(renderPlaybackCurrentTaskPanel(log, model, playbackCopy));
       requestAnimationFrame(() => {
-        applyPlaybackDurationTrackWidth(viewport, log, model, getClampedPlaybackDurationTrackWidth(viewport, model, model.trackWidth));
+        applyPlaybackDurationTrackWidth(
+          viewport,
+          log,
+          model,
+          getClampedPlaybackDurationTrackWidth(viewport, model, model.trackWidth),
+          null,
+          null,
+          { captureScroll: false, updateScroll: false }
+        );
+        restorePlaybackDurationViewportState(viewport, log, model);
+        requestAnimationFrame(() => restorePlaybackDurationViewportState(viewport, log, model));
       });
       syncPlaybackDurationTimeline(log, model);
       return panel;
@@ -749,6 +768,19 @@
       const trackWidth = Math.max(1, track.scrollWidth || model.trackWidth || 1);
       const ratio = clampNumber((Number(tUs) - model.firstTime) / model.total, 0, 1);
       viewport.scrollLeft = Math.max(0, ratio * trackWidth - viewport.clientWidth / 2);
+      capturePlaybackDurationViewportState(viewport);
+      updatePlaybackDurationRangeLabels(log, model);
+      syncPlaybackDurationSegmentLabels(model);
+    }
+
+    function restorePlaybackDurationViewportState(viewport, log, model) {
+      if (!viewport) {
+        return;
+      }
+      const scrollLeft = Number(runtime.state.playbackDurationScrollLeft);
+      const scrollTop = Number(runtime.state.playbackDurationScrollTop);
+      viewport.scrollLeft = Number.isFinite(scrollLeft) ? scrollLeft : 0;
+      viewport.scrollTop = Number.isFinite(scrollTop) ? scrollTop : 0;
       updatePlaybackDurationRangeLabels(log, model);
       syncPlaybackDurationSegmentLabels(model);
     }
@@ -762,11 +794,21 @@
       let panFrame = 0;
       let latestClientX = 0;
       let latestClientY = 0;
+      let panAxis = null;
+      const panAxisThreshold = 4;
 
       const applyPan = () => {
         panFrame = 0;
-        viewport.scrollLeft = startScrollLeft - (latestClientX - startX);
-        viewport.scrollTop = startScrollTop - (latestClientY - startY);
+        if (panAxis === "x") {
+          viewport.scrollLeft = startScrollLeft - (latestClientX - startX);
+          viewport.scrollTop = startScrollTop;
+        } else if (panAxis === "y") {
+          viewport.scrollLeft = startScrollLeft;
+          viewport.scrollTop = startScrollTop - (latestClientY - startY);
+        } else {
+          return;
+        }
+        capturePlaybackDurationViewportState(viewport);
         updatePlaybackDurationRangeLabels(log, model);
         syncPlaybackDurationSegmentLabels(model);
       };
@@ -793,6 +835,7 @@
           // Ignore stale pointer capture state.
         }
         activePointerId = null;
+        panAxis = null;
       };
 
       viewport.addEventListener("pointerdown", (event) => {
@@ -810,6 +853,7 @@
         latestClientY = event.clientY;
         startScrollLeft = viewport.scrollLeft;
         startScrollTop = viewport.scrollTop;
+        panAxis = null;
         runtime.state.playbackDurationFollowAnchorX = null;
         document.body.classList.add("is-panning-playback-duration");
         try {
@@ -829,6 +873,14 @@
         }
         latestClientX = event.clientX;
         latestClientY = event.clientY;
+        if (!panAxis) {
+          const deltaX = Math.abs(latestClientX - startX);
+          const deltaY = Math.abs(latestClientY - startY);
+          if (Math.max(deltaX, deltaY) < panAxisThreshold) {
+            return;
+          }
+          panAxis = deltaX >= deltaY ? "x" : "y";
+        }
         schedulePan();
       });
       viewport.addEventListener("pointerup", (event) => {
@@ -893,7 +945,7 @@
       syncPlaybackDurationSegmentLabels(model);
     }
 
-    function applyPlaybackDurationTrackWidth(viewport, log, model, width, anchorRatio = null, anchorX = null) {
+    function applyPlaybackDurationTrackWidth(viewport, log, model, width, anchorRatio = null, anchorX = null, options = {}) {
       const track = viewport.querySelector(".playback-duration-track");
       if (!track) {
         return;
@@ -904,7 +956,12 @@
       model.trackWidth = getClampedPlaybackDurationTrackWidth(viewport, model, width);
       track.style.width = `${model.trackWidth}px`;
       runtime.state.playbackDurationTimeScale = model.trackWidth / Math.max(1, model.baseTrackWidth || 1);
-      viewport.scrollLeft = Math.max(0, resolvedAnchorRatio * model.trackWidth - resolvedAnchorX);
+      if (options.updateScroll !== false) {
+        viewport.scrollLeft = Math.max(0, resolvedAnchorRatio * model.trackWidth - resolvedAnchorX);
+      }
+      if (options.captureScroll !== false) {
+        capturePlaybackDurationViewportState(viewport);
+      }
       updatePlaybackDurationRangeLabels(log, model);
       syncPlaybackDurationSegmentLabels(model);
     }
@@ -982,6 +1039,7 @@
   }
 
   runtime.playbackDurationTimeline = {
-    create
+    create,
+    captureViewportState: capturePlaybackDurationViewportState
   };
 })();

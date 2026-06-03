@@ -29,14 +29,13 @@
       top.className = "playback-dashboard-top";
       top.appendChild(renderPlaybackDurationTimeline(log, playbackCopy));
       layout.appendChild(top);
-      layout.appendChild(createPlaybackDashboardBottomToggle());
 
       if (runtime.state.playbackDashboardBottomVisible !== false) {
         layout.appendChild(createPlaybackDashboardResizer("bottom"));
 
         const blackboardPanel = document.createElement("section");
         blackboardPanel.className = "playback-dashboard-panel playback-dashboard-blackboard";
-        blackboardPanel.appendChild(createPlaybackDashboardPanelHeader(playbackCopy.blackboard));
+        blackboardPanel.appendChild(createPlaybackDashboardPanelHeader(playbackCopy.blackboard, createPlaybackDashboardBottomToggle()));
         blackboardPanel.appendChild(renderPlaybackBlackboardPanel(log, playbackSnapshot, playbackCopy));
 
         const tracePanel = document.createElement("section");
@@ -47,6 +46,8 @@
         layout.appendChild(blackboardPanel);
         layout.appendChild(createPlaybackDashboardResizer("split"));
         layout.appendChild(tracePanel);
+      } else {
+        layout.appendChild(createPlaybackDashboardBottomToggle({ floating: true }));
       }
 
       invalidatePlaybackDomCache();
@@ -61,23 +62,30 @@
       });
     }
 
-    function createPlaybackDashboardPanelHeader(titleText) {
+    function createPlaybackDashboardPanelHeader(titleText, action = null) {
       const header = document.createElement("div");
       header.className = "playback-dashboard-panel-header";
       const title = document.createElement("strong");
       title.textContent = titleText;
       header.appendChild(title);
+      if (action) {
+        header.appendChild(action);
+      }
       return header;
     }
 
-    function createPlaybackDashboardBottomToggle() {
+    function createPlaybackDashboardBottomToggle(options = {}) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "playback-dashboard-bottom-toggle";
+      if (options.floating) {
+        button.classList.add("is-floating");
+      }
       const hidden = runtime.state.playbackDashboardBottomVisible === false;
       button.title = hidden ? "Show lower panels" : "Hide lower panels";
       button.setAttribute("aria-label", button.title);
       button.addEventListener("click", () => {
+        runtime.playbackDurationTimeline?.captureViewportState?.();
         runtime.state.playbackDashboardBottomVisible = runtime.state.playbackDashboardBottomVisible === false;
         renderPlaybackLog();
       });

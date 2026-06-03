@@ -84,11 +84,6 @@
     const mainTreeLocatorText = mainTreeLocatorSwitch.text;
     editRow.appendChild(mainTreeLocatorSwitch.element);
 
-    const behaviorTreeRootSwitch = createSettingsSwitch("ROOT");
-    const behaviorTreeRootInput = behaviorTreeRootSwitch.input;
-    const behaviorTreeRootText = behaviorTreeRootSwitch.text;
-    editRow.appendChild(behaviorTreeRootSwitch.element);
-
     const deleteConfirmSwitch = createSettingsSwitch("Delete Confirm");
     const deleteConfirmInput = deleteConfirmSwitch.input;
     const deleteConfirmText = deleteConfirmSwitch.text;
@@ -128,14 +123,18 @@
     const playbackAutoNavigateText = playbackAutoNavigateSwitch.text;
     playbackRow.appendChild(playbackAutoNavigateSwitch.element);
 
-    const playbackAllowUnclosedLogSwitch = createSettingsSwitch("Allow Unclosed Log");
-    const playbackAllowUnclosedLogInput = playbackAllowUnclosedLogSwitch.input;
-    const playbackAllowUnclosedLogText = playbackAllowUnclosedLogSwitch.text;
-    playbackRow.appendChild(playbackAllowUnclosedLogSwitch.element);
     playbackSection.body.appendChild(playbackRow);
 
     const traceSection = createSettingsSection("Trace Mode");
     traceSection.element.classList.add("settings-section-trace");
+    const traceLearningRow = document.createElement("div");
+    traceLearningRow.className = "settings-toggle-row";
+    const traceLearningSwitch = createSettingsSwitch("Learning");
+    const traceLearningInput = traceLearningSwitch.input;
+    const traceLearningText = traceLearningSwitch.text;
+    traceLearningRow.appendChild(traceLearningSwitch.element);
+    traceSection.body.appendChild(traceLearningRow);
+
     const traceField = document.createElement("div");
     traceField.className = "settings-field";
     const traceFieldLabel = document.createElement("div");
@@ -157,14 +156,6 @@
     traceField.appendChild(traceFieldLabel);
     traceField.appendChild(traceFieldControl);
     traceSection.body.appendChild(traceField);
-
-    const traceLearningRow = document.createElement("div");
-    traceLearningRow.className = "settings-toggle-row";
-    const traceLearningSwitch = createSettingsSwitch("Learning");
-    const traceLearningInput = traceLearningSwitch.input;
-    const traceLearningText = traceLearningSwitch.text;
-    traceLearningRow.appendChild(traceLearningSwitch.element);
-    traceSection.body.appendChild(traceLearningRow);
 
     const actions = document.createElement("div");
     actions.className = "settings-actions";
@@ -202,11 +193,11 @@
         playbackTreeRenderMode: playbackTreeRenderModeControl.getValue(),
         playbackPanelLayout: playbackPanelLayoutControl.getValue(),
         showMainTreeLocator: mainTreeLocatorInput.checked,
-        showBehaviorTreeRoot: behaviorTreeRootInput.checked,
+        showBehaviorTreeRoot: true,
         requireNodeDeleteConfirmation: deleteConfirmInput.checked,
         copyNodeWithDescendants: copyDescendantsInput.checked,
         playbackAutoNavigateToTree: playbackAutoNavigateInput.checked,
-        allowUnclosedPlaybackLog: playbackAllowUnclosedLogInput.checked,
+        allowUnclosedPlaybackLog: true,
         traceLearningEnabled: traceLearningInput.checked,
         simplifyHiddenSections: detailSwitches.filter((entry) => !entry.switchControl.input.checked).map((entry) => entry.key)
       };
@@ -215,7 +206,6 @@
         currentSettings.editTreeRenderMode === nextSettings.editTreeRenderMode &&
         currentSettings.playbackTreeRenderMode === nextSettings.playbackTreeRenderMode &&
         currentSettings.playbackPanelLayout === nextSettings.playbackPanelLayout &&
-        currentSettings.showBehaviorTreeRoot === nextSettings.showBehaviorTreeRoot &&
         JSON.stringify(currentSettings.simplifyHiddenSections || []) ===
           JSON.stringify(nextSettings.simplifyHiddenSections || []);
       runtime.state.currentSettings = nextSettings;
@@ -263,8 +253,6 @@
       editTreeRenderModeControl,
       mainTreeLocatorInput,
       mainTreeLocatorText,
-      behaviorTreeRootInput,
-      behaviorTreeRootText,
       deleteConfirmInput,
       deleteConfirmText,
       copyDescendantsInput,
@@ -278,8 +266,6 @@
       playbackPanelLayoutControl,
       playbackAutoNavigateInput,
       playbackAutoNavigateText,
-      playbackAllowUnclosedLogInput,
-      playbackAllowUnclosedLogText,
       traceSectionTitle: traceSection.title,
       traceFieldLabel,
       traceDirectoryValue,
@@ -437,7 +423,6 @@
       expanded: copy.treeRenderModeOptions.expanded
     });
     overlayState.settingsDialog.mainTreeLocatorText.textContent = copy.locatorShort;
-    overlayState.settingsDialog.behaviorTreeRootText.textContent = copy.rootShort;
     overlayState.settingsDialog.deleteConfirmText.textContent = copy.deleteConfirmShort;
     overlayState.settingsDialog.copyDescendantsText.textContent = copy.copyDescendantsShort;
     overlayState.settingsDialog.detailTitle.textContent = copy.nodeDisplay;
@@ -456,7 +441,6 @@
       dashboard: copy.playbackPanelLayoutOptions.dashboard
     });
     overlayState.settingsDialog.playbackAutoNavigateText.textContent = copy.playbackAutoNavigateShort;
-    overlayState.settingsDialog.playbackAllowUnclosedLogText.textContent = copy.playbackAllowUnclosedLogShort;
     overlayState.settingsDialog.traceSectionTitle.textContent = copy.traceMode;
     overlayState.settingsDialog.traceFieldLabel.textContent = copy.traceConfigDirectory;
     overlayState.settingsDialog.traceLearningText.textContent = copy.traceLearningShort;
@@ -489,15 +473,12 @@
       stacked: copy.nodeAttributeLayoutOptions.stacked
     });
     overlayState.settingsDialog.mainTreeLocatorInput.checked = runtime.state.currentSettings?.showMainTreeLocator === true;
-    overlayState.settingsDialog.behaviorTreeRootInput.checked = runtime.state.currentSettings?.showBehaviorTreeRoot !== false;
     overlayState.settingsDialog.deleteConfirmInput.checked =
       runtime.state.currentSettings?.requireNodeDeleteConfirmation === true;
     overlayState.settingsDialog.copyDescendantsInput.checked =
       runtime.state.currentSettings?.copyNodeWithDescendants === true;
     overlayState.settingsDialog.playbackAutoNavigateInput.checked =
       runtime.state.currentSettings?.playbackAutoNavigateToTree === true;
-    overlayState.settingsDialog.playbackAllowUnclosedLogInput.checked =
-      runtime.state.currentSettings?.allowUnclosedPlaybackLog === true;
     overlayState.settingsDialog.traceLearningInput.checked =
       runtime.state.currentSettings?.traceLearningEnabled === true;
     const hiddenSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);

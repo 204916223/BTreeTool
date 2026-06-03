@@ -1020,7 +1020,42 @@
     if (tone === "output") {
       return visibleFields.filter((field) => field.role === "output" || field.role === "inout");
     }
-    return visibleFields.filter((field) => field.role === "param" && !isDedicatedCodeField(node, field));
+    const paramFields = visibleFields.filter((field) => field.role === "param" && !isDedicatedCodeField(node, field));
+    if (runtime.modeRules?.isPlaybackMode?.() === true) {
+      appendPlaybackConditionFields(node, paramFields);
+    }
+    return paramFields;
+  }
+
+  function appendPlaybackConditionFields(node, fields) {
+    const attributes = node?.attributes || {};
+    const existingKeys = new Set(fields.map((field) => field.key));
+    [
+      "_skipIf",
+      "_successIf",
+      "_failureIf",
+      "_while",
+      "_onSuccess",
+      "_onFailure",
+      "_onHalted",
+      "_post"
+    ].forEach((key) => {
+      const value = attributes[key];
+      if (!value || existingKeys.has(key)) {
+        return;
+      }
+      fields.push({
+        key,
+        value,
+        role: "param",
+        editableKey: false,
+        editableValue: false,
+        removable: false,
+        required: false,
+        source: "builtin"
+      });
+      existingKeys.add(key);
+    });
   }
 
   function getLegacyCardFields(node) {

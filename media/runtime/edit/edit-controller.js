@@ -497,6 +497,8 @@
         playbackDurationLaneHeight: runtime.state.playbackDurationLaneHeight,
         playbackDurationTimeScale: runtime.state.playbackDurationTimeScale,
         playbackDurationTaskPanelVisible: runtime.state.playbackDurationTaskPanelVisible,
+        playbackDurationScrollLeft: runtime.state.playbackDurationScrollLeft || 0,
+        playbackDurationScrollTop: runtime.state.playbackDurationScrollTop || 0,
         playbackTransitionFilter: runtime.state.playbackTransitionFilter,
         playbackTransitionFilterDraft: runtime.state.playbackTransitionFilterDraft,
         playbackTransitionScrollTop: runtime.state.playbackTransitionScrollTop || 0,
