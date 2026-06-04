@@ -45,6 +45,7 @@ import {
   handleDeleteBehaviorTreeAction,
   handleDeleteNodeAction,
   handleMoveNodeAction,
+  handleRenameBehaviorTreeAction,
   handleSaveTreeNodeModelsAction,
   handleUpdateNodeAttributesAction,
   XmlMutation
@@ -343,6 +344,11 @@ export class BehaviorTreePreviewPanel {
 
     if (message.type === "deleteBehaviorTree" && "payload" in message) {
       void this.handleDeleteBehaviorTree(message.payload);
+      return true;
+    }
+
+    if (message.type === "renameBehaviorTree" && "payload" in message) {
+      void this.handleRenameBehaviorTree(message.payload);
       return true;
     }
 
@@ -691,6 +697,12 @@ export class BehaviorTreePreviewPanel {
 
   private async handleDeleteBehaviorTree(payload: { treeId?: string } | undefined): Promise<void> {
     await handleDeleteBehaviorTreeAction(payload, this.getEditActionContext());
+  }
+
+  private async handleRenameBehaviorTree(
+    payload: { oldTreeId?: string; newTreeId?: string } | undefined
+  ): Promise<void> {
+    await handleRenameBehaviorTreeAction(payload, this.getEditActionContext());
   }
 
   private async handleMoveNode(

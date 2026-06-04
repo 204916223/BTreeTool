@@ -488,7 +488,7 @@
     let hasRenderedDetails = false;
     if (!isVirtualRoot) {
       if (!shouldHideNodeSection("description")) {
-        hasRenderedDetails = renderDescriptionSection(body, node.description) || hasRenderedDetails;
+        hasRenderedDetails = renderDescriptionSection(body, node, options) || hasRenderedDetails;
       }
 
       if (!shouldHideNodeSection("code")) {
@@ -1251,8 +1251,40 @@
     }
   }
 
-  function renderDescriptionSection(container, text) {
-    return renderTextSection(container, "Description", text, "description", true);
+  function renderDescriptionSection(container, node, options) {
+    const editable = runtime.modeRules?.isPlaybackMode?.() !== true && options.interactive !== false;
+    if (!editable) {
+      return renderTextSection(container, "Description", node.description, "description", true);
+    }
+
+    const section = document.createElement("div");
+    section.className = "flow-text flow-text-description";
+
+    const label = document.createElement("span");
+    label.className = "flow-io-label";
+    label.textContent = "Description";
+    section.appendChild(label);
+
+    section.appendChild(
+      renderAttributeValueControl(
+        node,
+        {
+          key: "_description",
+          value: node.description || "",
+          role: "param",
+          editableKey: false,
+          editableValue: true,
+          removable: false,
+          required: false,
+          source: "extra"
+        },
+        "description",
+        options
+      )
+    );
+
+    container.appendChild(section);
+    return true;
   }
 
   function renderCodeSection(container, node, options) {

@@ -10,6 +10,7 @@ import {
   findBehaviorTreeReferences,
   insertNode,
   insertNodeCopy,
+  renameBehaviorTree,
   replaceNodeModels
 } from "../core/edit";
 
@@ -190,6 +191,54 @@ test("deleteBehaviorTree removes a non-entry tree", () => {
 
   assert.deepEqual(document.behaviorTrees.map((tree) => tree.id), ["MainTree"]);
   assert.deepEqual(document.topLevelOrder, ["behaviorTree"]);
+});
+
+test("renameBehaviorTree updates the tree id and SubTree references", () => {
+  const document = createDocument();
+  document.behaviorTrees[0].node?.children.push({
+    tagName: "SubTree",
+    attributes: { ID: "SafeCheck" },
+    children: []
+  });
+  document.behaviorTrees.push({
+    id: "SafeCheck",
+    node: {
+      tagName: "Sequence",
+      attributes: {},
+      children: [
+        {
+          tagName: "SubTree",
+          attributes: { ID: "SafeCheck" },
+          children: []
+        }
+      ]
+    }
+  });
+
+  renameBehaviorTree(document, "SafeCheck", "SafetyGate");
+
+  assert.deepEqual(document.behaviorTrees.map((tree) => tree.id), ["MainTree", "SafetyGate"]);
+  assert.equal(document.behaviorTrees[0].node?.children.at(-1)?.attributes.ID, "SafetyGate");
+  assert.equal(document.behaviorTrees[1].node?.children[0].attributes.ID, "SafetyGate");
+});
+
+test("renameBehaviorTree updates the entry tree target", () => {
+  const document = createDocument();
+
+  renameBehaviorTree(document, "MainTree", "RootTree");
+
+  assert.equal(document.mainTreeToExecute, "RootTree");
+  assert.deepEqual(document.behaviorTrees.map((tree) => tree.id), ["RootTree"]);
+});
+
+test("renameBehaviorTree rejects duplicate names", () => {
+  const document = createDocument();
+  createBehaviorTree(document, "SafeCheck");
+
+  assert.throws(
+    () => renameBehaviorTree(document, "SafeCheck", "MainTree"),
+    /already exists/
+  );
 });
 
 test("findBehaviorTreeReferences lists trees that point to a subtree", () => {

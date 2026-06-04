@@ -57,6 +57,13 @@ export type WebviewMessage =
       };
     }
   | {
+      type: "renameBehaviorTree";
+      payload?: {
+        oldTreeId?: string;
+        newTreeId?: string;
+      };
+    }
+  | {
       type: "moveNode";
       payload?: {
         treeId?: string;

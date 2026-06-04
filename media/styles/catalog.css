@@ -209,6 +209,25 @@
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-item-rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  border-radius: 6px;
+  background: var(--color-surface-ghost);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.catalog-item.is-renaming {
+  cursor: default;
 }
 
 .catalog-item.is-detached-subtree {

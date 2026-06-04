@@ -6,6 +6,7 @@ import {
   insertNode,
   insertNodeCopy,
   moveNode,
+  renameBehaviorTree,
   replaceNodeAttributes,
   replaceNodeModels
 } from "../core/edit";
@@ -141,6 +142,34 @@ export async function handleDeleteBehaviorTreeAction(
     mutate: (documentText) => {
       const parsed = parseBehaviorTreeDocument(documentText);
       deleteBehaviorTree(parsed, normalizedTreeId);
+      return serializeBehaviorTreeDocument(parsed);
+    }
+  });
+}
+
+export async function handleRenameBehaviorTreeAction(
+  payload: { oldTreeId?: string; newTreeId?: string } | undefined,
+  context: EditActionContext
+): Promise<void> {
+  const { copy } = context;
+  if (!requireAttachedDocument(context)) {
+    return;
+  }
+
+  const oldTreeId = payload?.oldTreeId?.trim() || "";
+  const newTreeId = payload?.newTreeId?.trim() || "";
+  if (!oldTreeId || !newTreeId) {
+    context.postEditResult(false, copy.incompleteBehaviorTreeRename);
+    return;
+  }
+
+  await context.applyXmlMutation({
+    unchangedMessage: copy.behaviorTreeRenameUnchanged,
+    successMessage: copy.behaviorTreeRenamed,
+    failurePrefix: copy.behaviorTreeRenameFailed,
+    mutate: (documentText) => {
+      const parsed = parseBehaviorTreeDocument(documentText);
+      renameBehaviorTree(parsed, oldTreeId, newTreeId);
       return serializeBehaviorTreeDocument(parsed);
     }
   });

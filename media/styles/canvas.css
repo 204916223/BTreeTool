@@ -548,6 +548,13 @@ body.is-reordering-nodes .drop-slot-overlay {
   border-color: var(--color-description-border);
 }
 
+.flow-text-description .flow-attribute-input {
+  width: 100%;
+  min-height: 30px;
+  background: var(--color-description-bg);
+  border-color: var(--color-description-border);
+}
+
 .flow-io-label {
   font-size: 10px;
   font-weight: 700;

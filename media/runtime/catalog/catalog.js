@@ -107,6 +107,16 @@
         label.className = "catalog-item-label";
         label.textContent = item.title;
         row.appendChild(label);
+        if (canRenameSubTreeItem(item)) {
+          row.addEventListener("dblclick", (event) => {
+            if (event.target instanceof Element && event.target.closest(".catalog-item-edit, .catalog-item-remove")) {
+              return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            startSubTreeRename(row, label, item);
+          });
+        }
 
         if (item.isDetachedTree) {
           const marker = document.createElement("span");
@@ -165,6 +175,10 @@
         }
 
         row.addEventListener("dragstart", (event) => {
+          if (row.classList.contains("is-renaming")) {
+            event.preventDefault();
+            return;
+          }
           if (!runtime.app.canPerformAction("dragPaletteNode", { treeId: state.selectedTreeId, item })) {
             event.preventDefault();
             return;
@@ -213,6 +227,113 @@
       return collapsedGroups[category] !== false;
     }
     return true;
+  }
+
+  function canRenameSubTreeItem(item) {
+    if (item.category !== "SubTree" || item.key === "SubTree") {
+      return false;
+    }
+    return (
+      Boolean((runtime.state.currentPreview?.behaviorTrees || []).some((tree) => tree.id === item.key)) &&
+      runtime.app.canPerformAction("renameBehaviorTree", { treeId: item.key })
+    );
+  }
+
+  function startSubTreeRename(row, label, item) {
+    if (row.classList.contains("is-renaming")) {
+      return;
+    }
+
+    const originalValue = item.key || item.title || "";
+    const input = document.createElement("input");
+    input.className = "catalog-item-rename-input";
+    input.type = "text";
+    input.value = originalValue;
+    input.spellcheck = false;
+    input.dataset.originalValue = originalValue;
+
+    const finish = (commit) => {
+      if (input.dataset.finished === "true") {
+        return;
+      }
+      input.dataset.finished = "true";
+      if (commit) {
+        commitSubTreeRename(input, item);
+      }
+      label.hidden = false;
+      input.replaceWith(label);
+      row.classList.remove("is-renaming");
+      row.draggable = runtime.app.canPerformAction("dragPaletteNode", {
+        treeId: runtime.state.selectedTreeId,
+        item
+      });
+    };
+
+    input.addEventListener("pointerdown", stopRenameEvent);
+    input.addEventListener("click", stopRenameEvent);
+    input.addEventListener("dblclick", stopRenameEvent);
+    input.addEventListener("contextmenu", stopRenameEvent);
+    input.addEventListener("dragstart", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    input.addEventListener("blur", () => finish(true));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        input.value = input.dataset.originalValue || "";
+        finish(false);
+      }
+      event.stopPropagation();
+    });
+
+    row.classList.add("is-renaming");
+    row.draggable = false;
+    label.hidden = true;
+    label.replaceWith(input);
+    input.focus();
+    input.select();
+  }
+
+  function commitSubTreeRename(input, item) {
+    const oldTreeId = input.dataset.originalValue || "";
+    const newTreeId = String(input.value || "").trim();
+    if (!oldTreeId || !newTreeId || oldTreeId === newTreeId) {
+      return;
+    }
+
+    const existingTreeIds = new Set((runtime.state.currentPreview?.behaviorTrees || []).map((tree) => tree.id));
+    if (existingTreeIds.has(newTreeId)) {
+      input.value = oldTreeId;
+      return;
+    }
+
+    if (runtime.state.selectedTreeId === oldTreeId) {
+      runtime.state.selectedTreeId = newTreeId;
+    }
+    if (runtime.state.splitPaneTreeIds) {
+      runtime.state.splitPaneTreeIds = Object.fromEntries(
+        Object.entries(runtime.state.splitPaneTreeIds).map(([paneId, treeId]) => [
+          paneId,
+          treeId === oldTreeId ? newTreeId : treeId
+        ])
+      );
+    }
+    runtime.app.persistUiState?.();
+    runtime.vscode.postMessage({
+      type: "renameBehaviorTree",
+      payload: {
+        oldTreeId,
+        newTreeId
+      }
+    });
+  }
+
+  function stopRenameEvent(event) {
+    event.stopPropagation();
   }
 
   function syncDeleteTargetIndicator() {

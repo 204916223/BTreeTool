@@ -44,6 +44,40 @@ export function createBehaviorTree(document: BtDocumentAst, treeId: string): voi
   document.topLevelOrder.push("behaviorTree");
 }
 
+export function renameBehaviorTree(document: BtDocumentAst, oldTreeId: string, newTreeId: string): void {
+  const previousTreeId = oldTreeId.trim();
+  const nextTreeId = newTreeId.trim();
+  if (!previousTreeId || !nextTreeId) {
+    throw new Error("BehaviorTree ID cannot be empty.");
+  }
+
+  if (previousTreeId === nextTreeId) {
+    return;
+  }
+
+  const tree = document.behaviorTrees.find((entry) => entry.id === previousTreeId);
+  if (!tree) {
+    throw new Error(`BehaviorTree "${previousTreeId}" was not found in this document.`);
+  }
+
+  if (document.behaviorTrees.some((entry) => entry.id === nextTreeId)) {
+    throw new Error(`BehaviorTree "${nextTreeId}" already exists.`);
+  }
+
+  tree.id = nextTreeId;
+  if (document.mainTreeToExecute === previousTreeId) {
+    document.mainTreeToExecute = nextTreeId;
+  }
+
+  for (const entry of document.behaviorTrees) {
+    visitNode(entry.node, (node) => {
+      if (node.tagName === "SubTree" && node.attributes.ID === previousTreeId) {
+        node.attributes.ID = nextTreeId;
+      }
+    });
+  }
+}
+
 export function deleteBehaviorTree(document: BtDocumentAst, treeId: string): void {
   const normalizedTreeId = treeId.trim();
   if (!normalizedTreeId) {
