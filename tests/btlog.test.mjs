@@ -58,6 +58,64 @@ test("decodeBtlogFile can ignore a truncated gzip log when enabled", () => {
   }
 });
 
+test("decodeBtlogFile supports native BehaviorTree.CPP FileLogger2 btlog files", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "btree-tool-filelogger2-"));
+  const filePath = path.join(tempDir, "native.btlog");
+
+  try {
+    const nativeLog = buildFileLogger2Bytes([
+      { tUs: 100, uid: 10, status: 1 },
+      { tUs: 250, uid: 10, status: 2 },
+      { tUs: 300, uid: 11, status: 1 }
+    ]);
+    fs.writeFileSync(filePath, nativeLog);
+
+    const decoded = decodeBtlogFile(filePath, baseSettings);
+
+    assert.equal(decoded.header.codec, "filelogger2");
+    assert.equal(decoded.header.xml.includes("_uid=\"10\""), true);
+    assert.equal(decoded.frames.length, 3);
+    assert.equal(decoded.transitions.length, 3);
+    assert.equal(decoded.transitions[0].prevStatus, "IDLE");
+    assert.equal(decoded.transitions[0].status, "RUNNING");
+    assert.equal(decoded.transitions[1].prevStatus, "RUNNING");
+    assert.equal(decoded.transitions[1].status, "SUCCESS");
+    assert.equal(decoded.transitions[1].durationUs, 150);
+    assert.equal(decoded.transitions[2].uid, 11);
+    assert.deepEqual(
+      decoded.nodeDefinitions.map((entry) => [entry.uid, entry.name]),
+      [
+        [10, "Root"],
+        [11, "Work"]
+      ]
+    );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("decodeBtlogFile can ignore a truncated native FileLogger2 transition when enabled", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "btree-tool-filelogger2-truncated-"));
+  const filePath = path.join(tempDir, "native-truncated.btlog");
+
+  try {
+    const nativeLog = buildFileLogger2Bytes([{ tUs: 100, uid: 10, status: 1 }]);
+    fs.writeFileSync(filePath, Buffer.concat([nativeLog, Buffer.from([1, 2, 3])]));
+
+    assert.throws(() => decodeBtlogFile(filePath, baseSettings));
+
+    const decoded = decodeBtlogFile(filePath, baseSettings, {
+      allowTruncatedLog: true
+    });
+
+    assert.equal(decoded.header.codec, "filelogger2");
+    assert.equal(decoded.transitions.length, 1);
+    assert.equal(decoded.frames.length, 1);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 function buildBtlogBytes() {
   const magic = Buffer.from("SBTLOG1\0", "utf8");
   const headerXml =
@@ -79,6 +137,37 @@ function buildBtlogBytes() {
   const noisyTail = createNoisyString(8192);
   const secondFrame = encodeFrame(encode(["n", 2, 2000, 2000, 43, 1, 2, 100, noisyTail]));
   return Buffer.concat([magic, header, firstFrame, secondFrame]);
+}
+
+function buildFileLogger2Bytes(transitions) {
+  const magic = Buffer.from("BTCPP4-FileLogger2", "utf8");
+  const protocol = Buffer.from([1]);
+  const headerXml =
+    '<root BTCPP_format="4" main_tree_to_execute="Main">' +
+    '<BehaviorTree ID="Main"><Sequence name="Root" _uid="10"><Script name="Work" _uid="11"/></Sequence></BehaviorTree>' +
+    "</root>";
+  const xml = Buffer.from(headerXml, "utf8");
+  const xmlLength = Buffer.alloc(4);
+  xmlLength.writeInt32LE(xml.length, 0);
+  const createdWallTime = Buffer.alloc(8);
+  createdWallTime.writeBigInt64LE(1_000_000n, 0);
+
+  return Buffer.concat([
+    magic,
+    protocol,
+    xmlLength,
+    xml,
+    createdWallTime,
+    ...transitions.map(encodeFileLogger2Transition)
+  ]);
+}
+
+function encodeFileLogger2Transition({ tUs, uid, status }) {
+  const buffer = Buffer.alloc(9);
+  buffer.writeUIntLE(tUs, 0, 6);
+  buffer.writeUInt16LE(uid, 6);
+  buffer.writeUInt8(status, 8);
+  return buffer;
 }
 
 function encodeFrame(payload) {

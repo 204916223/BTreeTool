@@ -8,6 +8,8 @@ import type { BtPreviewDocument } from "./viewModel";
 import type { BtUserSettings } from "../userSettings";
 
 const MAGIC = Buffer.from("SBTLOG1\0", "utf8");
+const FILE_LOGGER2_MAGIC = Buffer.from("BTCPP4-FileLogger2", "utf8");
+const FILE_LOGGER2_TRANSITION_SIZE = 9;
 
 export interface BtPlaybackHeader {
   type: string;
@@ -83,10 +85,27 @@ export function decodeBtlogFile(
   const allowTruncatedLog = options.allowTruncatedLog === true;
   const compressed = fs.readFileSync(filePath);
   const bytes = maybeGunzip(compressed, allowTruncatedLog);
+
+  if (
+    bytes.length >= FILE_LOGGER2_MAGIC.length &&
+    bytes.subarray(0, FILE_LOGGER2_MAGIC.length).equals(FILE_LOGGER2_MAGIC)
+  ) {
+    return decodeFileLogger2Bytes(filePath, bytes, settings, allowTruncatedLog);
+  }
+
   if (bytes.length < MAGIC.length || !bytes.subarray(0, MAGIC.length).equals(MAGIC)) {
     throw new Error("Unsupported btlog format: missing SBTLOG1 header.");
   }
 
+  return decodeSbtlogBytes(filePath, bytes, settings, allowTruncatedLog);
+}
+
+function decodeSbtlogBytes(
+  filePath: string,
+  bytes: Buffer,
+  settings: BtUserSettings,
+  allowTruncatedLog: boolean
+): BtPlaybackLog {
   let offset = MAGIC.length;
   let header: BtPlaybackHeader | null = null;
   const frames: BtPlaybackFrame[] = [];
@@ -174,6 +193,9 @@ export function decodeBtlogFile(
 
   const ast = parseBehaviorTreeDocument(header.xml);
   const preview = buildPreviewDocument(ast, settings);
+  const normalizedNodeDefinitions = nodeDefinitions.length > 0
+    ? nodeDefinitions
+    : collectNodeDefinitionsFromPreview(preview);
 
   return {
     fileName: path.basename(filePath),
@@ -183,6 +205,116 @@ export function decodeBtlogFile(
     frames,
     transitions,
     blackboardEvents,
+    nodeDefinitions: normalizedNodeDefinitions
+  };
+}
+
+function decodeFileLogger2Bytes(
+  filePath: string,
+  bytes: Buffer,
+  settings: BtUserSettings,
+  allowTruncatedLog: boolean
+): BtPlaybackLog {
+  let offset = FILE_LOGGER2_MAGIC.length;
+  if (offset + 1 + 4 > bytes.length) {
+    throw new Error("Corrupt FileLogger2 btlog: truncated header.");
+  }
+
+  const protocol = bytes.readUInt8(offset);
+  offset += 1;
+  if (protocol !== 1) {
+    throw new Error(`Unsupported FileLogger2 btlog protocol: ${protocol}.`);
+  }
+
+  const xmlLength = bytes.readInt32LE(offset);
+  offset += 4;
+  if (xmlLength <= 0 || offset + xmlLength + 8 > bytes.length) {
+    throw new Error("Corrupt FileLogger2 btlog: XML payload exceeds file size.");
+  }
+
+  const xml = bytes.subarray(offset, offset + xmlLength).toString("utf8");
+  offset += xmlLength;
+
+  const createdWallTimeUs = bigintToSerializable(bytes.readBigInt64LE(offset));
+  offset += 8;
+
+  const ast = parseBehaviorTreeDocument(xml);
+  const preview = buildPreviewDocument(ast, settings);
+  const nodeDefinitions = collectNodeDefinitionsFromPreview(preview);
+  const statusCodes = {
+    0: "IDLE",
+    1: "RUNNING",
+    2: "SUCCESS",
+    3: "FAILURE",
+    4: "SKIPPED"
+  };
+  const header: BtPlaybackHeader = {
+    type: "header",
+    schemaVersion: 1,
+    codec: "filelogger2",
+    treeName: ast.mainTreeToExecute || preview.defaultTreeId || "",
+    rootNodeName: preview.behaviorTrees.find((tree) => tree.id === (ast.mainTreeToExecute || preview.defaultTreeId))?.node?.title || "",
+    createdWallTimeUs,
+    statusCodes,
+    eventTypes: {},
+    xml
+  };
+
+  const frames: BtPlaybackFrame[] = [];
+  const transitions: BtPlaybackTransition[] = [];
+  const lastStatusByUid = new Map<number, number | string | null>();
+  const runningStartByUid = new Map<number, number>();
+
+  while (offset < bytes.length) {
+    if (offset + FILE_LOGGER2_TRANSITION_SIZE > bytes.length) {
+      if (allowTruncatedLog) {
+        break;
+      }
+      throw new Error("Corrupt FileLogger2 btlog: truncated transition.");
+    }
+
+    const frameIndex = frames.length;
+    const tUs = bytes.readUIntLE(offset, 6);
+    offset += 6;
+    const uid = bytes.readUInt16LE(offset);
+    offset += 2;
+    const statusCode = bytes.readUInt8(offset);
+    offset += 1;
+
+    const prevStatusCode = lastStatusByUid.get(uid) ?? 0;
+    const transition = {
+      frameIndex,
+      seq: frameIndex + 1,
+      tUs,
+      wallUs: addScalarMicroseconds(createdWallTimeUs, tUs),
+      uid,
+      prevStatusCode,
+      statusCode,
+      prevStatus: statusCodeToName(prevStatusCode, statusCodes),
+      status: statusCodeToName(statusCode, statusCodes),
+      durationUs: resolveFileLogger2Duration(uid, statusCode, tUs, runningStartByUid)
+    };
+
+    transitions.push(transition);
+    frames.push({
+      index: frameIndex,
+      kind: "node",
+      tUs: transition.tUs,
+      wallUs: transition.wallUs,
+      seq: transition.seq,
+      transitionIndex: transitions.length - 1
+    });
+    lastStatusByUid.set(uid, statusCode);
+  }
+
+  return {
+    fileName: path.basename(filePath),
+    filePath,
+    header,
+    preview,
+    frames,
+    transitions,
+    blackboardEvents: [],
     nodeDefinitions
   };
 }
@@ -275,8 +407,71 @@ function statusCodeToName(code: unknown, statusCodes: Record<string, string>): s
       return "SUCCESS";
     case 3:
       return "FAILURE";
+    case 4:
+      return "SKIPPED";
     default:
       return "UNKNOWN";
+  }
+}
+
+function resolveFileLogger2Duration(
+  uid: number,
+  statusCode: number,
+  tUs: number,
+  runningStartByUid: Map<number, number>
+): number | null {
+  if (statusCode === 1) {
+    runningStartByUid.set(uid, tUs);
+    return null;
+  }
+
+  const startedAt = runningStartByUid.get(uid);
+  if (startedAt == null) {
+    return null;
+  }
+  if (statusCode !== 1) {
+    runningStartByUid.delete(uid);
+  }
+  return Math.max(0, tUs - startedAt);
+}
+
+function addScalarMicroseconds(value: number | string | null, offsetUs: number): number | string | null {
+  if (typeof value === "number") {
+    return value + offsetUs;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    return (BigInt(value) + BigInt(offsetUs)).toString();
+  }
+  return value;
+}
+
+function collectNodeDefinitionsFromPreview(preview: BtPreviewDocument): BtPlaybackNodeDefinition[] {
+  const definitions: BtPlaybackNodeDefinition[] = [];
+
+  for (const tree of preview.behaviorTrees) {
+    walkPreviewNode(tree.node, (node) => {
+      const uid = toNumber(node.attributes._uid, Number.NaN);
+      if (!Number.isFinite(uid)) {
+        return;
+      }
+      definitions.push({
+        uid,
+        name: node.title || node.instanceName || node.kind || `uid ${uid}`,
+        nodeType: node.kind || null
+      });
+    });
+  }
+
+  return definitions;
+}
+
+function walkPreviewNode(node: BtPreviewDocument["behaviorTrees"][number]["node"], visit: (node: NonNullable<BtPreviewDocument["behaviorTrees"][number]["node"]>) => void): void {
+  if (!node) {
+    return;
+  }
+  visit(node);
+  for (const child of node.children) {
+    walkPreviewNode(child, visit);
   }
 }
 
