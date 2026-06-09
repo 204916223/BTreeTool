@@ -52,19 +52,25 @@
 
     const summary = document.createElement("p");
     summary.className = "startup-state-summary";
-    summary.textContent = appCopy.importPlaybackSummary;
+    summary.textContent = runtime.state.playbackLogImporting ? appCopy.importPlaybackOpening : appCopy.importPlaybackSummary;
 
     const importButton = document.createElement("button");
     importButton.className = "canvas-btn accent";
     importButton.type = "button";
     importButton.textContent = appCopy.importPlaybackLog;
     importButton.addEventListener("click", () => {
+      if (runtime.mainEvents?.requestPlaybackLogImport) {
+        runtime.mainEvents.requestPlaybackLogImport();
+        return;
+      }
       runtime.vscode.postMessage({ type: "choosePlaybackLogFile" });
     });
 
     shell.appendChild(title);
     shell.appendChild(summary);
-    shell.appendChild(importButton);
+    if (!runtime.state.playbackLogImporting) {
+      shell.appendChild(importButton);
+    }
     return shell;
   }
 

@@ -4,6 +4,10 @@
   const DEFAULT_USER_SETTINGS = {
     language: "en-US",
     themePreset: "midnight",
+    customTheme: {
+      primaryColor: "#5e8de6",
+      secondaryColor: "#df78cf"
+    },
     showMainTreeLocator: false,
     showBehaviorTreeRoot: true,
     requireNodeDeleteConfirmation: false,
@@ -11,6 +15,7 @@
     playbackAutoNavigateToTree: false,
     allowUnclosedPlaybackLog: true,
     traceLearningEnabled: false,
+    traceLearningEnhancementEnabled: false,
     nodeAttributeLayout: "inline",
     editTreeRenderMode: "paged",
     playbackTreeRenderMode: "paged",
@@ -60,6 +65,7 @@
       },
       splitPaneNodePaths: persistedState.splitPaneNodePaths || {},
       playbackLog: null,
+      playbackLogImporting: false,
       playbackFrameIndex: Number.isInteger(persistedState.playbackFrameIndex) ? persistedState.playbackFrameIndex : 0,
       playbackTimeUs: Number.isFinite(persistedState.playbackTimeUs) ? persistedState.playbackTimeUs : null,
       playbackLeftVisible: persistedState.playbackLeftVisible !== false,
@@ -103,12 +109,15 @@
       tracePendingFocusFrameIndex: null,
       tracePendingShouldNavigate: false,
       tracePendingAnswer: "",
+      traceContextFileState: null,
+      traceContextFileReading: null,
       playbackIsPlaying: false,
       playbackPlaybackSpeed: Number.isFinite(persistedState.playbackPlaybackSpeed)
         ? persistedState.playbackPlaybackSpeed
         : 1,
       currentSettings: normalizedInitialSettings,
       copiedNodeTemplate: null,
+      pendingAttributeEdit: null,
       forceHideNodeDetails: false,
       settingsFilePath: "",
       currentZoom: 1,
@@ -130,7 +139,8 @@
       "paper",
       "sand",
       "mist",
-      "rose"
+      "rose",
+      "custom"
     ].includes(value)
       ? value
       : DEFAULT_USER_SETTINGS.themePreset;
@@ -139,19 +149,29 @@
   function normalizeInitialSettings(initialSettings, persistedState) {
     const input = initialSettings && typeof initialSettings === "object" ? initialSettings : {};
     const themePreset = normalizeThemePreset(input.themePreset || persistedState.uiPreferences?.themePreset);
+    const customTheme = normalizeCustomTheme(input.customTheme || persistedState.uiPreferences?.customTheme);
     const rawLanguage = input.language || persistedState.uiPreferences?.language;
     const language = rawLanguage === "zh-CN" ? "zh-CN" : "en-US";
 
     return {
       language,
       themePreset,
+      customTheme,
       showMainTreeLocator: input.showMainTreeLocator === true,
       showBehaviorTreeRoot: true,
       requireNodeDeleteConfirmation: input.requireNodeDeleteConfirmation === true,
       copyNodeWithDescendants: input.copyNodeWithDescendants === true,
       playbackAutoNavigateToTree: input.playbackAutoNavigateToTree === true,
       allowUnclosedPlaybackLog: true,
-      traceLearningEnabled: input.traceLearningEnabled === true,
+      traceLearningEnabled:
+        input.traceLearningEnabled === true ||
+        input.traceLearningEnhancementEnabled === true ||
+        input.traceLearningCollectionEnabled === true ||
+        input.traceLearningRemoteEnabled === true,
+      traceLearningEnhancementEnabled:
+        input.traceLearningEnhancementEnabled === true ||
+        input.traceLearningCollectionEnabled === true ||
+        input.traceLearningRemoteEnabled === true,
       nodeAttributeLayout: input.nodeAttributeLayout === "stacked" ? "stacked" : "inline",
       editTreeRenderMode: input.editTreeRenderMode === "expanded" ? "expanded" : "paged",
       playbackTreeRenderMode: input.playbackTreeRenderMode === "expanded" ? "expanded" : "paged",
@@ -159,6 +179,30 @@
       simplifyHiddenSections: Array.isArray(input.simplifyHiddenSections) ? [...input.simplifyHiddenSections] : [],
       presetNodes: Array.isArray(input.presetNodes) ? input.presetNodes.map(clonePresetNodeSettings) : []
     };
+  }
+
+  function normalizeCustomTheme(value) {
+    const input = value && typeof value === "object" ? value : {};
+    return {
+      primaryColor: normalizeHexColor(input.primaryColor, DEFAULT_USER_SETTINGS.customTheme.primaryColor),
+      secondaryColor: normalizeHexColor(input.secondaryColor, DEFAULT_USER_SETTINGS.customTheme.secondaryColor)
+    };
+  }
+
+  function normalizeHexColor(value, fallback) {
+    if (typeof value !== "string") {
+      return fallback;
+    }
+    const trimmed = value.trim();
+    const shorthand = /^#([0-9a-fA-F]{3})$/.exec(trimmed);
+    if (shorthand) {
+      return `#${shorthand[1]
+        .split("")
+        .map((char) => `${char}${char}`)
+        .join("")
+        .toLowerCase()}`;
+    }
+    return /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed.toLowerCase() : fallback;
   }
 
   function clonePresetNodeSettings(node) {

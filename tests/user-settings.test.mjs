@@ -49,16 +49,70 @@ test("default user settings match the product defaults", () => {
   assert.equal(DEFAULT_USER_SETTINGS.playbackAutoNavigateToTree, false);
   assert.equal(DEFAULT_USER_SETTINGS.allowUnclosedPlaybackLog, true);
   assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnabled, false);
+  assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnhancementEnabled, false);
 });
 
 test("cloned user settings keep the new boolean defaults", () => {
   const cloned = cloneUserSettings(DEFAULT_USER_SETTINGS);
 
+  assert.deepEqual(cloned.customTheme, {
+    primaryColor: "#5e8de6",
+    secondaryColor: "#df78cf"
+  });
   assert.equal(cloned.showMainTreeLocator, false);
   assert.equal(cloned.copyNodeWithDescendants, false);
   assert.equal(cloned.playbackAutoNavigateToTree, false);
   assert.equal(cloned.allowUnclosedPlaybackLog, true);
   assert.equal(cloned.traceLearningEnabled, false);
+  assert.equal(cloned.traceLearningEnhancementEnabled, false);
+});
+
+test("custom theme settings are normalized when loading user settings", async () => {
+  fsState.files.clear();
+  fsState.writes = [];
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    themePreset: "custom",
+    customTheme: {
+      primaryColor: "#ABC",
+      secondaryColor: "#123456"
+    }
+  }));
+
+  const { settings } = await loadUserSettings({ fsPath: "/storage" });
+
+  assert.equal(settings.themePreset, "custom");
+  assert.deepEqual(settings.customTheme, {
+    primaryColor: "#aabbcc",
+    secondaryColor: "#123456"
+  });
+});
+
+test("learning enhancement implies learning when loading user settings", async () => {
+  fsState.files.clear();
+  fsState.writes = [];
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    traceLearningEnabled: false,
+    traceLearningEnhancementEnabled: true
+  }));
+
+  const { settings } = await loadUserSettings({ fsPath: "/storage" });
+
+  assert.equal(settings.traceLearningEnabled, true);
+  assert.equal(settings.traceLearningEnhancementEnabled, true);
+});
+
+test("legacy learning collection setting maps to learning enhancement", async () => {
+  fsState.files.clear();
+  fsState.writes = [];
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    traceLearningEnabled: false,
+    traceLearningCollectionEnabled: true
+  }));
+
+  const { settings } = await loadUserSettings({ fsPath: "/storage" });
+
+  assert.equal(settings.traceLearningEnabled, true);
+  assert.equal(settings.traceLearningEnhancementEnabled, true);
 });
 
 test("load user settings creates defaults only when the file is missing", async () => {

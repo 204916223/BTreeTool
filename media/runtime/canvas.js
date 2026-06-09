@@ -1123,6 +1123,7 @@
     input.placeholder = runtime.i18n.getAttributeCopy().valuePlaceholder;
     input.spellcheck = false;
     input.dataset.originalValue = field.value || "";
+    input.dataset.attributeKey = field.key || "";
     if (measuring) {
       input.readOnly = true;
       input.tabIndex = -1;
@@ -1223,10 +1224,22 @@
 
     input.classList.remove("is-invalid");
     input.classList.add("is-saving");
-    input.dataset.originalValue = nextValue;
     input.dataset.commitInFlight = "true";
     runtime.state.selectedTreeId = treeId || runtime.state.selectedTreeId;
     runtime.state.selectedNodePath = node.nodePath;
+    runtime.state.pendingAttributeEdit = {
+      treeId,
+      nodePath: node.nodePath,
+      attributeKey: field.key,
+      attributes,
+      previousValue: originalValue,
+      nextValue
+    };
+    syncAttributeInputs(treeId, node.nodePath, field.key, nextValue, {
+      saving: true,
+      commitInFlight: true,
+      originalValue: nextValue
+    });
     stageAttributeEditViewportAnchor(node, input, runtime.state.selectedTreeId);
     runtime.app.persistUiState();
     runtime.vscode.postMessage({
@@ -1237,6 +1250,40 @@
         attributes
       }
     });
+  }
+
+  function syncAttributeInputs(treeId, nodePath, attributeKey, value, options = {}) {
+    document.querySelectorAll(getAttributeInputSelector(treeId, nodePath, attributeKey)).forEach((input) => {
+      input.value = value;
+      input.dataset.originalValue = options.originalValue ?? value;
+      input.dataset.commitInFlight = options.commitInFlight ? "true" : "false";
+      input.classList.toggle("is-saving", options.saving === true);
+      input.classList.remove("is-invalid");
+      input.title = "";
+    });
+  }
+
+  function finishPendingAttributeEdit(ok) {
+    const pending = runtime.state.pendingAttributeEdit;
+    if (!pending) {
+      return;
+    }
+
+    const value = ok === false ? pending.previousValue || "" : pending.nextValue || "";
+    syncAttributeInputs(pending.treeId, pending.nodePath, pending.attributeKey, value, {
+      saving: false,
+      commitInFlight: false,
+      originalValue: value
+    });
+    runtime.state.pendingAttributeEdit = null;
+  }
+
+  function getAttributeInputSelector(treeId, nodePath, attributeKey) {
+    return [
+      `.canvas-node[data-tree-id="${CSS.escape(treeId || "")}"]`,
+      `[data-node-path="${CSS.escape(nodePath || "")}"]`,
+      ` .flow-attribute-input[data-attribute-key="${CSS.escape(attributeKey || "")}"]`
+    ].join("");
   }
 
   function stageAttributeEditViewportAnchor(node, input, treeId) {
@@ -1373,6 +1420,7 @@
     getParentNodePath,
     getNodeIndex,
     clearDragState,
+    finishPendingAttributeEdit,
     clearDropMarkers,
     applyDropMarker,
     applyAppendMarker,

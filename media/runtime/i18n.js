@@ -25,6 +25,7 @@
       traceMode: "Trace Settings",
       language: "Language",
       theme: "Theme",
+      customTheme: "Custom Theme",
       nodeAttributeLayout: "Node Layout",
       nodeAttributeLayoutOptions: {
         inline: "Left-right layout",
@@ -47,6 +48,7 @@
       playbackAutoNavigateShort: "Auto jump tree",
       playbackAllowUnclosedLogShort: "Allow unclosed log",
       traceLearningShort: "Learning",
+      traceLearningEnhancementShort: "Learning enhancement",
       traceConfigDirectory: "Trace config directory",
       traceConfigDirectoryUnavailable: "Trace config directory is not ready.",
       traceOpenConfig: "Open config file",
@@ -79,6 +81,7 @@
         traceMode: "塔斯设置",
         language: "语言",
         theme: "主题",
+        customTheme: "自定义主题",
         nodeAttributeLayout: "节点布局类型",
         nodeAttributeLayoutOptions: {
           inline: "左右布局",
@@ -101,6 +104,7 @@
         playbackAutoNavigateShort: "自动跳转树",
         playbackAllowUnclosedLogShort: "允许读取未闭合日志",
         traceLearningShort: "学习",
+        traceLearningEnhancementShort: "学习增强",
         traceConfigDirectory: "塔斯配置目录",
         traceConfigDirectoryUnavailable: "塔斯配置目录尚未就绪。",
         traceOpenConfig: "打开配置文件",
@@ -136,7 +140,8 @@
             { value: "paper", label: "纸白" },
             { value: "sand", label: "暖沙" },
             { value: "mist", label: "雾灰" },
-            { value: "rose", label: "浅玫" }
+            { value: "rose", label: "浅玫" },
+            { value: "custom", label: "自定义" }
           ]
         : [
             { value: "midnight", label: "Midnight" },
@@ -146,7 +151,8 @@
             { value: "paper", label: "Paper" },
             { value: "sand", label: "Sand" },
             { value: "mist", label: "Mist" },
-            { value: "rose", label: "Rose" }
+            { value: "rose", label: "Rose" },
+            { value: "custom", label: "Custom" }
           ];
 
     return themes.map((theme) => {
@@ -444,6 +450,7 @@
       openExistingXml: "Open existing XML",
       importPlaybackLog: "Import Log",
       importPlaybackSummary: "Choose a btlog file to select it.",
+      importPlaybackOpening: "Opening btlog...",
       newXmlNameTitle: "Confirm the new XML name"
     };
 
@@ -465,6 +472,7 @@
         openExistingXml: "打开已有 XML",
         importPlaybackLog: "导入日志",
         importPlaybackSummary: "选择一个 btlog 文件进行导入。",
+        importPlaybackOpening: "正在打开 btlog...",
         newXmlNameTitle: "确认新 XML 的名称"
       },
       language
@@ -528,6 +536,10 @@
       traceProviderMissing: (fields) => `Missing ${fields}`,
       traceAskPlaceholder: "Ask about the current btlog frame...",
       traceNoLog: "Open a btlog before asking Trace.",
+      traceAttachLog: "Attach async log",
+      traceClearLog: "Clear",
+      traceAttachedLog: (fileName, lineCount, truncated) =>
+        `${fileName} · ${lineCount} lines${truncated ? " · truncated" : ""}`,
       traceSend: "Ask",
       traceStop: "Stop",
       traceThinking: "Trace is thinking...",
@@ -594,6 +606,10 @@
         traceProviderMissing: (fields) => `缺少 ${fields}`,
         traceAskPlaceholder: "询问当前 btlog 帧的问题...",
         traceNoLog: "先打开一个 btlog，再向塔斯提问。",
+        traceAttachLog: "附加 async 日志",
+        traceClearLog: "清除",
+        traceAttachedLog: (fileName, lineCount, truncated) =>
+          `${fileName} · ${lineCount} 行${truncated ? " · 已截断" : ""}`,
         traceSend: "提问",
         traceStop: "停止",
         traceThinking: "塔斯正在分析...",

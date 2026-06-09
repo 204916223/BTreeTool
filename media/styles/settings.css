@@ -181,6 +181,55 @@
   width: 100%;
 }
 
+.settings-theme-control {
+  gap: 12px;
+}
+
+.settings-theme-control > .attribute-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-theme-control > .settings-color-pair {
+  flex: 0 0 auto;
+}
+
+.settings-color-pair {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.settings-color-input {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.settings-color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 0;
+}
+
+.settings-color-input::-moz-color-swatch {
+  border: 0;
+  border-radius: 0;
+}
+
+.settings-color-input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 54%, transparent);
+  outline-offset: 3px;
+}
+
 .settings-inline-control .settings-segmented {
   position: relative;
   display: flex;
@@ -204,6 +253,10 @@
   will-change: transform, width;
 }
 
+:root[data-btree-theme="custom"] .settings-segmented-indicator {
+  background: color-mix(in srgb, var(--custom-theme-color-a) 42%, var(--custom-theme-color-b) 18%);
+}
+
 .settings-segmented-button {
   position: relative;
   z-index: 1;
@@ -224,6 +277,10 @@
 .settings-segmented-button.is-active {
   color: #0f2d16;
   font-weight: 700;
+}
+
+:root[data-btree-theme="custom"] .settings-segmented-button.is-active {
+  color: var(--custom-theme-on-surface);
 }
 
 .settings-segmented-button:focus-visible {
@@ -375,6 +432,10 @@
 
 .settings-switch input:checked + .settings-switch-track {
   background: #39d46a;
+}
+
+:root[data-btree-theme="custom"] .settings-switch input:checked + .settings-switch-track {
+  background: color-mix(in srgb, var(--custom-theme-color-a) 42%, var(--custom-theme-color-b) 18%);
 }
 
 .settings-switch input:checked + .settings-switch-track::after {

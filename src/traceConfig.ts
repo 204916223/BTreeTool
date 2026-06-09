@@ -54,6 +54,7 @@ export interface TraceConfigState {
 export interface TraceChatRequest {
   question: string;
   context: string;
+  learningContext?: string;
   signal?: AbortSignal;
 }
 
@@ -398,8 +399,23 @@ function buildTracePrompt(request: TraceChatRequest): string {
     "Current btlog context:",
     request.context,
     "",
+    formatLearningContextForPrompt(request.learningContext),
+    "",
     "User question:",
     request.question
+  ].join("\n");
+}
+
+function formatLearningContextForPrompt(learningContext: string | undefined): string {
+  const value = typeof learningContext === "string" ? learningContext.trim() : "";
+  if (!value) {
+    return "Historical feedback examples: none.";
+  }
+  return [
+    "Historical feedback examples from prior reviewed Trace answers:",
+    "Use reasonable examples as guidance when they match the current evidence.",
+    "Use nonsense examples as negative examples; avoid repeating their unsupported conclusions.",
+    value
   ].join("\n");
 }
 

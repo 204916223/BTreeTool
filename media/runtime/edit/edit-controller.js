@@ -54,6 +54,7 @@
     runtime.app = {
       render,
       renderCurrentTree,
+      renderPlaybackState,
       renderPlaybackLog,
       renderWarnings,
       emptyState,
@@ -193,6 +194,7 @@
       }
 
       const hadViewport = Boolean(runtime.state.currentCanvasState);
+      const useLightAttributeRefresh = canUseLightAttributeRefresh(payload, result);
       runtime.state.currentFileName = toBaseName(payload.fileName);
       runtime.state.currentPreview = result;
       runtime.state.currentCatalogGroups = result.catalog || [];
@@ -238,9 +240,146 @@
         ensureSplitPaneState(result);
       }
       runtime.search.refreshResults({ renderTree: false, focusActive: false });
+      if (useLightAttributeRefresh) {
+        updateSaveIndicator();
+        runtime.search.updateUi();
+        return;
+      }
       renderCurrentTree(result, { preserveViewport: hadViewport });
       updateSaveIndicator();
       runtime.search.updateUi();
+    }
+
+    function canUseLightAttributeRefresh(payload, result) {
+      const pending = runtime.state.pendingAttributeEdit;
+      const previous = runtime.state.currentPreview;
+      if (!pending || !previous || !payload?.hasDocument || payload.parseError || !result || runtime.modeRules.isPlaybackMode()) {
+        return false;
+      }
+
+      const incomingDocumentPath = payload.fileName || "";
+      if (incomingDocumentPath !== runtime.state.currentDocumentPath) {
+        return false;
+      }
+
+      if (Boolean(previous.hasBlockingIssues) !== Boolean(result.hasBlockingIssues)) {
+        return false;
+      }
+
+      if (JSON.stringify(previous.warnings || []) !== JSON.stringify(result.warnings || [])) {
+        return false;
+      }
+
+      const nextNode = getNodeFromResult(result, pending.treeId, pending.nodePath);
+      if (!nextNode || !attributesEqual(nextNode.attributes || {}, pending.attributes || {})) {
+        return false;
+      }
+
+      return samePreviewShapeAndVisuals(previous, result, pending);
+    }
+
+    function samePreviewShapeAndVisuals(previous, next, pending) {
+      const previousTrees = previous.behaviorTrees || [];
+      const nextTrees = next.behaviorTrees || [];
+      if (previousTrees.length !== nextTrees.length) {
+        return false;
+      }
+
+      for (let index = 0; index < previousTrees.length; index += 1) {
+        const previousTree = previousTrees[index];
+        const nextTree = nextTrees[index];
+        if (previousTree.id !== nextTree.id) {
+          return false;
+        }
+        if (!sameNodeShapeAndVisuals(previousTree.node, nextTree.node, previousTree.id, pending)) {
+          return false;
+        }
+      }
+
+      return JSON.stringify(previous.catalog || []) === JSON.stringify(next.catalog || []);
+    }
+
+    function sameNodeShapeAndVisuals(previousNode, nextNode, treeId, pending) {
+      if (!previousNode || !nextNode) {
+        return previousNode === nextNode;
+      }
+      if (previousNode.nodePath !== nextNode.nodePath || previousNode.kind !== nextNode.kind) {
+        return false;
+      }
+
+      const isPendingNode = treeId === pending.treeId && previousNode.nodePath === pending.nodePath;
+      if (!sameNodeVisualSignature(previousNode, nextNode, isPendingNode ? pending.attributeKey : "")) {
+        return false;
+      }
+
+      const previousChildren = previousNode.children || [];
+      const nextChildren = nextNode.children || [];
+      if (previousChildren.length !== nextChildren.length) {
+        return false;
+      }
+
+      for (let index = 0; index < previousChildren.length; index += 1) {
+        if (!sameNodeShapeAndVisuals(previousChildren[index], nextChildren[index], treeId, pending)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    function sameNodeVisualSignature(previousNode, nextNode, changingAttributeKey) {
+      const previousSignature = toNodeVisualSignature(previousNode, changingAttributeKey);
+      const nextSignature = toNodeVisualSignature(nextNode, changingAttributeKey);
+      return JSON.stringify(previousSignature) === JSON.stringify(nextSignature);
+    }
+
+    function toNodeVisualSignature(node, changingAttributeKey) {
+      return {
+        title: node.title,
+        instanceName: node.instanceName,
+        kind: node.kind,
+        category: node.category,
+        targetTreeId: node.targetTreeId,
+        description: node.description,
+        code: node.code,
+        summary: node.summary,
+        modelKind: node.modelKind,
+        warningCount: node.warningCount,
+        hasError: node.hasError,
+        warnings: node.warnings || [],
+        ioGroups: normalizeAttributeGroups(node.ioGroups, changingAttributeKey),
+        attributeFields: normalizeAttributeFields(node.attributeFields, changingAttributeKey),
+        editorFields: normalizeAttributeFields(node.editorFields, changingAttributeKey)
+      };
+    }
+
+    function normalizeAttributeGroups(groups, changingAttributeKey) {
+      const normalize = (items) =>
+        (items || []).map((item) => ({
+          ...item,
+          value: item.key === changingAttributeKey ? "" : item.value
+        }));
+      return {
+        inputs: normalize(groups?.inputs),
+        outputs: normalize(groups?.outputs),
+        params: normalize(groups?.params)
+      };
+    }
+
+    function normalizeAttributeFields(fields, changingAttributeKey) {
+      return (fields || []).map((field) => ({
+        ...field,
+        value: field.key === changingAttributeKey ? "" : field.value
+      }));
+    }
+
+    function attributesEqual(left, right) {
+      return JSON.stringify(left || {}) === JSON.stringify(right || {});
+    }
+
+    function getNodeFromResult(result, treeId, nodePath) {
+      const tree = (result.behaviorTrees || []).find((entry) => entry.id === treeId);
+      return tree ? findNodeByPath(tree.node, nodePath) : null;
     }
 
     function setPreviewMode(mode) {
@@ -469,6 +608,7 @@
       vscode.setState({
         uiPreferences: {
           themePreset: runtime.state.currentSettings?.themePreset || "midnight",
+          customTheme: runtime.state.currentSettings?.customTheme || null,
           language: runtime.state.currentSettings?.language || "en-US"
         },
         selectedTreeId: runtime.state.selectedTreeId,

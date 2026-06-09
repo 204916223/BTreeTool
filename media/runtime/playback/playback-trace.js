@@ -136,6 +136,23 @@
       const composerShell = document.createElement("div");
       composerShell.className = "playback-trace-composer-shell";
 
+      const attachments = document.createElement("div");
+      attachments.className = "playback-trace-attachments";
+      attachments.dataset.traceAttachments = "true";
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.className = "playback-trace-file-input";
+      fileInput.dataset.traceFileInput = "true";
+      fileInput.accept = ".log,.txt,.1";
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files?.[0] || null;
+        fileInput.value = "";
+        if (!file) {
+          return;
+        }
+        readTraceContextFile(file);
+      });
+
       const input = document.createElement("textarea");
       input.className = "playback-trace-input";
       input.rows = 2;
@@ -185,6 +202,8 @@
 
       footer.appendChild(statusbar);
       footer.appendChild(send);
+      composerShell.appendChild(attachments);
+      composerShell.appendChild(fileInput);
       composerShell.appendChild(input);
       composerShell.appendChild(footer);
       form.appendChild(composerShell);
@@ -229,6 +248,10 @@
       if (providerSelect) {
         updateTraceProviderSelect(providerSelect, config, playbackCopy, Boolean(runtime.state.tracePendingRequestId));
       }
+      const attachments = panel.querySelector("[data-trace-attachments]");
+      if (attachments) {
+        updateTraceAttachmentTray(attachments, playbackCopy, Boolean(runtime.state.tracePendingRequestId));
+      }
     }
 
     function updateTraceProviderSelect(select, config, playbackCopy, isPending) {
@@ -259,6 +282,94 @@
         : providers[0]?.id || "";
       select.disabled = providers.length === 0 || isPending;
       select.title = providers.length === 0 ? playbackCopy.providerNotConfigured : "";
+    }
+
+    function updateTraceAttachmentTray(container, playbackCopy, isPending) {
+      container.replaceChildren();
+      const fileState = runtime.state.traceContextFileReading || runtime.state.traceContextFileState;
+      container.hidden = false;
+      if (fileState) {
+        const chip = document.createElement("div");
+        chip.className = "playback-trace-attachment-chip";
+        chip.classList.toggle("is-pending", runtime.state.traceContextFileReading === fileState);
+        chip.title = fileState.filePath || fileState.fileName || "async.log";
+        const icon = document.createElement("span");
+        icon.className = "playback-trace-attachment-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = "▤";
+        const body = document.createElement("span");
+        body.className = "playback-trace-attachment-body";
+        const name = document.createElement("span");
+        name.className = "playback-trace-attachment-name";
+        name.textContent = fileState.fileName || "async.log";
+        const kind = document.createElement("span");
+        kind.className = "playback-trace-attachment-kind";
+        kind.textContent = "LOG";
+        body.appendChild(name);
+        body.appendChild(kind);
+        const clear = document.createElement("button");
+        clear.type = "button";
+        clear.className = "playback-trace-attachment-clear";
+        clear.textContent = "×";
+        clear.title = playbackCopy.traceClearLog;
+        clear.setAttribute("aria-label", playbackCopy.traceClearLog);
+        clear.disabled = isPending;
+        clear.addEventListener("click", () => {
+          vscode.postMessage({ type: "clearTraceContextFile" });
+        });
+        chip.appendChild(icon);
+        chip.appendChild(body);
+        chip.appendChild(clear);
+        container.appendChild(chip);
+      }
+      const attach = document.createElement("button");
+      attach.type = "button";
+      attach.className = "canvas-btn icon-btn playback-trace-attach";
+      attach.dataset.traceAttachButton = "true";
+      attach.textContent = "+";
+      attach.title = playbackCopy.traceAttachLog;
+      attach.setAttribute("aria-label", playbackCopy.traceAttachLog);
+      attach.disabled = isPending;
+      attach.addEventListener("click", () => {
+        const input = container.closest(".playback-trace-composer-shell")?.querySelector("[data-trace-file-input]");
+        if (input) {
+          input.click();
+          return;
+        }
+        vscode.postMessage({ type: "chooseTraceContextFile" });
+      });
+      container.appendChild(attach);
+    }
+
+    function readTraceContextFile(file) {
+      runtime.state.traceContextFileReading = {
+        fileName: file.name || "async.log",
+        filePath: file.name || "async.log",
+        lineCount: 0,
+        charCount: file.size || 0,
+        truncated: false
+      };
+      const log = runtime.state.playbackLog;
+      const snapshot = log ? buildCurrentPlaybackSnapshot(log) : null;
+      updatePlaybackTracePanel(log, snapshot);
+
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        const text = typeof reader.result === "string" ? reader.result : "";
+        vscode.postMessage({
+          type: "setTraceContextFile",
+          payload: {
+            fileName: file.name || "async.log",
+            text
+          }
+        });
+      });
+      reader.addEventListener("error", () => {
+        runtime.state.traceContextFileReading = null;
+        updatePlaybackTracePanel(log, snapshot);
+        vscode.postMessage({ type: "chooseTraceContextFile" });
+      });
+      reader.readAsText(file);
     }
 
     function renderTraceMessages(container, playbackCopy = runtime.i18n.getPlaybackCopy()) {
@@ -664,6 +775,9 @@
         "- In the 100 frames before the final frame, check distance-like blackboard values; flag -1, 99999, below 0, or above 100.",
         "- Check action-context fields such as current_action, next_action, cached/current action names, task_starting_dist_data, and task_ending_dist_data for mismatch.",
         "- Check servo/navigation context fields such as servo_type, configure_string, servo_mode, current_dist, prepare_dist, and DecelerateNavi values.",
+        "- If the user pasted async logs in the question, correlate their timestamped distance/action/navigation evidence with the btlog failure frame. Invalid distance sentinels such as -99999, 99999, and -1 immediately before a RaiseException are deeper-cause evidence and should be handed off to navigation/distance investigation after the behavior-tree branch is proven.",
+        "- If this playback file has no blackboard events, say that blackboard values are unavailable and use node transitions plus XML node attributes instead.",
+        "- For RaiseException failures, use the node attributes error_id, error_name, error_details, and the preceding condition node attributes as primary evidence.",
         "- Concrete error evidence has priority over non-terminal final/root status. Populated out_error fields, known error code/name, root FAILURE, or confirmed failure chain are enough to conclude a btlog error.",
         "- If the final/root status is RUNNING or otherwise non-terminal and there is no concrete error evidence, conclude that this btlog is incomplete or inconclusive. Do not conclude success or failure from intermediate clues.",
         "- If the root node and relevant chain return SUCCESS near the final frame and there is no concrete error evidence, conclude only that the btlog shows normal successful completion.",
@@ -732,6 +846,7 @@
           `Btlog anomaly assessment: ${assessment}`,
           `Root status near final frame: ${formatTraceRootStatus(rootStatus)}`,
           `Known error classification: ${knownError ? `${knownError.name} (${knownError.evidence})` : "none"}`,
+          `Blackboard availability: ${(log.blackboardEvents || []).length > 0 ? `${log.blackboardEvents.length} events` : "none in this playback file"}`,
           formatTraceSection("Error blackboard keys", errorKeys.map(formatTraceBlackboardKey)),
           formatTraceSection("Blackboard values without usable parameters", emptyValues.map(formatTraceBlackboardEntry)),
           formatTraceSection("Action context signals", actionContext.map(formatTraceBlackboardEntry)),
@@ -1154,7 +1269,8 @@
       const evidence = candidate.chain.evidence
         .map((entry) => `${entry.nodeName}#${entry.uid}${entry.status ? ` -> ${entry.status} @ frame ${entry.frameIndex}` : " -> no observed parent status"}`)
         .join("; ");
-      return `frame ${transition.frameIndex}, ${candidate.nodeName}#${transition.uid} ${transition.prevStatus}->${transition.status}: ${chainState}${evidence ? `; ancestors: ${evidence}` : ""}`;
+      const attributes = formatTraceNodeAttributes(getTraceNodeByUid(candidate.transition.uid));
+      return `frame ${transition.frameIndex}, ${candidate.nodeName}#${transition.uid} ${transition.prevStatus}->${transition.status}: ${chainState}${attributes ? `; node attributes: ${attributes}` : ""}${evidence ? `; ancestors: ${evidence}` : ""}`;
     }
 
     function formatTraceDistanceAnomaly(entry) {
@@ -1170,6 +1286,33 @@
         return `${rootStatus.nodeName}#${rootStatus.uid} ${transition.prevStatus}->${transition.status} @ frame ${transition.frameIndex}`;
       }
       return `${rootStatus.nodeName}#${rootStatus.uid} snapshot=${rootStatus.snapshotStatus || "unknown"}`;
+    }
+
+    function getTraceNodeByUid(uid) {
+      const nodesByUid = runtime.playbackData?.getPlaybackCache?.(runtime.state.playbackLog)?.nodeIndex?.nodesByUid || {};
+      return nodesByUid[String(uid)] || null;
+    }
+
+    function formatTraceNodeAttributes(node) {
+      const attributes = node?.attributes || {};
+      const keys = [
+        "error_id",
+        "error_name",
+        "error_details",
+        "error_level",
+        "if",
+        "else",
+        "failure_count",
+        "success_count",
+        "mode",
+        "prepare_dist",
+        "target_position",
+        "action_cmd"
+      ];
+      return keys
+        .filter((key) => attributes[key] !== undefined && attributes[key] !== "")
+        .map((key) => `${key}=${formatTraceValue(attributes[key])}`)
+        .join(", ");
     }
 
     function formatTraceValue(value) {

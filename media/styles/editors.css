@@ -44,6 +44,12 @@
   color: var(--accent);
 }
 
+:root[data-btree-theme="custom"] .node-editor-tab.is-active {
+  border-color: color-mix(in srgb, var(--custom-theme-color-a) 55%, var(--line-strong));
+  background: color-mix(in srgb, var(--custom-theme-color-a) 42%, var(--custom-theme-color-b) 18%);
+  color: var(--custom-theme-on-surface);
+}
+
 .node-editor-panels {
   min-height: 0;
   overflow: hidden;

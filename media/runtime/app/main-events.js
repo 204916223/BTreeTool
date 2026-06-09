@@ -18,6 +18,7 @@
         }
         handlers.updateSaveIndicator();
         runtime.overlays.handleEditResult?.(message.payload);
+        runtime.canvas.finishPendingAttributeEdit?.(message.payload?.ok !== false);
       }
 
       if (message?.type === "shortcutAction") {
@@ -29,8 +30,16 @@
         return;
       }
 
+      if (message?.type === "settingsUpdated") {
+        runtime.state.currentSettings = message.payload?.settings || runtime.state.currentSettings;
+        runtime.state.settingsFilePath = message.payload?.settingsFilePath || runtime.state.settingsFilePath || "";
+        runtime.app.applyUserSettings?.();
+        return;
+      }
+
       if (message?.type === "playbackLog") {
         handlers.pausePlayback();
+        runtime.state.playbackLogImporting = false;
         const previousLogPath = runtime.state.playbackLog?.filePath || "";
         runtime.state.playbackLog = message.payload || null;
         const nextLogPath = runtime.state.playbackLog?.filePath || "";
@@ -52,11 +61,20 @@
 
       if (message?.type === "playbackLogError") {
         handlers.pausePlayback();
+        runtime.state.playbackLogImporting = false;
         runtime.state.playbackLog = null;
         handlers.clearTraceMessages();
         runtime.refs.treeContent.replaceChildren(
           handlers.emptyState(message.payload?.message || "Failed to load playback log.")
         );
+      }
+
+      if (message?.type === "playbackLogImportFinished") {
+        runtime.state.playbackLogImporting = false;
+        if (runtime.modeRules?.isPlaybackMode?.() && !runtime.state.playbackLog) {
+          handlers.renderPlaybackState();
+        }
+        return;
       }
 
       if (message?.type === "traceConfigState") {
@@ -74,6 +92,15 @@
 
       if (message?.type === "traceAnswerChunk") {
         handlers.handleTraceAnswerChunk(message.payload);
+        return;
+      }
+
+      if (message?.type === "traceContextFileState") {
+        runtime.state.traceContextFileState = message.payload || null;
+        runtime.state.traceContextFileReading = null;
+        const log = runtime.state.playbackLog;
+        const snapshot = log ? handlers.buildCurrentPlaybackSnapshot(log) : null;
+        handlers.updatePlaybackTracePanel(log, snapshot);
         return;
       }
 
@@ -183,7 +210,7 @@
     });
     runtime.refs.fileLabel?.addEventListener("click", () => {
       if (runtime.modeRules.isPlaybackMode()) {
-        runtime.vscode.postMessage({ type: "choosePlaybackLogFile" });
+        requestPlaybackLogImport();
       }
     });
     runtime.refs.fileLabel?.addEventListener("keydown", (event) => {
@@ -191,7 +218,7 @@
         return;
       }
       event.preventDefault();
-      runtime.vscode.postMessage({ type: "choosePlaybackLogFile" });
+      requestPlaybackLogImport();
     });
     runtime.refs.openSettingsButton?.addEventListener("click", () => {
       runtime.overlays.showSettingsDialog();
@@ -324,9 +351,21 @@
     }
   }
 
+  function requestPlaybackLogImport() {
+    if (runtime.state.playbackLogImporting) {
+      return;
+    }
+    runtime.state.playbackLogImporting = true;
+    if (runtime.modeRules?.isPlaybackMode?.()) {
+      runtime.app.renderPlaybackState?.();
+    }
+    runtime.vscode.postMessage({ type: "choosePlaybackLogFile" });
+  }
+
   runtime.mainEvents = {
     bindWebviewMessages,
     bindGlobalKeys,
-    bindChromeControls
+    bindChromeControls,
+    requestPlaybackLogImport
   };
 })();

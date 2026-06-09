@@ -145,6 +145,12 @@
     inset 0 0 0 1px color-mix(in srgb, white 20%, transparent);
 }
 
+:root[data-btree-theme="custom"] .mode-toggle-btn.is-active {
+  border-color: color-mix(in srgb, var(--custom-theme-color-a) 55%, var(--line-strong));
+  background: color-mix(in srgb, var(--custom-theme-color-a) 42%, var(--custom-theme-color-b) 18%);
+  color: var(--custom-theme-on-surface);
+}
+
 .mode-toggle-btn:active {
   transform: scale(0.96);
 }
@@ -234,6 +240,10 @@ body.is-playback-mode .drop-slot-overlay {
   font-size: 17px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+:root[data-btree-theme="custom"] .file-label {
+  color: var(--custom-theme-on-gradient);
 }
 
 .file-label.is-actionable {

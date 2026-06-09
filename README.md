@@ -104,6 +104,55 @@ npm run package:vsix
 - 左侧 transition 列表支持过滤
 - 右侧 blackboard 面板会随回放同步更新
 
+## Trace AI 学习反馈
+
+Trace 面板可以开启 `Learning`，用户对 AI 回答点击反馈后，BTreeTool 会先把样本写入本机 VS Code globalStorage 的 `trace-feedback.jsonl`。
+
+如果在设置里同时开启 `学习增强`，BTreeTool 会额外把反馈样本 POST 到内置的公司内网学习增强服务：
+
+```http
+POST http://172.19.3.32:8080/api/trace-feedback
+Content-Type: application/json
+```
+
+```json
+{
+  "source": "btree-tool",
+  "schemaVersion": 1,
+  "sentAt": "2026-06-09T00:00:00.000Z",
+  "records": [
+    {
+      "createdAt": "2026-06-09T00:00:00.000Z",
+      "action": "learn",
+      "requestId": "trace-request-id",
+      "verdict": "reasonable",
+      "logFilePath": "/path/to/file.btlog",
+      "frameIndex": 123,
+      "question": "用户问题",
+      "answer": "AI 回答",
+      "context": "Trace 上下文",
+      "feedbackTarget": "answer",
+      "sectionLabel": ""
+    }
+  ]
+}
+```
+
+远端 API 返回任意 `2xx` 状态码即视为成功。网络失败、超时或非 `2xx` 时，样本会进入本机 `trace-feedback-pending.jsonl`，后续反馈时自动重试。`学习增强` 默认关闭；学习增强服务不可用不会影响本次 AI 分析结果返回。
+
+当 `学习增强` 开启时，Trace AI 提问前还会向内网采集服务检索相似历史反馈，并把少量匹配案例注入本次 prompt。被标记为 `合理` 的反馈会作为正例；被标记为 `放屁` 的反馈会作为反例，提醒模型不要重复类似无依据结论。检索服务不可用时会自动跳过历史案例，不影响本次 AI 分析。
+
+采集数据包括：
+
+- 反馈时间、请求 ID、反馈对象和章节标签
+- 用户点击的反馈结论：`reasonable` 或 `nonsense`
+- 动作类型：`learn` 或 `optimize`
+- 当前 btlog 路径和帧号
+- 用户问题
+- AI 回答文本
+- 本次 Trace 上下文摘要
+- 服务端接收时间、来源和请求 IP
+
 ## 设置
 
 点击右上角设置按钮可以修改用户配置。配置会保存到当前用户的 `user-settings.json`。

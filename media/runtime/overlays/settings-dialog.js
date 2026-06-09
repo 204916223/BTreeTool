@@ -40,9 +40,15 @@
     const themeRow = createInlineField("Theme");
     const themeSelect = document.createElement("select");
     themeSelect.className = "attribute-input";
+    const customThemePicker = createCustomThemePicker();
+    themeRow.control.classList.add("settings-theme-control");
     themeRow.control.appendChild(themeSelect);
+    themeRow.control.appendChild(customThemePicker.element);
     commonSection.body.appendChild(languageRow.element);
     commonSection.body.appendChild(themeRow.element);
+    themeSelect.addEventListener("change", () => {
+      customThemePicker.element.hidden = themeSelect.value !== "custom";
+    });
 
     const nodeLayoutRow = createInlineField("Node Layout");
     nodeLayoutRow.element.classList.add("settings-inline-field-horizontal");
@@ -135,6 +141,24 @@
     traceLearningRow.appendChild(traceLearningSwitch.element);
     traceSection.body.appendChild(traceLearningRow);
 
+    const traceLearningEnhancementRow = document.createElement("div");
+    traceLearningEnhancementRow.className = "settings-toggle-row";
+    const traceLearningEnhancementSwitch = createSettingsSwitch("Learning Enhancement");
+    const traceLearningEnhancementInput = traceLearningEnhancementSwitch.input;
+    const traceLearningEnhancementText = traceLearningEnhancementSwitch.text;
+    traceLearningEnhancementRow.appendChild(traceLearningEnhancementSwitch.element);
+    traceSection.body.appendChild(traceLearningEnhancementRow);
+    traceLearningEnhancementInput.addEventListener("change", () => {
+      if (traceLearningEnhancementInput.checked) {
+        traceLearningInput.checked = true;
+      }
+    });
+    traceLearningInput.addEventListener("change", () => {
+      if (!traceLearningInput.checked) {
+        traceLearningEnhancementInput.checked = false;
+      }
+    });
+
     const traceField = document.createElement("div");
     traceField.className = "settings-field";
     const traceFieldLabel = document.createElement("div");
@@ -188,6 +212,10 @@
         ...currentSettings,
         language: languageSelect.value,
         themePreset: themeSelect.value,
+        customTheme: {
+          primaryColor: normalizeColorInputValue(customThemePicker.primaryInput.value, "#5e8de6"),
+          secondaryColor: normalizeColorInputValue(customThemePicker.secondaryInput.value, "#df78cf")
+        },
         nodeAttributeLayout: nodeLayoutControl.getValue(),
         editTreeRenderMode: editTreeRenderModeControl.getValue(),
         playbackTreeRenderMode: playbackTreeRenderModeControl.getValue(),
@@ -198,7 +226,8 @@
         copyNodeWithDescendants: copyDescendantsInput.checked,
         playbackAutoNavigateToTree: playbackAutoNavigateInput.checked,
         allowUnclosedPlaybackLog: true,
-        traceLearningEnabled: traceLearningInput.checked,
+        traceLearningEnabled: traceLearningInput.checked || traceLearningEnhancementInput.checked,
+        traceLearningEnhancementEnabled: traceLearningEnhancementInput.checked,
         simplifyHiddenSections: detailSwitches.filter((entry) => !entry.switchControl.input.checked).map((entry) => entry.key)
       };
       const preserveViewport =
@@ -246,6 +275,7 @@
       languageSelect,
       themeRow,
       themeSelect,
+      customThemePicker,
       nodeLayoutRow,
       nodeLayoutControl,
       editSectionTitle: editSection.title,
@@ -272,6 +302,8 @@
       traceOpenButton,
       traceLearningInput,
       traceLearningText,
+      traceLearningEnhancementInput,
+      traceLearningEnhancementText,
       clearImportedNodesButton,
       importNodesButton,
       saveButton
@@ -321,6 +353,28 @@
     element.appendChild(text);
     element.appendChild(control);
     return { element, input, text };
+  }
+
+  function createCustomThemePicker() {
+    const element = document.createElement("div");
+    element.className = "settings-color-pair";
+    const primaryInput = createColorInput("#5e8de6");
+    const secondaryInput = createColorInput("#df78cf");
+    element.appendChild(primaryInput);
+    element.appendChild(secondaryInput);
+    return { element, primaryInput, secondaryInput };
+  }
+
+  function createColorInput(value) {
+    const input = document.createElement("input");
+    input.type = "color";
+    input.className = "settings-color-input";
+    input.value = value;
+    return input;
+  }
+
+  function normalizeColorInputValue(value, fallback) {
+    return /^#[0-9a-fA-F]{6}$/.test(value || "") ? value.toLowerCase() : fallback;
   }
 
   function createDetailSwitches() {
@@ -444,6 +498,7 @@
     overlayState.settingsDialog.traceSectionTitle.textContent = copy.traceMode;
     overlayState.settingsDialog.traceFieldLabel.textContent = copy.traceConfigDirectory;
     overlayState.settingsDialog.traceLearningText.textContent = copy.traceLearningShort;
+    overlayState.settingsDialog.traceLearningEnhancementText.textContent = copy.traceLearningEnhancementShort;
     overlayState.settingsDialog.traceOpenButton.textContent = copy.traceOpenConfig;
     overlayState.settingsDialog.traceOpenButton.title = copy.traceOpenConfig;
     overlayState.settingsDialog.traceOpenButton.setAttribute("aria-label", copy.traceOpenConfig);
@@ -467,6 +522,16 @@
     overlayState.settingsDialog.languageSelect.value = runtime.state.currentSettings?.language || "en-US";
     overlayState.settingsDialog.themeSelect.replaceChildren(...runtime.i18n.getThemeOptions());
     overlayState.settingsDialog.themeSelect.value = runtime.state.currentSettings?.themePreset || "midnight";
+    overlayState.settingsDialog.customThemePicker.primaryInput.value = normalizeColorInputValue(
+      runtime.state.currentSettings?.customTheme?.primaryColor,
+      "#5e8de6"
+    );
+    overlayState.settingsDialog.customThemePicker.secondaryInput.value = normalizeColorInputValue(
+      runtime.state.currentSettings?.customTheme?.secondaryColor,
+      "#df78cf"
+    );
+    overlayState.settingsDialog.customThemePicker.element.hidden =
+      overlayState.settingsDialog.themeSelect.value !== "custom";
     overlayState.settingsDialog.nodeLayoutRow.text.textContent = copy.nodeAttributeLayout;
     overlayState.settingsDialog.nodeLayoutControl.setLabels({
       inline: copy.nodeAttributeLayoutOptions.inline,
@@ -479,8 +544,10 @@
       runtime.state.currentSettings?.copyNodeWithDescendants === true;
     overlayState.settingsDialog.playbackAutoNavigateInput.checked =
       runtime.state.currentSettings?.playbackAutoNavigateToTree === true;
+    const traceLearningEnhancementEnabled = runtime.state.currentSettings?.traceLearningEnhancementEnabled === true;
     overlayState.settingsDialog.traceLearningInput.checked =
-      runtime.state.currentSettings?.traceLearningEnabled === true;
+      runtime.state.currentSettings?.traceLearningEnabled === true || traceLearningEnhancementEnabled;
+    overlayState.settingsDialog.traceLearningEnhancementInput.checked = traceLearningEnhancementEnabled;
     const hiddenSections = new Set(runtime.state.currentSettings?.simplifyHiddenSections || []);
     overlayState.settingsDialog.detailSwitches.forEach((entry) => {
       entry.switchControl.input.checked = !hiddenSections.has(entry.key);

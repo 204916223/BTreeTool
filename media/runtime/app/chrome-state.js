@@ -6,6 +6,7 @@
     const catalogCopy = runtime.i18n.getCatalogCopy();
     const themePreset = runtime.state.currentSettings?.themePreset || "midnight";
     document.documentElement.dataset.btreeTheme = themePreset;
+    applyCustomThemeColors(runtime.state.currentSettings?.customTheme);
     document.documentElement.lang = runtime.state.currentSettings?.language || "en-US";
     document.documentElement.dataset.nodeAttributeLayout =
       runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline";
@@ -41,6 +42,89 @@
     runtime.refs.treeSearchNextButton.setAttribute("aria-label", searchCopy.next);
     updateSaveIndicator();
     runtime.search.updateUi();
+  }
+
+  function applyCustomThemeColors(customTheme = {}) {
+    const primaryColor = normalizeHexColor(customTheme.primaryColor, "#5e8de6");
+    const secondaryColor = normalizeHexColor(customTheme.secondaryColor, "#df78cf");
+    const averageColor = mixHexColors(primaryColor, secondaryColor, 0.5);
+    const averageLuminance = relativeLuminance(averageColor);
+    const isDarkTheme = averageLuminance < 0.48;
+    const surfaceMixColor = isDarkTheme ? "#111827" : "#ffffff";
+    const surfaceTextColor = isDarkTheme ? "#ffffff" : "#111827";
+    const gradientTextColor = readableTextColor(averageColor);
+    document.documentElement.style.setProperty("--custom-theme-color-a", primaryColor);
+    document.documentElement.style.setProperty("--custom-theme-color-b", secondaryColor);
+    document.documentElement.style.setProperty("--custom-theme-color-scheme", isDarkTheme ? "dark" : "light");
+    document.documentElement.style.setProperty("--custom-theme-mix-color", surfaceMixColor);
+    document.documentElement.style.setProperty("--custom-theme-on-surface", surfaceTextColor);
+    document.documentElement.style.setProperty("--custom-theme-on-gradient", gradientTextColor);
+  }
+
+  function normalizeHexColor(value, fallback) {
+    if (typeof value !== "string") {
+      return fallback;
+    }
+    const trimmed = value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+      return trimmed.toLowerCase();
+    }
+    const shorthand = /^#([0-9a-fA-F]{3})$/.exec(trimmed);
+    if (!shorthand) {
+      return fallback;
+    }
+    return `#${shorthand[1]
+      .split("")
+      .map((char) => `${char}${char}`)
+      .join("")
+      .toLowerCase()}`;
+  }
+
+  function mixHexColors(left, right, rightWeight = 0.5) {
+    const leftRgb = hexToRgb(left);
+    const rightRgb = hexToRgb(right);
+    const leftWeight = 1 - rightWeight;
+    return rgbToHex({
+      r: Math.round(leftRgb.r * leftWeight + rightRgb.r * rightWeight),
+      g: Math.round(leftRgb.g * leftWeight + rightRgb.g * rightWeight),
+      b: Math.round(leftRgb.b * leftWeight + rightRgb.b * rightWeight)
+    });
+  }
+
+  function relativeLuminance(hex) {
+    const rgb = hexToRgb(hex);
+    const channels = [rgb.r, rgb.g, rgb.b].map((channel) => {
+      const normalized = channel / 255;
+      return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  }
+
+  function readableTextColor(backgroundHex) {
+    const backgroundLuminance = relativeLuminance(backgroundHex);
+    const blackContrast = contrastRatio(backgroundLuminance, relativeLuminance("#111827"));
+    const whiteContrast = contrastRatio(backgroundLuminance, relativeLuminance("#ffffff"));
+    return blackContrast >= whiteContrast ? "#111827" : "#ffffff";
+  }
+
+  function contrastRatio(leftLuminance, rightLuminance) {
+    const lighter = Math.max(leftLuminance, rightLuminance);
+    const darker = Math.min(leftLuminance, rightLuminance);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  function hexToRgb(hex) {
+    const normalized = normalizeHexColor(hex, "#000000").slice(1);
+    return {
+      r: Number.parseInt(normalized.slice(0, 2), 16),
+      g: Number.parseInt(normalized.slice(2, 4), 16),
+      b: Number.parseInt(normalized.slice(4, 6), 16)
+    };
+  }
+
+  function rgbToHex(rgb) {
+    const toHex = (value) => Math.max(0, Math.min(255, value)).toString(16).padStart(2, "0");
+    return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
   }
 
   function updateBehaviorTreeCreateButton() {

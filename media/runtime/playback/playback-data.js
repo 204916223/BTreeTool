@@ -397,12 +397,16 @@
     const locationsByUid = {};
     const childrenByUid = {};
     const depthByUid = {};
+    const nodesByUid = {};
     (preview?.behaviorTrees || []).forEach((tree) => {
       walkWithParent(tree.node, null, 0, (node, parentUid, depth) => {
         if (node?.attributes?._uid) {
           const uid = String(node.attributes._uid);
           uidByTreePath[`${tree.id}::${node.nodePath}`] = uid;
           depthByUid[uid] = Math.max(depthByUid[uid] || 0, depth);
+          if (!nodesByUid[uid]) {
+            nodesByUid[uid] = node;
+          }
           const locations = locationsByUid[uid] || [];
           locations.push({
             treeId: tree.id,
@@ -419,7 +423,7 @@
         }
       });
     });
-    return { uidByTreePath, locationsByUid, childrenByUid, depthByUid };
+    return { uidByTreePath, locationsByUid, childrenByUid, depthByUid, nodesByUid };
   }
 
   function walkWithParent(node, parentUid, depth, visit) {

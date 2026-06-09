@@ -145,6 +145,19 @@ export type WebviewMessage =
       };
     }
   | {
+      type: "chooseTraceContextFile";
+    }
+  | {
+      type: "clearTraceContextFile";
+    }
+  | {
+      type: "setTraceContextFile";
+      payload?: {
+        fileName?: string;
+        text?: string;
+      };
+    }
+  | {
       type: "traceAsk";
       payload?: {
         requestId?: string;

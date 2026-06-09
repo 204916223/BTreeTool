@@ -45,6 +45,7 @@ test("app state initializes edit and playback modes from persisted webview state
 
   const playbackState = appState.createInitialState({ editModeEnabled: true }, "playback");
   assert.equal(playbackState.editModeEnabled, false);
+  assert.equal(playbackState.playbackLogImporting, false);
 });
 
 test("app state gives each instance independent default settings collections", () => {
@@ -57,6 +58,11 @@ test("app state gives each instance independent default settings collections", (
   assert.equal(firstState.currentSettings.playbackAutoNavigateToTree, false);
   assert.equal(firstState.currentSettings.allowUnclosedPlaybackLog, true);
   assert.equal(firstState.currentSettings.traceLearningEnabled, false);
+  assert.equal(firstState.currentSettings.traceLearningEnhancementEnabled, false);
+  assert.equal(JSON.stringify(firstState.currentSettings.customTheme), JSON.stringify({
+    primaryColor: "#5e8de6",
+    secondaryColor: "#df78cf"
+  }));
 
   firstState.currentSettings.presetNodes.push({ key: "Custom" });
   firstState.currentSettings.simplifyHiddenSections.push("description");
@@ -71,6 +77,10 @@ test("app state seeds current settings from initial theme settings", () => {
     {
       uiPreferences: {
         themePreset: "ocean",
+        customTheme: {
+          primaryColor: "#48c",
+          secondaryColor: "#123456"
+        },
         language: "zh-CN"
       }
     },
@@ -82,6 +92,10 @@ test("app state seeds current settings from initial theme settings", () => {
   );
 
   assert.equal(state.currentSettings.themePreset, "rose");
+  assert.equal(JSON.stringify(state.currentSettings.customTheme), JSON.stringify({
+    primaryColor: "#4488cc",
+    secondaryColor: "#123456"
+  }));
   assert.equal(state.currentSettings.language, "en-US");
 });
 
@@ -92,7 +106,11 @@ test("app state seeds full current settings from initial settings", () => {
     "edit",
     {
       language: "zh-CN",
-      themePreset: "paper",
+      themePreset: "custom",
+      customTheme: {
+        primaryColor: "#abcdef",
+        secondaryColor: "#fedcba"
+      },
       showMainTreeLocator: true,
       showBehaviorTreeRoot: false,
       requireNodeDeleteConfirmation: true,
@@ -100,6 +118,7 @@ test("app state seeds full current settings from initial settings", () => {
       playbackAutoNavigateToTree: true,
       allowUnclosedPlaybackLog: false,
       traceLearningEnabled: true,
+      traceLearningEnhancementEnabled: true,
       nodeAttributeLayout: "stacked",
       editTreeRenderMode: "expanded",
       playbackTreeRenderMode: "expanded",
@@ -111,7 +130,11 @@ test("app state seeds full current settings from initial settings", () => {
 
   assert.equal(JSON.stringify(state.currentSettings), JSON.stringify({
     language: "zh-CN",
-    themePreset: "paper",
+    themePreset: "custom",
+    customTheme: {
+      primaryColor: "#abcdef",
+      secondaryColor: "#fedcba"
+    },
     showMainTreeLocator: true,
     showBehaviorTreeRoot: true,
     requireNodeDeleteConfirmation: true,
@@ -119,6 +142,7 @@ test("app state seeds full current settings from initial settings", () => {
     playbackAutoNavigateToTree: true,
     allowUnclosedPlaybackLog: true,
     traceLearningEnabled: true,
+    traceLearningEnhancementEnabled: true,
     nodeAttributeLayout: "stacked",
     editTreeRenderMode: "expanded",
     playbackTreeRenderMode: "expanded",
@@ -132,4 +156,26 @@ test("app state seeds full current settings from initial settings", () => {
     presetNodes: [{ key: "Custom", fields: [{ key: "value" }] }]
   });
   assert.equal(nextState.currentSettings.presetNodes[0].fields[0].key, "value");
+});
+
+test("app state makes learning enhancement imply learning", () => {
+  const appState = loadAppStateRuntime();
+  const state = appState.createInitialState({}, "edit", {
+    traceLearningEnabled: false,
+    traceLearningEnhancementEnabled: true
+  });
+
+  assert.equal(state.currentSettings.traceLearningEnabled, true);
+  assert.equal(state.currentSettings.traceLearningEnhancementEnabled, true);
+});
+
+test("app state maps legacy remote learning setting to learning enhancement", () => {
+  const appState = loadAppStateRuntime();
+  const state = appState.createInitialState({}, "edit", {
+    traceLearningEnabled: false,
+    traceLearningCollectionEnabled: true
+  });
+
+  assert.equal(state.currentSettings.traceLearningEnabled, true);
+  assert.equal(state.currentSettings.traceLearningEnhancementEnabled, true);
 });

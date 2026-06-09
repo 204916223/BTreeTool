@@ -1,6 +1,9 @@
 import * as vscode from "vscode";
 import { BtPlaybackLog } from "../core/btlog";
 import { callTraceChat } from "../traceConfig";
+import { enrichTraceContextWithQuestionEvidence } from "../traceEvidence";
+import { loadTraceLearningContext } from "../traceLearning";
+import { BtUserSettings } from "../userSettings";
 
 export type TraceAskPayload =
   | {
@@ -15,6 +18,8 @@ export type TraceAskOptions = {
   payload: TraceAskPayload;
   globalStorageUri: vscode.Uri;
   latestPlaybackLog: BtPlaybackLog | null;
+  currentSettings: BtUserSettings;
+  externalContext?: string;
   controllers: TraceRequestControllers;
   postMessage: (message: unknown) => void;
   refreshTraceConfig: () => void;
@@ -39,7 +44,7 @@ export function cancelTraceRequest(
 }
 
 export async function handleTraceAskAction(options: TraceAskOptions): Promise<void> {
-  const { payload, globalStorageUri, latestPlaybackLog, controllers, postMessage, refreshTraceConfig } = options;
+  const { payload, globalStorageUri, latestPlaybackLog, currentSettings, externalContext, controllers, postMessage, refreshTraceConfig } = options;
   const requestId = payload?.requestId || "";
   const question = payload?.question?.trim() || "";
   const context = payload?.context?.trim() || "";
@@ -53,11 +58,16 @@ export async function handleTraceAskAction(options: TraceAskOptions): Promise<vo
       throw new Error("Trace only works with the currently opened btlog file.");
     }
 
+    const enrichedContext = enrichTraceContextWithQuestionEvidence(context, [question, externalContext || ""].join("\n"));
     const controller = new AbortController();
     controllers.set(requestId, controller);
+    const learningContext = await loadTraceLearningContext(currentSettings, question, enrichedContext, controller.signal);
+    if (controller.signal.aborted) {
+      return;
+    }
     const result = await callTraceChat(
       globalStorageUri,
-      { question, context, signal: controller.signal },
+      { question, context: enrichedContext, learningContext, signal: controller.signal },
       {
         onDelta: (delta) => {
           if (!delta || controller.signal.aborted) {

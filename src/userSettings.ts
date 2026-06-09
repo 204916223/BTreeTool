@@ -10,7 +10,8 @@ export type BtThemePreset =
   | "paper"
   | "sand"
   | "mist"
-  | "rose";
+  | "rose"
+  | "custom";
 export type BtSettingsNodeCategory = "Action" | "Condition" | "Control" | "Decorator" | "SubTree";
 export type BtSettingsFieldRole = "input" | "output" | "inout" | "param";
 export type BtNodeAttributeLayout = "inline" | "stacked";
@@ -40,6 +41,7 @@ export interface BtPresetNodeSettings {
 export interface BtUserSettings {
   language: BtSettingsLanguage;
   themePreset: BtThemePreset;
+  customTheme: BtCustomThemeSettings;
   showMainTreeLocator: boolean;
   showBehaviorTreeRoot: boolean;
   requireNodeDeleteConfirmation: boolean;
@@ -47,6 +49,7 @@ export interface BtUserSettings {
   playbackAutoNavigateToTree: boolean;
   allowUnclosedPlaybackLog: boolean;
   traceLearningEnabled: boolean;
+  traceLearningEnhancementEnabled: boolean;
   nodeAttributeLayout: BtNodeAttributeLayout;
   editTreeRenderMode: BtTreeRenderMode;
   playbackTreeRenderMode: BtTreeRenderMode;
@@ -55,11 +58,20 @@ export interface BtUserSettings {
   presetNodes: BtPresetNodeSettings[];
 }
 
+export interface BtCustomThemeSettings {
+  primaryColor: string;
+  secondaryColor: string;
+}
+
 const SETTINGS_FILE_NAME = "user-settings.json";
 
 export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   language: "en-US",
   themePreset: "midnight",
+  customTheme: {
+    primaryColor: "#5e8de6",
+    secondaryColor: "#df78cf"
+  },
   showMainTreeLocator: false,
   showBehaviorTreeRoot: true,
   requireNodeDeleteConfirmation: false,
@@ -67,6 +79,7 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   playbackAutoNavigateToTree: false,
   allowUnclosedPlaybackLog: true,
   traceLearningEnabled: false,
+  traceLearningEnhancementEnabled: false,
   nodeAttributeLayout: "inline",
   editTreeRenderMode: "paged",
   playbackTreeRenderMode: "paged",
@@ -83,7 +96,8 @@ export const THEME_PRESETS: Array<{ id: BtThemePreset; labelZh: string; labelEn:
   { id: "paper", labelZh: "纸白", labelEn: "Paper" },
   { id: "sand", labelZh: "暖沙", labelEn: "Sand" },
   { id: "mist", labelZh: "雾灰", labelEn: "Mist" },
-  { id: "rose", labelZh: "浅玫", labelEn: "Rose" }
+  { id: "rose", labelZh: "浅玫", labelEn: "Rose" },
+  { id: "custom", labelZh: "自定义", labelEn: "Custom" }
 ];
 
 export const RECOMMENDED_PRESET_NODES: BtPresetNodeSettings[] = [
@@ -188,19 +202,29 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
   return {
     language: settings.language,
     themePreset: settings.themePreset,
+    customTheme: cloneCustomThemeSettings(settings.customTheme),
     showMainTreeLocator: settings.showMainTreeLocator === true,
     showBehaviorTreeRoot: true,
     requireNodeDeleteConfirmation: settings.requireNodeDeleteConfirmation === true,
     copyNodeWithDescendants: settings.copyNodeWithDescendants === true,
     playbackAutoNavigateToTree: settings.playbackAutoNavigateToTree === true,
     allowUnclosedPlaybackLog: true,
-    traceLearningEnabled: settings.traceLearningEnabled === true,
+    traceLearningEnhancementEnabled: settings.traceLearningEnhancementEnabled === true,
+    traceLearningEnabled: settings.traceLearningEnabled === true || settings.traceLearningEnhancementEnabled === true,
     nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
     editTreeRenderMode: normalizeTreeRenderMode(settings.editTreeRenderMode),
     playbackTreeRenderMode: normalizeTreeRenderMode(settings.playbackTreeRenderMode),
     playbackPanelLayout: normalizePlaybackPanelLayout(settings.playbackPanelLayout),
     simplifyHiddenSections: [...settings.simplifyHiddenSections],
     presetNodes: settings.presetNodes.map(clonePresetNodeSettings)
+  };
+}
+
+function cloneCustomThemeSettings(settings: unknown): BtCustomThemeSettings {
+  const input = isRecord(settings) ? settings : {};
+  return {
+    primaryColor: normalizeHexColor(input.primaryColor, DEFAULT_USER_SETTINGS.customTheme.primaryColor),
+    secondaryColor: normalizeHexColor(input.secondaryColor, DEFAULT_USER_SETTINGS.customTheme.secondaryColor)
   };
 }
 
@@ -219,13 +243,18 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const input = isRecord(value) ? value : {};
   const language = input.language === "zh-CN" ? "zh-CN" : "en-US";
   const themePreset = toThemePreset(input.themePreset, input.treeBackgroundColor);
+  const customTheme = normalizeCustomTheme(input.customTheme);
   const showMainTreeLocator = input.showMainTreeLocator === true;
   const showBehaviorTreeRoot = true;
   const requireNodeDeleteConfirmation = input.requireNodeDeleteConfirmation === true;
   const copyNodeWithDescendants = input.copyNodeWithDescendants === true;
   const playbackAutoNavigateToTree = input.playbackAutoNavigateToTree === true;
   const allowUnclosedPlaybackLog = true;
-  const traceLearningEnabled = input.traceLearningEnabled === true;
+  const traceLearningEnhancementEnabled =
+    input.traceLearningEnhancementEnabled === true ||
+    input.traceLearningCollectionEnabled === true ||
+    input.traceLearningRemoteEnabled === true;
+  const traceLearningEnabled = input.traceLearningEnabled === true || traceLearningEnhancementEnabled;
   const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
   const editTreeRenderMode = normalizeTreeRenderMode(input.editTreeRenderMode);
   const playbackTreeRenderMode = normalizeTreeRenderMode(input.playbackTreeRenderMode);
@@ -241,6 +270,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   return {
     language,
     themePreset,
+    customTheme,
     showMainTreeLocator,
     showBehaviorTreeRoot,
     requireNodeDeleteConfirmation,
@@ -248,12 +278,21 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     playbackAutoNavigateToTree,
     allowUnclosedPlaybackLog,
     traceLearningEnabled,
+    traceLearningEnhancementEnabled,
     nodeAttributeLayout,
     editTreeRenderMode,
     playbackTreeRenderMode,
     playbackPanelLayout,
     simplifyHiddenSections: Array.from(new Set(simplifyHiddenSections)),
     presetNodes
+  };
+}
+
+function normalizeCustomTheme(value: unknown): BtCustomThemeSettings {
+  const input = isRecord(value) ? value : {};
+  return {
+    primaryColor: normalizeHexColor(input.primaryColor, DEFAULT_USER_SETTINGS.customTheme.primaryColor),
+    secondaryColor: normalizeHexColor(input.secondaryColor, DEFAULT_USER_SETTINGS.customTheme.secondaryColor)
   };
 }
 
@@ -345,7 +384,8 @@ function toThemePreset(themePreset: unknown, legacyTreeBackgroundColor: unknown)
     themePreset === "paper" ||
     themePreset === "sand" ||
     themePreset === "mist" ||
-    themePreset === "rose"
+    themePreset === "rose" ||
+    themePreset === "custom"
   ) {
     return themePreset;
   }
@@ -368,6 +408,28 @@ function toThemePreset(themePreset: unknown, legacyTreeBackgroundColor: unknown)
   }
 
   return DEFAULT_USER_SETTINGS.themePreset;
+}
+
+function normalizeHexColor(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  const shorthand = /^#([0-9a-fA-F]{3})$/.exec(trimmed);
+  if (shorthand) {
+    return `#${shorthand[1]
+      .split("")
+      .map((char) => `${char}${char}`)
+      .join("")
+      .toLowerCase()}`;
+  }
+
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return fallback;
 }
 
 function isFileNotFoundError(error: unknown): boolean {

@@ -17,7 +17,24 @@ function loadMainEventsRuntime(mode = "playback") {
     state: {
       editModeEnabled: mode !== "playback",
       isSpacePressed: false,
+      playbackLogImporting: false,
       playbackLog: { frames: [{}, {}] }
+    },
+    vscode: {
+      messages: [],
+      postMessage(message) {
+        this.messages.push(message);
+      }
+    },
+    app: {
+      renderPlaybackStateCount: 0,
+      applyUserSettingsCount: 0,
+      renderPlaybackState() {
+        this.renderPlaybackStateCount += 1;
+      },
+      applyUserSettings() {
+        this.applyUserSettingsCount += 1;
+      }
     },
     modeRules: {
       isPlaybackMode() {
@@ -139,6 +156,51 @@ test("space does not toggle playback from text inputs", () => {
 
   assert.equal(toggleCount, 0);
   assert.equal(event.defaultPrevented, false);
+});
+
+test("playback log import request is ignored while an import is pending", () => {
+  const { runtime } = loadMainEventsRuntime("playback");
+
+  runtime.mainEvents.requestPlaybackLogImport();
+  runtime.mainEvents.requestPlaybackLogImport();
+
+  assert.equal(runtime.state.playbackLogImporting, true);
+  assert.equal(runtime.app.renderPlaybackStateCount, 1);
+  assert.equal(JSON.stringify(runtime.vscode.messages), JSON.stringify([{ type: "choosePlaybackLogFile" }]));
+});
+
+test("settingsUpdated message refreshes current settings immediately", () => {
+  const { runtime, listeners } = loadMainEventsRuntime("playback");
+
+  runtime.mainEvents.bindWebviewMessages({
+    pausePlayback() {},
+    clearTraceMessages() {},
+    getPlaybackFrameTimeUs() {},
+    persistUiState() {},
+    updateEditModeButton() {},
+    renderPlaybackState() {},
+    emptyState() {},
+    buildCurrentPlaybackSnapshot() {},
+    updatePlaybackTracePanel() {}
+  });
+
+  listeners.message({
+    data: {
+      type: "settingsUpdated",
+      payload: {
+        settings: {
+          traceLearningEnabled: true,
+          traceLearningEnhancementEnabled: true
+        },
+        settingsFilePath: "/storage/user-settings.json"
+      }
+    }
+  });
+
+  assert.equal(runtime.state.currentSettings.traceLearningEnhancementEnabled, true);
+  assert.equal(runtime.state.currentSettings.traceLearningEnabled, true);
+  assert.equal(runtime.state.settingsFilePath, "/storage/user-settings.json");
+  assert.equal(runtime.app.applyUserSettingsCount, 1);
 });
 
 test("panel visibility and page hide pause playback", () => {

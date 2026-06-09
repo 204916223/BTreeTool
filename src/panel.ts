@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import * as fs from "fs";
+import { Buffer } from "node:buffer";
 import { BtPlaybackLog } from "./core/btlog";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
@@ -12,6 +12,7 @@ import {
   saveUserSettings
 } from "./userSettings";
 import { addTraceProvider, getTraceConfigState, loadTraceConfig, setActiveTraceProvider } from "./traceConfig";
+import { createTraceFeedbackRecord, TraceFeedbackPayload, storeTraceFeedback } from "./traceLearning";
 import { getWebviewHtml } from "./panel/webviewHtml";
 import {
   PreviewPayload,
@@ -55,6 +56,14 @@ type InitialPanelState = {
   settings: BtUserSettings;
   settingsFileUri: vscode.Uri;
   nodeLibraryPresets: BtUserSettings["presetNodes"];
+};
+
+type TraceContextFileState = {
+  fileName: string;
+  filePath: string;
+  lineCount: number;
+  charCount: number;
+  truncated: boolean;
 };
 
 export class BehaviorTreePreviewPanel {
@@ -221,6 +230,7 @@ export class BehaviorTreePreviewPanel {
   private latestPayload: PreviewPayload = BehaviorTreePreviewPanel.emptyPayload;
   private latestDocumentUri: vscode.Uri | null = null;
   private latestPlaybackLog: BtPlaybackLog | null = null;
+  private traceContextFile: { state: TraceContextFileState; text: string } | null = null;
   private settingsFileUri: vscode.Uri | null = null;
   private traceConfigFileUri: vscode.Uri | null = null;
   private readonly traceRequestControllers = createTraceRequestControllers();
@@ -458,6 +468,22 @@ export class BehaviorTreePreviewPanel {
       return true;
     }
 
+    if (message.type === "chooseTraceContextFile") {
+      void this.handleChooseTraceContextFile();
+      return true;
+    }
+
+    if (message.type === "clearTraceContextFile") {
+      this.traceContextFile = null;
+      this.postTraceContextFileState();
+      return true;
+    }
+
+    if (message.type === "setTraceContextFile" && "payload" in message) {
+      this.handleSetTraceContextFile(message.payload);
+      return true;
+    }
+
     if (message.type === "traceAsk" && "payload" in message) {
       void this.handleTraceAsk(message.payload);
       return true;
@@ -549,6 +575,16 @@ export class BehaviorTreePreviewPanel {
         ok,
         message,
         dirtyState
+      }
+    });
+  }
+
+  private postSettingsUpdated(): void {
+    this.panel.webview.postMessage({
+      type: "settingsUpdated",
+      payload: {
+        settings: cloneUserSettings(this.currentSettings),
+        settingsFilePath: this.settingsFileUri?.fsPath || ""
       }
     });
   }
@@ -1021,28 +1057,112 @@ export class BehaviorTreePreviewPanel {
   }
 
   private async handleChoosePlaybackLogFile(): Promise<void> {
-    const copy = this.getCopy();
-    const result = await choosePlaybackLogFile(copy.importPlaybackLogTitle, this.currentSettings);
-    if (result.canceled) {
-      return;
-    }
+    try {
+      const copy = this.getCopy();
+      const result = await choosePlaybackLogFile(copy.importPlaybackLogTitle, this.currentSettings);
+      if (result.canceled) {
+        this.panel.webview.postMessage({
+          type: "playbackLogImportFinished"
+        });
+        return;
+      }
 
-    if ("playbackLog" in result) {
-      this.latestPlaybackLog = result.playbackLog;
-      this.panel.title = `BTreeTool: ${result.playbackLog.fileName}`;
+      if ("playbackLog" in result) {
+        this.latestPlaybackLog = result.playbackLog;
+        this.traceContextFile = null;
+        this.panel.title = `BTreeTool: ${result.playbackLog.fileName}`;
+        this.panel.webview.postMessage({
+          type: "playbackLog",
+          payload: result.playbackLog
+        });
+        this.postTraceContextFileState();
+        return;
+      }
+
+      this.latestPlaybackLog = null;
+      this.traceContextFile = null;
       this.panel.webview.postMessage({
-        type: "playbackLog",
-        payload: result.playbackLog
+        type: "playbackLogError",
+        payload: { message: result.error }
       });
+      this.postTraceContextFileState();
+      void vscode.window.showErrorMessage(`BTreeTool: ${result.error}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.latestPlaybackLog = null;
+      this.traceContextFile = null;
+      this.panel.webview.postMessage({
+        type: "playbackLogError",
+        payload: { message }
+      });
+      this.postTraceContextFileState();
+      void vscode.window.showErrorMessage(`BTreeTool: ${message}`);
+    }
+  }
+
+  private async handleChooseTraceContextFile(): Promise<void> {
+    const files = await vscode.window.showOpenDialog({
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      openLabel: "Attach async log",
+      filters: {
+        "Log files": ["log", "txt", "1"],
+        "All files": ["*"]
+      }
+    });
+    const file = files?.[0];
+    if (!file) {
       return;
     }
 
-    this.latestPlaybackLog = null;
+    try {
+      const bytes = await vscode.workspace.fs.readFile(file);
+      const raw = Buffer.from(bytes).toString("utf8");
+      const text = raw;
+      this.traceContextFile = {
+        text,
+        state: {
+          fileName: BehaviorTreePreviewPanel.toBaseName(file.fsPath),
+          filePath: file.fsPath,
+          lineCount: text.split(/\r?\n/).length,
+          charCount: text.length,
+          truncated: false
+        }
+      };
+      this.postTraceContextFileState();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(`BTreeTool: failed to read async log. ${message}`);
+    }
+  }
+
+  private handleSetTraceContextFile(payload: { fileName?: string; text?: string } | undefined): void {
+    const text = typeof payload?.text === "string" ? payload.text : "";
+    if (!text) {
+      void vscode.window.showWarningMessage("BTreeTool: async log file is empty or could not be read.");
+      return;
+    }
+
+    const fileName = payload?.fileName?.trim() || "async.log";
+    this.traceContextFile = {
+      text,
+      state: {
+        fileName,
+        filePath: fileName,
+        lineCount: text.split(/\r?\n/).length,
+        charCount: text.length,
+        truncated: false
+      }
+    };
+    this.postTraceContextFileState();
+  }
+
+  private postTraceContextFileState(): void {
     this.panel.webview.postMessage({
-      type: "playbackLogError",
-      payload: { message: result.error }
+      type: "traceContextFileState",
+      payload: this.traceContextFile?.state || null
     });
-    void vscode.window.showErrorMessage(`BTreeTool: ${result.error}`);
   }
 
   private async openTraceConfigFile(): Promise<void> {
@@ -1108,6 +1228,8 @@ export class BehaviorTreePreviewPanel {
       payload,
       globalStorageUri: this.globalStorageUri,
       latestPlaybackLog: this.latestPlaybackLog,
+      currentSettings: this.currentSettings,
+      externalContext: this.traceContextFile?.text || "",
       controllers: this.traceRequestControllers,
       postMessage: (message) => this.panel.webview.postMessage(message),
       refreshTraceConfig: () => {
@@ -1120,67 +1242,17 @@ export class BehaviorTreePreviewPanel {
     cancelTraceRequest(this.traceRequestControllers, payload);
   }
 
-  private async handleTraceFeedback(
-    payload:
-      | {
-          requestId?: string;
-          verdict?: "reasonable" | "nonsense";
-          logFilePath?: string;
-          frameIndex?: number;
-          question?: string;
-          answer?: string;
-          context?: string;
-          feedbackTarget?: string;
-          sectionLabel?: string;
-        }
-      | undefined
-  ): Promise<void> {
-    const verdict = payload?.verdict === "reasonable" ? "reasonable" : payload?.verdict === "nonsense" ? "nonsense" : "";
-    if (!payload?.requestId || !verdict) {
+  private async handleTraceFeedback(payload: TraceFeedbackPayload | undefined): Promise<void> {
+    const record = createTraceFeedbackRecord(payload);
+    if (!record) {
       return;
     }
 
-    const record = {
-      createdAt: new Date().toISOString(),
-      action: verdict === "reasonable" ? "learn" : "optimize",
-      requestId: payload.requestId,
-      verdict,
-      logFilePath: payload.logFilePath || "",
-      frameIndex: Number.isInteger(payload.frameIndex) ? payload.frameIndex : null,
-      question: payload.question || "",
-      answer: payload.answer || "",
-      context: payload.context || "",
-      feedbackTarget: payload.feedbackTarget || "answer",
-      sectionLabel: payload.sectionLabel || ""
-    };
-    const directoryPath = this.globalStorageUri.fsPath;
-    const filePath = vscode.Uri.joinPath(this.globalStorageUri, "trace-feedback.jsonl").fsPath;
-    await fs.promises.mkdir(directoryPath, { recursive: true });
-    if (await this.hasTraceFeedbackRecord(filePath, record.requestId, record.feedbackTarget)) {
-      return;
-    }
-    await fs.promises.appendFile(filePath, `${JSON.stringify(record)}\n`, "utf8");
-  }
-
-  private async hasTraceFeedbackRecord(filePath: string, requestId: string, feedbackTarget: string): Promise<boolean> {
     try {
-      const content = await fs.promises.readFile(filePath, "utf8");
-      return content
-        .split("\n")
-        .filter(Boolean)
-        .some((line) => {
-          try {
-            const entry = JSON.parse(line);
-            return entry?.requestId === requestId && entry?.feedbackTarget === feedbackTarget;
-          } catch (_error) {
-            return false;
-          }
-        });
+      await storeTraceFeedback(this.globalStorageUri, this.currentSettings, record);
     } catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-        return false;
-      }
-      throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`BTreeTool: failed to store trace feedback. ${message}`);
     }
   }
 
@@ -1217,6 +1289,7 @@ export class BehaviorTreePreviewPanel {
 
     try {
       this.currentSettings = await saveUserSettings(this.settingsFileUri, payload);
+      this.postSettingsUpdated();
       await this.refreshPreviewFromUri();
       this.postEditResult(true, this.getCopy().settingsSaved);
     } catch (error) {
