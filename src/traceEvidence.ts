@@ -40,15 +40,17 @@ const CORRELATION_WINDOW_MS = 3_000;
 
 function analyzeAsyncLogText(input: string): string {
   const lines = parseTimedLines(input);
+  const fallbackExcerpt = buildFallbackAsyncExcerpt(input);
   if (lines.length === 0) {
-    return "";
+    return fallbackExcerpt;
   }
 
   const distanceSignals = lines.map(parseDistanceSignal).filter((entry): entry is NumericSignal => Boolean(entry));
   const exceptions = lines.map(parseExceptionSignal).filter((entry): entry is ExceptionSignal => Boolean(entry));
   const naviSignals = lines.map(parseNaviSignal).filter((entry): entry is NaviSignal => Boolean(entry));
   const actionSignals = lines.map(parseActionSignal).filter((entry): entry is ActionSignal => Boolean(entry));
-  const importantLines = collectImportantLines(lines);
+  const anchorTimeMs = findPrimaryAnchorTime(exceptions, lines);
+  const importantLines = collectImportantLines(lines, anchorTimeMs);
   const distanceJumps = collectInvalidDistanceJumps(distanceSignals);
 
   if (
@@ -56,13 +58,14 @@ function analyzeAsyncLogText(input: string): string {
     exceptions.length === 0 &&
     naviSignals.length === 0 &&
     actionSignals.length === 0 &&
-    importantLines.length === 0
+    importantLines.length === 0 &&
+    !fallbackExcerpt
   ) {
     return "";
   }
 
   const sections = [
-    "External async log evidence from the user question:",
+    "Attached async log evidence was analyzed:",
     `- Async log window: ${lines[0].timestamp} -> ${lines[lines.length - 1].timestamp} (${lines.length} timestamped lines).`
   ];
 
@@ -95,8 +98,10 @@ function analyzeAsyncLogText(input: string): string {
   }
 
   if (importantLines.length > 0) {
-    sections.push("Important async lines:");
+    sections.push(anchorTimeMs === null ? "Important async lines:" : "Important async lines near the primary exception:");
     sections.push(...importantLines.slice(0, MAX_CONTEXT_LINES).map((line) => `- ${line.timestamp} ${line.text}`));
+  } else if (fallbackExcerpt) {
+    sections.push(fallbackExcerpt);
   }
 
   sections.push(
@@ -232,7 +237,7 @@ function formatDistanceJump(jump: { previous: NumericSignal; current: NumericSig
   return `- Distance signal invalidated: ${jump.current.timestamp} ${jump.current.key} changed ${jump.previous.value} -> ${jump.current.value}.`;
 }
 
-function collectImportantLines(lines: TimedLine[]): TimedLine[] {
+function collectImportantLines(lines: TimedLine[], anchorTimeMs: number | null = null): TimedLine[] {
   const patterns = [
     /task_(?:starting|ending)_dist_data/,
     /DecelerateNavi RUNNING/,
@@ -244,7 +249,36 @@ function collectImportantLines(lines: TimedLine[]): TimedLine[] {
     /NavStop/,
     /载具控制/
   ];
-  return lines.filter((line) => patterns.some((pattern) => pattern.test(line.text)));
+  const matches = lines.filter((line) => patterns.some((pattern) => pattern.test(line.text)));
+  if (anchorTimeMs === null || Number.isNaN(anchorTimeMs)) {
+    return matches;
+  }
+
+  const before = matches
+    .filter((line) => line.timeMs !== null && line.timeMs <= anchorTimeMs)
+    .slice(-10);
+  const after = matches
+    .filter((line) => line.timeMs !== null && line.timeMs > anchorTimeMs)
+    .slice(0, 8);
+  const seen = new Set<string>();
+  return [...before, ...after].filter((line) => {
+    const key = `${line.timestamp}:${line.text}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function findPrimaryAnchorTime(exceptions: ExceptionSignal[], lines: TimedLine[]): number | null {
+  if (exceptions.length > 0) {
+    return exceptions[0].timeMs;
+  }
+  const anchor = lines.find((line) =>
+    /603011|603012|RaiseException|fork_abnormal|叉齿位置异常|行为树报错/.test(line.text)
+  );
+  return anchor?.timeMs ?? null;
 }
 
 function findLastBefore<T extends TimedLine>(entries: T[], timeMs: number | null): T | null {
@@ -287,4 +321,50 @@ function formatNumber(value: number | null): string {
 
 function stripAnsi(value: string): string {
   return String(value || "").replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "");
+}
+
+function buildFallbackAsyncExcerpt(input: string): string {
+  const rawLines = stripAnsi(input).split(/\r?\n/);
+  const anchors = rawLines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /603011|603012|RaiseException|fork_abnormal|叉齿位置异常|task_starting_dist_data|task_ending_dist_data|DecelerateNavi/.test(line));
+  if (anchors.length === 0) {
+    return "";
+  }
+
+  const anchorIndex = selectFallbackAnchorIndex(anchors);
+  const start = Math.max(0, anchorIndex - 8);
+  const end = Math.min(rawLines.length, anchorIndex + 18);
+  const excerpt = rawLines
+    .slice(start, end)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, MAX_CONTEXT_LINES)
+    .map((line) => `- ${line}`)
+    .join("\n");
+
+  return [
+    "Attached async log evidence was available, but only a raw excerpt could be parsed:",
+    excerpt
+  ].join("\n");
+}
+
+function selectFallbackAnchorIndex(anchors: Array<{ line: string; index: number }>): number {
+  const ranked = anchors
+    .map((anchor) => ({ ...anchor, score: scoreFallbackAnchor(anchor.line) }))
+    .sort((left, right) => right.score - left.score || left.index - right.index);
+  return ranked[0]?.index ?? anchors[0]?.index ?? 0;
+}
+
+function scoreFallbackAnchor(line: string): number {
+  if (/RaiseException|Error id:|603011|603012|fork_abnormal|叉齿位置异常/.test(line)) {
+    return 100;
+  }
+  if (/DecelerateNavi/.test(line)) {
+    return 60;
+  }
+  if (/task_(?:starting|ending)_dist_data\s+(-99999|99999|-1)\b/.test(line)) {
+    return 50;
+  }
+  return 10;
 }

@@ -158,9 +158,16 @@
       input.rows = 2;
       input.placeholder = playbackCopy.traceAskPlaceholder;
       input.spellcheck = false;
+      input.dataset.composing = "false";
       input.addEventListener("input", () => resizePlaybackTraceInput(input));
+      input.addEventListener("compositionstart", () => {
+        input.dataset.composing = "true";
+      });
+      input.addEventListener("compositionend", () => {
+        input.dataset.composing = "false";
+      });
       input.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && !event.shiftKey) {
+        if (event.key === "Enter" && !event.shiftKey && !isTraceInputComposing(input, event)) {
           event.preventDefault();
           form.requestSubmit();
         }
@@ -690,6 +697,14 @@
       });
     }
 
+    function isTraceInputComposing(input, event) {
+      return (
+        event.isComposing === true ||
+        event.keyCode === 229 ||
+        input.dataset.composing === "true"
+      );
+    }
+
     function resizePlaybackTraceInput(input) {
       if (!input) {
         return;
@@ -775,7 +790,8 @@
         "- In the 100 frames before the final frame, check distance-like blackboard values; flag -1, 99999, below 0, or above 100.",
         "- Check action-context fields such as current_action, next_action, cached/current action names, task_starting_dist_data, and task_ending_dist_data for mismatch.",
         "- Check servo/navigation context fields such as servo_type, configure_string, servo_mode, current_dist, prepare_dist, and DecelerateNavi values.",
-        "- If the user pasted async logs in the question, correlate their timestamped distance/action/navigation evidence with the btlog failure frame. Invalid distance sentinels such as -99999, 99999, and -1 immediately before a RaiseException are deeper-cause evidence and should be handed off to navigation/distance investigation after the behavior-tree branch is proven.",
+        "- If the user pasted or attached async logs, correlate their timestamped distance/action/navigation evidence with the btlog failure frame. Invalid distance sentinels such as -99999, 99999, and -1 immediately before a RaiseException are deeper-cause evidence and should be handed off to navigation/distance investigation after the behavior-tree branch is proven.",
+        "- If the context contains 'Attached async log evidence', the async log was provided by attachment. Do not say it is missing; use those extracted lines as primary external evidence.",
         "- If this playback file has no blackboard events, say that blackboard values are unavailable and use node transitions plus XML node attributes instead.",
         "- For RaiseException failures, use the node attributes error_id, error_name, error_details, and the preceding condition node attributes as primary evidence.",
         "- Concrete error evidence has priority over non-terminal final/root status. Populated out_error fields, known error code/name, root FAILURE, or confirmed failure chain are enough to conclude a btlog error.",

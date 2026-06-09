@@ -461,7 +461,7 @@ body.is-reordering-nodes .drop-slot-overlay {
 }
 
 .flow-card.is-virtual-root .flow-node-kind {
-  color: var(--accent);
+  color: #be123c;
 }
 
 .flow-card.is-virtual-root .flow-node-name {
@@ -735,10 +735,10 @@ body.is-playback-mode .flow-attribute-pair.tone-output .flow-attribute-chip-valu
 
 .subtree-jump {
   justify-self: start;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  border: 1px solid #16a34a;
   border-radius: 8px;
   background: var(--color-surface-subtle);
-  color: var(--accent);
+  color: #166534;
   font: inherit;
   font-weight: 700;
   padding: 6px 10px;
