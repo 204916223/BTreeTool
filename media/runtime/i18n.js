@@ -41,6 +41,7 @@
         classic: "Panels",
         dashboard: "Timeline"
       },
+      playbackPanelOpacity: "Panel Opacity",
       locatorShort: "Locator",
       rootShort: "ROOT",
       deleteConfirmShort: "Delete confirm",
@@ -97,6 +98,7 @@
           classic: "面板布局",
           dashboard: "时间轴布局"
         },
+        playbackPanelOpacity: "面板透明度",
         locatorShort: "定位图",
         rootShort: "ROOT",
         deleteConfirmShort: "删除前确认",

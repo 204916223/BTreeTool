@@ -20,6 +20,7 @@
     editTreeRenderMode: "paged",
     playbackTreeRenderMode: "paged",
     playbackPanelLayout: "classic",
+    playbackPanelOpacity: 0.6,
     simplifyHiddenSections: [],
     presetNodes: []
   };
@@ -176,9 +177,18 @@
       editTreeRenderMode: input.editTreeRenderMode === "expanded" ? "expanded" : "paged",
       playbackTreeRenderMode: input.playbackTreeRenderMode === "expanded" ? "expanded" : "paged",
       playbackPanelLayout: input.playbackPanelLayout === "dashboard" ? "dashboard" : "classic",
+      playbackPanelOpacity: normalizePlaybackPanelOpacity(input.playbackPanelOpacity),
       simplifyHiddenSections: Array.isArray(input.simplifyHiddenSections) ? [...input.simplifyHiddenSections] : [],
       presetNodes: Array.isArray(input.presetNodes) ? input.presetNodes.map(clonePresetNodeSettings) : []
     };
+  }
+
+  function normalizePlaybackPanelOpacity(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return DEFAULT_USER_SETTINGS.playbackPanelOpacity;
+    }
+    return Math.min(0.8, Math.max(0.2, numeric));
   }
 
   function normalizeCustomTheme(value) {

@@ -56,6 +56,7 @@ test("app state gives each instance independent default settings collections", (
   assert.equal(firstState.currentSettings.showMainTreeLocator, false);
   assert.equal(firstState.currentSettings.copyNodeWithDescendants, false);
   assert.equal(firstState.currentSettings.playbackAutoNavigateToTree, false);
+  assert.equal(firstState.currentSettings.playbackPanelOpacity, 0.6);
   assert.equal(firstState.currentSettings.allowUnclosedPlaybackLog, true);
   assert.equal(firstState.currentSettings.traceLearningEnabled, false);
   assert.equal(firstState.currentSettings.traceLearningEnhancementEnabled, false);
@@ -123,6 +124,7 @@ test("app state seeds full current settings from initial settings", () => {
       editTreeRenderMode: "expanded",
       playbackTreeRenderMode: "expanded",
       playbackPanelLayout: "dashboard",
+      playbackPanelOpacity: 0.68,
       simplifyHiddenSections: ["description"],
       presetNodes: [{ key: "Custom", fields: [{ key: "value" }] }]
     }
@@ -147,6 +149,7 @@ test("app state seeds full current settings from initial settings", () => {
     editTreeRenderMode: "expanded",
     playbackTreeRenderMode: "expanded",
     playbackPanelLayout: "dashboard",
+    playbackPanelOpacity: 0.68,
     simplifyHiddenSections: ["description"],
     presetNodes: [{ key: "Custom", fields: [{ key: "value" }] }]
   }));

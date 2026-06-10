@@ -10,6 +10,7 @@
     document.documentElement.lang = runtime.state.currentSettings?.language || "en-US";
     document.documentElement.dataset.nodeAttributeLayout =
       runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline";
+    applyPlaybackPanelOpacity(runtime.state.currentSettings?.playbackPanelOpacity);
     runtime.refs.toggleCatalogButton.title = chromeCopy.toggleCatalogTitle;
     runtime.refs.toggleCatalogButton.setAttribute("aria-label", chromeCopy.toggleCatalogTitle);
     runtime.refs.openSettingsButton.title = chromeCopy.openSettingsTitle;
@@ -42,6 +43,12 @@
     runtime.refs.treeSearchNextButton.setAttribute("aria-label", searchCopy.next);
     updateSaveIndicator();
     runtime.search.updateUi();
+  }
+
+  function applyPlaybackPanelOpacity(value) {
+    const numeric = Number(value);
+    const opacity = Number.isFinite(numeric) ? Math.min(0.8, Math.max(0.2, numeric)) : 0.6;
+    document.documentElement.style.setProperty("--playback-panel-opacity", `${Math.round(opacity * 100)}%`);
   }
 
   function applyCustomThemeColors(customTheme = {}) {

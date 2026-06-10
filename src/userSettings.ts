@@ -54,6 +54,7 @@ export interface BtUserSettings {
   editTreeRenderMode: BtTreeRenderMode;
   playbackTreeRenderMode: BtTreeRenderMode;
   playbackPanelLayout: BtPlaybackPanelLayout;
+  playbackPanelOpacity: number;
   simplifyHiddenSections: BtSimplifySection[];
   presetNodes: BtPresetNodeSettings[];
 }
@@ -84,6 +85,7 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   editTreeRenderMode: "paged",
   playbackTreeRenderMode: "paged",
   playbackPanelLayout: "classic",
+  playbackPanelOpacity: 0.6,
   simplifyHiddenSections: [],
   presetNodes: []
 };
@@ -215,6 +217,7 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     editTreeRenderMode: normalizeTreeRenderMode(settings.editTreeRenderMode),
     playbackTreeRenderMode: normalizeTreeRenderMode(settings.playbackTreeRenderMode),
     playbackPanelLayout: normalizePlaybackPanelLayout(settings.playbackPanelLayout),
+    playbackPanelOpacity: normalizePlaybackPanelOpacity(settings.playbackPanelOpacity),
     simplifyHiddenSections: [...settings.simplifyHiddenSections],
     presetNodes: settings.presetNodes.map(clonePresetNodeSettings)
   };
@@ -259,6 +262,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const editTreeRenderMode = normalizeTreeRenderMode(input.editTreeRenderMode);
   const playbackTreeRenderMode = normalizeTreeRenderMode(input.playbackTreeRenderMode);
   const playbackPanelLayout = normalizePlaybackPanelLayout(input.playbackPanelLayout);
+  const playbackPanelOpacity = normalizePlaybackPanelOpacity(input.playbackPanelOpacity);
   const simplifyHiddenSections = Array.isArray(input.simplifyHiddenSections)
     ? input.simplifyHiddenSections.map(normalizeSimplifySection).filter((value): value is BtSimplifySection => Boolean(value))
     : [...DEFAULT_USER_SETTINGS.simplifyHiddenSections];
@@ -283,6 +287,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     editTreeRenderMode,
     playbackTreeRenderMode,
     playbackPanelLayout,
+    playbackPanelOpacity,
     simplifyHiddenSections: Array.from(new Set(simplifyHiddenSections)),
     presetNodes
   };
@@ -306,6 +311,14 @@ function normalizeTreeRenderMode(value: unknown): BtTreeRenderMode {
 
 function normalizePlaybackPanelLayout(value: unknown): BtPlaybackPanelLayout {
   return value === "dashboard" ? "dashboard" : "classic";
+}
+
+function normalizePlaybackPanelOpacity(value: unknown): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_USER_SETTINGS.playbackPanelOpacity;
+  }
+  return Math.min(0.8, Math.max(0.2, numeric));
 }
 
 function normalizeSimplifySection(value: unknown): BtSimplifySection | null {

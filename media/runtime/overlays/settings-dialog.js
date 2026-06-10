@@ -121,6 +121,16 @@
     playbackPanelLayoutRow.control.appendChild(playbackPanelLayoutControl.element);
     playbackSection.body.appendChild(playbackPanelLayoutRow.element);
 
+    const playbackPanelOpacityRow = createRangeField("Panel Opacity", {
+      min: 20,
+      max: 80,
+      step: 1,
+      value: 60,
+      suffix: "%"
+    });
+    playbackPanelOpacityRow.element.classList.add("settings-inline-field-horizontal");
+    playbackSection.body.appendChild(playbackPanelOpacityRow.element);
+
     const playbackRow = document.createElement("div");
     playbackRow.className = "settings-toggle-row";
 
@@ -220,6 +230,7 @@
         editTreeRenderMode: editTreeRenderModeControl.getValue(),
         playbackTreeRenderMode: playbackTreeRenderModeControl.getValue(),
         playbackPanelLayout: playbackPanelLayoutControl.getValue(),
+        playbackPanelOpacity: Number(playbackPanelOpacityRow.input.value) / 100,
         showMainTreeLocator: mainTreeLocatorInput.checked,
         showBehaviorTreeRoot: true,
         requireNodeDeleteConfirmation: deleteConfirmInput.checked,
@@ -294,6 +305,7 @@
       playbackTreeRenderModeControl,
       playbackPanelLayoutRow,
       playbackPanelLayoutControl,
+      playbackPanelOpacityRow,
       playbackAutoNavigateInput,
       playbackAutoNavigateText,
       traceSectionTitle: traceSection.title,
@@ -371,6 +383,39 @@
     input.className = "settings-color-input";
     input.value = value;
     return input;
+  }
+
+  function createRangeField(labelText, options = {}) {
+    const row = createInlineField(labelText);
+    row.control.classList.add("settings-range-control");
+    const input = document.createElement("input");
+    input.type = "range";
+    input.className = "settings-range-input";
+    input.min = String(options.min ?? 0);
+    input.max = String(options.max ?? 100);
+    input.step = String(options.step ?? 1);
+    input.value = String(options.value ?? options.max ?? 100);
+    const value = document.createElement("span");
+    value.className = "settings-range-value";
+    const suffix = options.suffix || "";
+
+    function syncValue() {
+      value.textContent = `${input.value}${suffix}`;
+    }
+
+    input.addEventListener("input", syncValue);
+    syncValue();
+    row.control.appendChild(input);
+    row.control.appendChild(value);
+    return {
+      ...row,
+      input,
+      value,
+      setValue(nextValue) {
+        input.value = String(nextValue);
+        syncValue();
+      }
+    };
   }
 
   function normalizeColorInputValue(value, fallback) {
@@ -494,6 +539,7 @@
       classic: copy.playbackPanelLayoutOptions.classic,
       dashboard: copy.playbackPanelLayoutOptions.dashboard
     });
+    overlayState.settingsDialog.playbackPanelOpacityRow.text.textContent = copy.playbackPanelOpacity;
     overlayState.settingsDialog.playbackAutoNavigateText.textContent = copy.playbackAutoNavigateShort;
     overlayState.settingsDialog.traceSectionTitle.textContent = copy.traceMode;
     overlayState.settingsDialog.traceFieldLabel.textContent = copy.traceConfigDirectory;
@@ -565,7 +611,18 @@
     overlayState.settingsDialog.playbackPanelLayoutControl.setValue(
       runtime.state.currentSettings?.playbackPanelLayout === "dashboard" ? "dashboard" : "classic"
     );
+    overlayState.settingsDialog.playbackPanelOpacityRow.setValue(
+      Math.round(normalizePlaybackPanelOpacity(runtime.state.currentSettings?.playbackPanelOpacity) * 100)
+    );
     shared.syncBlockingOverlay();
+  }
+
+  function normalizePlaybackPanelOpacity(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return 0.6;
+    }
+    return Math.min(0.8, Math.max(0.2, numeric));
   }
 
   function hideSettingsDialog() {

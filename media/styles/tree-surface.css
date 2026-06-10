@@ -84,7 +84,9 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--color-bg-panel) 82%, transparent);
+  background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 .playback-dashboard-top {
@@ -702,7 +704,9 @@ body.is-panning-playback-duration .playback-duration-viewport {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--color-bg-panel) 82%, transparent);
+  background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 .playback-right-panel {
@@ -857,7 +861,11 @@ body.is-panning-playback-duration .playback-duration-viewport {
   padding-right: var(--playback-transition-scrollbar-width);
   min-height: 25px;
   border-bottom: 1px solid var(--line-strong);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 16%, transparent), color-mix(in srgb, var(--color-bg-panel) 86%, var(--color-text-primary)));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 14%, transparent),
+    color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent)
+  );
   color: var(--text);
   font-size: 12px;
   font-weight: 800;
@@ -876,7 +884,7 @@ body.is-panning-playback-duration .playback-duration-viewport {
   min-height: 0;
   overflow: auto;
   display: block;
-  background: color-mix(in srgb, var(--color-bg-panel) 88%, white);
+  background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) color-mix(in srgb, var(--color-bg-panel) 80%, transparent);
 }
@@ -1024,7 +1032,11 @@ body.is-panning-playback-duration .playback-duration-viewport {
 .playback-blackboard-table-header {
   min-height: 25px;
   border-bottom: 1px solid var(--line-strong);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 16%, transparent), color-mix(in srgb, var(--color-bg-panel) 86%, var(--color-text-primary)));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 14%, transparent),
+    color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent)
+  );
   color: var(--text);
   font-size: 12px;
   font-weight: 800;
@@ -1044,7 +1056,7 @@ body.is-panning-playback-duration .playback-duration-viewport {
   min-height: 0;
   overflow: auto;
   display: block;
-  background: color-mix(in srgb, var(--color-bg-panel) 88%, white);
+  background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) color-mix(in srgb, var(--color-bg-panel) 80%, transparent);
 }
@@ -1577,7 +1589,9 @@ body.is-panning-playback-duration .playback-duration-viewport {
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--color-bg-panel) 86%, transparent);
+  background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   -webkit-user-select: none;
   user-select: none;
 }
