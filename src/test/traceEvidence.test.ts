@@ -60,6 +60,26 @@ RaiseException: 603011|5|error/position/fork_abnormal_before_ready_point|未到�
   assert.doesNotMatch(enriched, /nav_tick:task_starting_dist_data 0/);
 });
 
+test("enrichTraceContextWithQuestionEvidence explains NavStatus data zero before unload", () => {
+  const context = "Current btlog context.";
+  const question = `
+[2026-06-10 09:22:10.280]-[INFO] fork_height: 0 dist_to_target = 0.208 dist_to_start = 14.877 (main.cpp:903)
+[2026-06-10 09:22:11.035]-[INFO] Call /jz_nav/get_status. (navStatus.h:32)
+[2026-06-10 09:22:11.037]-[INFO] Call /jz_nav/get_status, success=1, data=0 (navStatus.h:36)
+[2026-06-10 09:22:11.037]-[INFO] NavStop successed! (navStatus.h:41)
+[2026-06-10 09:22:11.037]-[INFO] [载具控制] id:1,指令:22 目标位置:0.683388 最大速度: 0.000000 (carrierCtrlNode.h:178)
+[2026-06-10 09:22:23.939]-[INFO] LoadRelease tick (loadRelease.h:121)
+`;
+
+  const enriched = enrichTraceContextWithQuestionEvidence(context, question);
+
+  assert.match(enriched, /Navigation task status: 2026-06-10 09:22:11\.037/);
+  assert.match(enriched, /data=0 means no live navigation task/);
+  assert.match(enriched, /do not treat NavStatus or "NavStop successed!" as proof of arrival/);
+  assert.match(enriched, /Unload-position reasoning rule/);
+  assert.match(enriched, /navigation task was stopped\/not alive while close to the target/);
+});
+
 test("enrichTraceContextWithQuestionEvidence leaves context unchanged without async log evidence", () => {
   const context = "Current btlog context.";
   assert.equal(enrichTraceContextWithQuestionEvidence(context, "why did it fail?"), context);

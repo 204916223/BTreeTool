@@ -35,6 +35,11 @@ type ActionSignal = TimedLine & {
   nextAction: string;
 };
 
+type NavStatusSignal = TimedLine & {
+  success: number;
+  data: number;
+};
+
 const MAX_CONTEXT_LINES = 16;
 const CORRELATION_WINDOW_MS = 3_000;
 
@@ -49,6 +54,7 @@ function analyzeAsyncLogText(input: string): string {
   const exceptions = lines.map(parseExceptionSignal).filter((entry): entry is ExceptionSignal => Boolean(entry));
   const naviSignals = lines.map(parseNaviSignal).filter((entry): entry is NaviSignal => Boolean(entry));
   const actionSignals = lines.map(parseActionSignal).filter((entry): entry is ActionSignal => Boolean(entry));
+  const navStatusSignals = lines.map(parseNavStatusSignal).filter((entry): entry is NavStatusSignal => Boolean(entry));
   const anchorTimeMs = findPrimaryAnchorTime(exceptions, lines);
   const importantLines = collectImportantLines(lines, anchorTimeMs);
   const distanceJumps = collectInvalidDistanceJumps(distanceSignals);
@@ -58,6 +64,7 @@ function analyzeAsyncLogText(input: string): string {
     exceptions.length === 0 &&
     naviSignals.length === 0 &&
     actionSignals.length === 0 &&
+    navStatusSignals.length === 0 &&
     importantLines.length === 0 &&
     !fallbackExcerpt
   ) {
@@ -97,6 +104,13 @@ function analyzeAsyncLogText(input: string): string {
     );
   }
 
+  const lastNavStatus = navStatusSignals[navStatusSignals.length - 1];
+  if (lastNavStatus) {
+    sections.push(
+      `- Navigation task status: ${lastNavStatus.timestamp} /jz_nav/get_status returned success=${lastNavStatus.success}, data=${lastNavStatus.data}. data=0 means no live navigation task in this log pattern; do not treat NavStatus or "NavStop successed!" as proof of arrival.`
+    );
+  }
+
   if (importantLines.length > 0) {
     sections.push(anchorTimeMs === null ? "Important async lines:" : "Important async lines near the primary exception:");
     sections.push(...importantLines.slice(0, MAX_CONTEXT_LINES).map((line) => `- ${line.timestamp} ${line.text}`));
@@ -105,7 +119,8 @@ function analyzeAsyncLogText(input: string): string {
   }
 
   sections.push(
-    "Async-log reasoning rule: when a distance-like signal changes from a valid finite value to an invalid sentinel such as -99999/99999/-1 immediately before a RaiseException, treat that signal loss as the deeper cause and hand off to navigation/distance-data investigation after the behavior-tree branch is proven."
+    "Async-log reasoning rule: when a distance-like signal changes from a valid finite value to an invalid sentinel such as -99999/99999/-1 immediately before a RaiseException, treat that signal loss as the deeper cause and hand off to navigation/distance-data investigation after the behavior-tree branch is proven.",
+    "Unload-position reasoning rule: for questions such as 卸货点位不对, first use btlog to identify the relevant subtree (usually Loading for unload), align that subtree start time with async logs, inspect distance changes until LoadRelease, and interpret the Loading XML. If Loading proceeds after dist_to_target is below its threshold and async shows /jz_nav/get_status data=0 or NavStop successed before CarrierCtrl/LoadRelease, conclude only that the navigation task was stopped/not alive while close to the target; investigate navigation stop/cancel/preempt/final target pose instead of treating NavStatus as arrival proof."
   );
 
   return sections.join("\n");
@@ -201,6 +216,18 @@ function parseActionSignal(line: TimedLine): ActionSignal | null {
   };
 }
 
+function parseNavStatusSignal(line: TimedLine): NavStatusSignal | null {
+  const match = line.text.match(/Call\s+\/jz_nav\/get_status,\s*success=(\d+),\s*data=(-?\d+)/);
+  if (!match) {
+    return null;
+  }
+  return {
+    ...line,
+    success: Number(match[1]),
+    data: Number(match[2])
+  };
+}
+
 function collectInvalidDistanceJumps(signals: NumericSignal[]): Array<{ previous: NumericSignal; current: NumericSignal }> {
   const previousByKey = new Map<string, NumericSignal>();
   const jumps: Array<{ previous: NumericSignal; current: NumericSignal }> = [];
@@ -246,6 +273,7 @@ function collectImportantLines(lines: TimedLine[], anchorTimeMs: number | null =
     /Error id:/,
     /行为树报错/,
     /current_action=.*next_action=/,
+    /\/jz_nav\/get_status/,
     /NavStop/,
     /载具控制/
   ];
@@ -276,7 +304,7 @@ function findPrimaryAnchorTime(exceptions: ExceptionSignal[], lines: TimedLine[]
     return exceptions[0].timeMs;
   }
   const anchor = lines.find((line) =>
-    /603011|603012|RaiseException|fork_abnormal|叉齿位置异常|行为树报错/.test(line.text)
+    /603011|603012|RaiseException|fork_abnormal|叉齿位置异常|行为树报错|\/jz_nav\/get_status|NavStop successed/.test(line.text)
   );
   return anchor?.timeMs ?? null;
 }
@@ -327,7 +355,7 @@ function buildFallbackAsyncExcerpt(input: string): string {
   const rawLines = stripAnsi(input).split(/\r?\n/);
   const anchors = rawLines
     .map((line, index) => ({ line, index }))
-    .filter(({ line }) => /603011|603012|RaiseException|fork_abnormal|叉齿位置异常|task_starting_dist_data|task_ending_dist_data|DecelerateNavi/.test(line));
+    .filter(({ line }) => /603011|603012|RaiseException|fork_abnormal|叉齿位置异常|task_starting_dist_data|task_ending_dist_data|DecelerateNavi|\/jz_nav\/get_status|NavStop successed/.test(line));
   if (anchors.length === 0) {
     return "";
   }
@@ -362,6 +390,9 @@ function scoreFallbackAnchor(line: string): number {
   }
   if (/DecelerateNavi/.test(line)) {
     return 60;
+  }
+  if (/\/jz_nav\/get_status|NavStop successed/.test(line)) {
+    return 55;
   }
   if (/task_(?:starting|ending)_dist_data\s+(-99999|99999|-1)\b/.test(line)) {
     return 50;

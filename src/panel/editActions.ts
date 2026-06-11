@@ -54,7 +54,7 @@ export async function handleUpdateNodeAttributesAction(
     successMessage: copy.nodeAttributesApplied,
     failurePrefix: copy.nodeAttributesFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       replaceNodeAttributes(parsed, payload.treeId!, payload.nodePath!, payload.attributes!);
       return serializeBehaviorTreeDocument(parsed);
     }
@@ -80,7 +80,7 @@ export async function handleSaveTreeNodeModelsAction(
     successMessage: copy.treeNodesModelUpdated,
     failurePrefix: copy.treeNodesModelFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       replaceNodeModels(parsed, payload);
       return serializeBehaviorTreeDocument(parsed);
     }
@@ -113,7 +113,7 @@ export async function handleCreateBehaviorTreeAction(
     successMessage: copy.behaviorTreeCreated,
     failurePrefix: copy.behaviorTreeCreateFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       createBehaviorTree(parsed, normalizedTreeId);
       return serializeBehaviorTreeDocument(parsed);
     }
@@ -140,7 +140,7 @@ export async function handleDeleteBehaviorTreeAction(
     successMessage: copy.behaviorTreeDeleted,
     failurePrefix: copy.behaviorTreeDeleteFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       deleteBehaviorTree(parsed, normalizedTreeId);
       return serializeBehaviorTreeDocument(parsed);
     }
@@ -168,7 +168,7 @@ export async function handleRenameBehaviorTreeAction(
     successMessage: copy.behaviorTreeRenamed,
     failurePrefix: copy.behaviorTreeRenameFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       renameBehaviorTree(parsed, oldTreeId, newTreeId);
       return serializeBehaviorTreeDocument(parsed);
     }
@@ -202,7 +202,7 @@ export async function handleMoveNodeAction(
     successMessage: copy.nodeOrderUpdated,
     failurePrefix: copy.nodeOrderFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       moveNode(parsed, payload.treeId!, payload.sourceNodePath!, payload.targetParentPath!, targetIndex);
       return serializeBehaviorTreeDocument(parsed);
     }
@@ -245,7 +245,7 @@ export async function handleCreateNodeAction(
     successMessage: copy.nodeCreated,
     failurePrefix: copy.nodeCreateFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       insertNode(
         parsed,
         payload.treeId!,
@@ -296,7 +296,7 @@ export async function handleCreateNodeCopyAction(
     successMessage: copy.nodeCopyCreated,
     failurePrefix: copy.nodeCopyFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       insertNodeCopy(parsed, payload.treeId!, payload.targetParentPath!, targetIndex, {
         tagName: nodeTemplate.tagName!,
         attributes: nodeTemplate.attributes!,
@@ -331,7 +331,7 @@ export async function handleDeleteNodeAction(
     successMessage: copy.nodeDeleted,
     failurePrefix: copy.nodeDeleteFailed,
     mutate: (documentText) => {
-      const parsed = parseBehaviorTreeDocument(documentText);
+      const parsed = parseForEdit(documentText, context);
       deleteNode(parsed, payload.treeId!, payload.nodePath!);
       return serializeBehaviorTreeDocument(parsed);
     }
@@ -345,4 +345,8 @@ function requireAttachedDocument(context: EditActionContext): boolean {
 
   context.postEditResult(false, context.copy.noAttachedDocument);
   return false;
+}
+
+function parseForEdit(documentText: string, context: EditActionContext) {
+  return parseBehaviorTreeDocument(documentText, context.effectiveSettings);
 }

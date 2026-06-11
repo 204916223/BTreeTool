@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { Buffer } from "node:buffer";
 import { BtPlaybackLog } from "./core/btlog";
 import { parseBehaviorTreeDocument } from "./core/parse";
+import { serializeBehaviorTreeDocument } from "./core/serialize";
 import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
 import {
   BtUserSettings,
@@ -682,7 +683,7 @@ export class BehaviorTreePreviewPanel {
 
   private buildPayloadState(source: string): Pick<PreviewPayload, "preview" | "parseError"> {
     try {
-      const ast = parseBehaviorTreeDocument(source);
+      const ast = parseBehaviorTreeDocument(source, this.getEffectiveSettings());
       return {
         preview: buildPreviewDocument(ast, this.getEffectiveSettings()),
         parseError: null
@@ -1377,15 +1378,44 @@ export class BehaviorTreePreviewPanel {
     }
 
     try {
+      const previousNodeLibraryPresets = this.nodeLibraryPresets;
       await restoreBundledNodeLibrary(this.extensionUri);
       clearNodeLibraryPresetsCache(this.extensionUri);
-      this.nodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri);
+      const restoredNodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri);
+      await this.preserveAttachedDocumentModelsFromPresets(
+        findRemovedOrChangedNodePresets(previousNodeLibraryPresets, restoredNodeLibraryPresets)
+      );
+      this.nodeLibraryPresets = restoredNodeLibraryPresets;
       await this.refreshPreviewFromUri();
       this.postEditResult(true, copy.importedNodesCleared);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.postEditResult(false, copy.importedNodesClearFailed(message));
     }
+  }
+
+  private async preserveAttachedDocumentModelsFromPresets(presetNodes: BtUserSettings["presetNodes"]): Promise<void> {
+    if (!this.latestDocumentUri || presetNodes.length === 0) {
+      return;
+    }
+
+    const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
+    const currentText = document.getText();
+    const parsed = parseBehaviorTreeDocument(currentText, mergePresetNodeSets(this.currentSettings, presetNodes));
+    const nextXml = serializeBehaviorTreeDocument(parsed);
+    if (nextXml === currentText) {
+      return;
+    }
+
+    this.suppressNextDocumentRefresh(document.uri);
+    const applied = await replaceDocumentText(document, nextXml, currentText);
+    if (!applied) {
+      this.clearSuppressedDocumentRefresh(document.uri);
+      throw new Error(this.getCopy().xmlUpdateRejected);
+    }
+
+    this.pinSuppressedDocumentRefreshVersion(document);
+    this.pushXmlUndoSnapshot(currentText);
   }
 
   private dispose(): void {
@@ -1408,4 +1438,15 @@ export class BehaviorTreePreviewPanel {
       disposable?.dispose();
     }
   }
+}
+
+function findRemovedOrChangedNodePresets(
+  previousPresets: BtUserSettings["presetNodes"],
+  restoredPresets: BtUserSettings["presetNodes"]
+): BtUserSettings["presetNodes"] {
+  const restoredByKey = new Map(restoredPresets.map((preset) => [preset.key, preset]));
+  return previousPresets.filter((preset) => {
+    const restored = restoredByKey.get(preset.key);
+    return !restored || JSON.stringify(restored) !== JSON.stringify(preset);
+  });
 }

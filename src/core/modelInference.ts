@@ -1,4 +1,5 @@
 import { BtDocumentAst, BtNodeAst, BtNodeModel, BtPortModel } from "./btAst";
+import type { BtPresetNodeSettings, BtSettingsFieldRole, BtUserSettings } from "../userSettings";
 
 type ModelKind = "Action" | "Condition" | "Control" | "Decorator";
 
@@ -69,20 +70,23 @@ type InferredModel = {
   ports: Map<string, BtPortModel>;
 };
 
-export function ensureInferredNodeModels(document: BtDocumentAst): number {
+export function ensureInferredNodeModels(document: BtDocumentAst, settings?: BtUserSettings): number {
   const existingModels = new Map(document.nodeModels.map((model) => [model.id, model]));
+  const presetModels = new Map((settings?.presetNodes || []).map((preset) => [preset.key, preset]));
   const inferredModels = new Map<string, InferredModel>();
   let changedCount = 0;
 
   for (const tree of document.behaviorTrees) {
     visitNode(tree.node, (node) => {
-      const candidate = getModelCandidate(node, existingModels);
+      const candidate = getModelCandidate(node, existingModels, presetModels);
       if (!candidate) {
         return;
       }
 
+      const preset = presetModels.get(candidate.id);
       const targetModel = existingModels.get(candidate.id);
       if (targetModel) {
+        changedCount += applyPresetPorts(targetModel.ports, preset);
         changedCount += addMissingPorts(targetModel.ports, node).length;
         return;
       }
@@ -96,6 +100,7 @@ export function ensureInferredNodeModels(document: BtDocumentAst): number {
         };
         inferredModels.set(candidate.id, inferred);
         changedCount += 1;
+        addPresetPorts(inferred.ports, preset);
       }
 
       addMissingPorts(Array.from(inferred.ports.values()), node).forEach((port) => {
@@ -126,7 +131,8 @@ export function ensureInferredNodeModels(document: BtDocumentAst): number {
 
 function getModelCandidate(
   node: BtNodeAst,
-  existingModels: Map<string, BtNodeModel>
+  existingModels: Map<string, BtNodeModel>,
+  presetModels: Map<string, BtPresetNodeSettings>
 ): { id: string; modelKind: ModelKind } | null {
   if (EXPLICIT_MODEL_TAGS.has(node.tagName)) {
     const id = node.attributes.ID;
@@ -143,9 +149,12 @@ function getModelCandidate(
     return null;
   }
 
+  const presetModelKind = toModelKind(presetModels.get(node.tagName)?.modelKind);
+  const existingModelKind = toModelKind(existingModels.get(node.tagName)?.modelKind);
+
   return {
     id: node.tagName,
-    modelKind: existingModels.get(node.tagName)?.modelKind as ModelKind || inferModelKindFromChildren(node)
+    modelKind: presetModelKind || existingModelKind || inferModelKindFromChildren(node)
   };
 }
 
@@ -187,6 +196,100 @@ function addMissingPorts(targetPorts: BtPortModel[], node: BtNodeAst): BtPortMod
   }
 
   return addedPorts;
+}
+
+function applyPresetPorts(targetPorts: BtPortModel[], preset: BtPresetNodeSettings | undefined): number {
+  let changedCount = 0;
+  const byName = new Map(targetPorts.map((port) => [port.attributes.name, port]));
+
+  for (const port of presetToPorts(preset)) {
+    const name = port.attributes.name || "";
+    if (!name) {
+      continue;
+    }
+
+    const existing = byName.get(name);
+    if (existing) {
+      if (existing.tagName !== port.tagName) {
+        existing.tagName = port.tagName;
+        changedCount += 1;
+      }
+      for (const [key, value] of Object.entries(port.attributes)) {
+        if (typeof existing.attributes[key] !== "string") {
+          existing.attributes[key] = value;
+          changedCount += 1;
+        }
+      }
+      continue;
+    }
+
+    targetPorts.push(port);
+    byName.set(name, port);
+    changedCount += 1;
+  }
+
+  return changedCount;
+}
+
+function addPresetPorts(targetPorts: Map<string, BtPortModel>, preset: BtPresetNodeSettings | undefined): void {
+  for (const port of presetToPorts(preset)) {
+    const name = port.attributes.name || "";
+    if (name && !targetPorts.has(name)) {
+      targetPorts.set(name, port);
+    }
+  }
+}
+
+function presetToPorts(preset: BtPresetNodeSettings | undefined): BtPortModel[] {
+  if (!preset) {
+    return [];
+  }
+
+  return preset.fields
+    .map((field) => {
+      const tagName = tagNameForRole(field.role);
+      if (!tagName || !field.key) {
+        return null;
+      }
+
+      const attributes: Record<string, string> = { name: field.key };
+      if (field.defaultValue) {
+        attributes.default = field.defaultValue;
+      }
+      if (field.required !== true) {
+        attributes.required = "false";
+      }
+
+      return {
+        tagName,
+        attributes
+      };
+    })
+    .filter((port): port is BtPortModel => Boolean(port));
+}
+
+function tagNameForRole(role: BtSettingsFieldRole): BtPortModel["tagName"] | null {
+  if (role === "input") {
+    return "input_port";
+  }
+
+  if (role === "output") {
+    return "output_port";
+  }
+
+  if (role === "inout") {
+    return "inout_port";
+  }
+
+  return null;
+}
+
+function toModelKind(value: string | undefined): ModelKind | null {
+  if (value === "Action" || value === "Condition" || value === "Control" || value === "Decorator") {
+    return value;
+  }
+
+  return null;
 }
 
 function visitNode(node: BtNodeAst | null, visitor: (node: BtNodeAst) => void): void {

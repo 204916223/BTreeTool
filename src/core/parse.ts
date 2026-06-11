@@ -10,6 +10,7 @@ import {
 import { ensureInferredNodeModels } from "./modelInference";
 import { validateBehaviorTreeDocument } from "./validate";
 import { decodeXmlEntities } from "./xmlEntities";
+import type { BtUserSettings } from "../userSettings";
 
 type XmlElement = {
   name: string;
@@ -17,7 +18,7 @@ type XmlElement = {
   children: XmlElement[];
 };
 
-export function parseBehaviorTreeDocument(source: string): BtDocumentAst {
+export function parseBehaviorTreeDocument(source: string, settings?: BtUserSettings): BtDocumentAst {
   const warnings: BtWarning[] = [];
   if (!source.trim()) {
     warnings.push({
@@ -77,7 +78,7 @@ export function parseBehaviorTreeDocument(source: string): BtDocumentAst {
     warnings
   };
 
-  ensureInferredNodeModels(document);
+  ensureInferredNodeModels(document, settings);
   document.warnings.push(...validateBehaviorTreeDocument(document));
 
   return document;

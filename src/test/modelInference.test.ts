@@ -88,3 +88,126 @@ test("serializeBehaviorTreeDocument writes inferred TreeNodesModel entries back 
   assert.match(output, /<input_port name="speed" default="1" \/>/);
   assert.match(output, /<input_port name="foo" default="bar" \/>/);
 });
+
+test("parseBehaviorTreeDocument preserves preset port directions when inferring models", () => {
+  const settings = {
+    presetNodes: [
+      {
+        key: "ServoStatus",
+        title: "ServoStatus",
+        category: "Condition",
+        modelKind: "Condition",
+        allowCustomAttributes: true,
+        fields: [
+          {
+            key: "target_status",
+            role: "input",
+            required: true,
+            editableKey: false,
+            editableValue: true,
+            removable: false,
+            defaultValue: ""
+          },
+          {
+            key: "servo_status",
+            role: "output",
+            required: true,
+            editableKey: false,
+            editableValue: true,
+            removable: false,
+            defaultValue: "{servo_status}"
+          },
+          {
+            key: "shared_state",
+            role: "inout",
+            required: false,
+            editableKey: false,
+            editableValue: true,
+            removable: false,
+            defaultValue: ""
+          }
+        ]
+      }
+    ]
+  } as any;
+
+  const document = parseBehaviorTreeDocument(`
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <ServoStatus target_status="{target_status}" servo_status="{servo_status}" shared_state="{shared_state}" />
+  </BehaviorTree>
+</root>
+`, settings);
+
+  assert.deepEqual(
+    document.nodeModels.find((model) => model.id === "ServoStatus")?.ports.map((port) => [
+      port.tagName,
+      port.attributes.name
+    ]),
+    [
+      ["input_port", "target_status"],
+      ["output_port", "servo_status"],
+      ["inout_port", "shared_state"]
+    ]
+  );
+
+  const output = serializeBehaviorTreeDocument(document);
+  const reparsedWithoutSettings = parseBehaviorTreeDocument(output);
+
+  assert.deepEqual(
+    reparsedWithoutSettings.nodeModels.find((model) => model.id === "ServoStatus")?.ports.map((port) => [
+      port.tagName,
+      port.attributes.name
+    ]),
+    [
+      ["input_port", "target_status"],
+      ["output_port", "servo_status"],
+      ["inout_port", "shared_state"]
+    ]
+  );
+});
+
+test("parseBehaviorTreeDocument corrects previously inferred port directions from presets", () => {
+  const settings = {
+    presetNodes: [
+      {
+        key: "ServoStatus",
+        title: "ServoStatus",
+        category: "Condition",
+        modelKind: "Condition",
+        allowCustomAttributes: true,
+        fields: [
+          {
+            key: "servo_status",
+            role: "output",
+            required: true,
+            editableKey: false,
+            editableValue: true,
+            removable: false,
+            defaultValue: ""
+          }
+        ]
+      }
+    ]
+  } as any;
+
+  const document = parseBehaviorTreeDocument(`
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <ServoStatus servo_status="{servo_status}" />
+  </BehaviorTree>
+  <TreeNodesModel>
+    <Condition ID="ServoStatus">
+      <input_port name="servo_status" default="{servo_status}" />
+    </Condition>
+  </TreeNodesModel>
+</root>
+`, settings);
+
+  assert.equal(
+    document.nodeModels
+      .find((model) => model.id === "ServoStatus")
+      ?.ports.find((port) => port.attributes.name === "servo_status")?.tagName,
+    "output_port"
+  );
+});
