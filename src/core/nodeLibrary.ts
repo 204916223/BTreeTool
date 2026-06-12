@@ -35,6 +35,19 @@ export async function loadNodeLibraryPresets(libraryRootPath: string): Promise<B
   return presets;
 }
 
+export async function loadMergedNodeLibraryPresets(libraryRootPaths: string[]): Promise<BtPresetNodeSettings[]> {
+  const merged = new Map<string, BtPresetNodeSettings>();
+
+  for (const libraryRootPath of libraryRootPaths) {
+    const presets = await loadNodeLibraryPresets(libraryRootPath);
+    for (const preset of presets) {
+      merged.set(preset.key, preset);
+    }
+  }
+
+  return Array.from(merged.values()).sort((left, right) => left.title.localeCompare(right.title));
+}
+
 function parseNodeLibraryPreset(
   source: string,
   fallbackCategory: BtSettingsNodeCategory,

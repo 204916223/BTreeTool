@@ -36,6 +36,7 @@ export interface NodeLibraryImportConflict {
 export type NodeLibraryConflictDecision = "overwrite" | "skip" | "cancel";
 
 export interface NodeLibraryImportOptions {
+  conflictRootPaths?: string[];
   resolveConflicts?: (conflicts: NodeLibraryImportConflict[]) => Promise<NodeLibraryConflictDecision>;
 }
 
@@ -75,7 +76,7 @@ export async function importTreeNodesModelToNodeLibrary(
   }
 
   const entries = Array.from(entriesByFilePath.values());
-  const conflicts = await findConflicts(entries);
+  const conflicts = await findConflicts(entries, options.conflictRootPaths || []);
   let conflictDecision: NodeLibraryConflictDecision = "overwrite";
   if (conflicts.length > 0) {
     conflictDecision = options.resolveConflicts ? await options.resolveConflicts(conflicts) : "overwrite";
@@ -226,22 +227,34 @@ function normalizeBackupFilePath(filePath: string): string {
   return `${category}/${fileName}`;
 }
 
-async function findConflicts(entries: NodeLibraryImportEntry[]): Promise<NodeLibraryImportConflict[]> {
+async function findConflicts(
+  entries: NodeLibraryImportEntry[],
+  conflictRootPaths: string[]
+): Promise<NodeLibraryImportConflict[]> {
   const conflicts: NodeLibraryImportConflict[] = [];
 
   for (const entry of entries) {
-    try {
-      const existing = await fs.readFile(entry.filePath, "utf8");
-      if (existing !== entry.content) {
-        conflicts.push({
-          nodeId: entry.nodeId,
-          category: entry.category,
-          filePath: entry.filePath
-        });
-      }
-    } catch (error) {
-      if (!isNotFoundError(error)) {
-        throw error;
+    const relativePath = `${entry.category}/${path.basename(entry.filePath)}`;
+    const candidatePaths = [
+      entry.filePath,
+      ...conflictRootPaths.map((rootPath) => path.join(rootPath, relativePath))
+    ];
+
+    for (const candidatePath of candidatePaths) {
+      try {
+        const existing = await fs.readFile(candidatePath, "utf8");
+        if (existing !== entry.content) {
+          conflicts.push({
+            nodeId: entry.nodeId,
+            category: entry.category,
+            filePath: entry.filePath
+          });
+          break;
+        }
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
       }
     }
   }

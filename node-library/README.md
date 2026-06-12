@@ -1,6 +1,6 @@
 # Node Library
 
-Each `.btt` file stores one node definition.
+Each bundled `.btt` file stores one default node definition. Runtime imports are stored in the user's VS Code globalStorage `node-library` directory and merged with this bundled library when the extension loads.
 
 Format:
 

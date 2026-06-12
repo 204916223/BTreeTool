@@ -168,6 +168,8 @@ Content-Type: application/json
 
 用户预设节点会参与 Node Palette、右键新增、节点字段约束和新建节点默认值。
 
+插件自带的基础节点库位于扩展目录的 `node-library`，运行时不会修改。通过设置窗口导入的自定义节点会写入当前用户的 VS Code globalStorage 下的 `node-library`，加载时会和基础节点合并；同名自定义节点会覆盖基础节点显示。清除导入节点只会删除 globalStorage 中的自定义节点，不会改动插件自带节点。
+
 ## XML 兼容性
 
 BTreeTool 面向 `BehaviorTree.CPP` / Groot2 风格 XML，当前支持：

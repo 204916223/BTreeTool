@@ -34,10 +34,10 @@ import {
   writeUtf8File
 } from "./panel/documentActions";
 import {
+  clearImportedNodeLibrary,
   clearNodeLibraryPresetsCache,
   importCustomNodesToNodeLibrary,
-  loadNodeLibraryPresetsForExtension,
-  restoreBundledNodeLibrary
+  loadNodeLibraryPresetsForExtension
 } from "./panel/settingsActions";
 import {
   EditActionContext,
@@ -215,7 +215,7 @@ export class BehaviorTreePreviewPanel {
   ): Promise<InitialPanelState> {
     const [{ settings, configUri }, nodeLibraryPresets] = await Promise.all([
       loadUserSettings(globalStorageUri),
-      loadNodeLibraryPresetsForExtension(extensionUri)
+      loadNodeLibraryPresetsForExtension(extensionUri, globalStorageUri)
     ]);
     return {
       settings,
@@ -1262,7 +1262,7 @@ export class BehaviorTreePreviewPanel {
       const { settings, configUri } = await loadUserSettings(this.globalStorageUri);
       this.currentSettings = settings;
       this.settingsFileUri = configUri;
-      this.nodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri);
+      this.nodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri, this.globalStorageUri);
       const attachedDocument = this.latestDocumentUri
         ? await vscode.workspace.openTextDocument(this.latestDocumentUri)
         : undefined;
@@ -1338,7 +1338,7 @@ export class BehaviorTreePreviewPanel {
 
   private async handleImportCustomNodes(): Promise<void> {
     const copy = this.getCopy();
-    const action = await importCustomNodesToNodeLibrary(this.extensionUri, copy);
+    const action = await importCustomNodesToNodeLibrary(this.extensionUri, this.globalStorageUri, copy);
     if (action.canceled) {
       return;
     }
@@ -1348,8 +1348,8 @@ export class BehaviorTreePreviewPanel {
     }
 
     try {
-      clearNodeLibraryPresetsCache(this.extensionUri);
-      this.nodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri);
+      clearNodeLibraryPresetsCache(this.extensionUri, this.globalStorageUri);
+      this.nodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri, this.globalStorageUri);
       await this.refreshPreviewFromUri();
       const { result } = action;
       this.postEditResult(
@@ -1379,9 +1379,9 @@ export class BehaviorTreePreviewPanel {
 
     try {
       const previousNodeLibraryPresets = this.nodeLibraryPresets;
-      await restoreBundledNodeLibrary(this.extensionUri);
-      clearNodeLibraryPresetsCache(this.extensionUri);
-      const restoredNodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri);
+      await clearImportedNodeLibrary(this.globalStorageUri);
+      clearNodeLibraryPresetsCache(this.extensionUri, this.globalStorageUri);
+      const restoredNodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri, this.globalStorageUri);
       await this.preserveAttachedDocumentModelsFromPresets(
         findRemovedOrChangedNodePresets(previousNodeLibraryPresets, restoredNodeLibraryPresets)
       );

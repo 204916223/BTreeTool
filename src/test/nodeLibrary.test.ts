@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadNodeLibraryPresets } from "../core/nodeLibrary";
+import { loadMergedNodeLibraryPresets, loadNodeLibraryPresets } from "../core/nodeLibrary";
 import {
   createDefaultNodeLibraryBackup,
   importTreeNodesModelToNodeLibrary,
@@ -82,6 +82,42 @@ test("bundled node library includes BT.CPP builtin ports", async () => {
   );
 });
 
+test("loadMergedNodeLibraryPresets lets imported nodes override bundled presets", async () => {
+  const bundledRoot = await mkdtemp(join(tmpdir(), "btt-node-library-bundled-"));
+  const importedRoot = await mkdtemp(join(tmpdir(), "btt-node-library-imported-"));
+  try {
+    await mkdir(join(bundledRoot, "Action"), { recursive: true });
+    await mkdir(join(importedRoot, "Action"), { recursive: true });
+    await writeFile(
+      join(bundledRoot, "Action", "SharedNode.btt"),
+      `<?xml version="1.0" encoding="UTF-8"?>\n<node name="SharedNode" category="Action" modelKind="Action" allowCustomAttributes="true">\n  <input_port name="value" default="bundled" required="true" />\n</node>\n`,
+      "utf8"
+    );
+    await writeFile(
+      join(importedRoot, "Action", "SharedNode.btt"),
+      `<?xml version="1.0" encoding="UTF-8"?>\n<node name="SharedNode" category="Action" modelKind="Action" allowCustomAttributes="true">\n  <input_port name="value" default="imported" required="true" />\n</node>\n`,
+      "utf8"
+    );
+    await writeFile(
+      join(importedRoot, "Action", "ImportedOnly.btt"),
+      `<?xml version="1.0" encoding="UTF-8"?>\n<node name="ImportedOnly" category="Action" modelKind="Action" allowCustomAttributes="true" />\n`,
+      "utf8"
+    );
+
+    const presets = await loadMergedNodeLibraryPresets([bundledRoot, importedRoot]);
+    const byKey = new Map(presets.map((preset) => [preset.key, preset]));
+
+    assert.deepEqual(Array.from(byKey.keys()).sort(), ["ImportedOnly", "SharedNode"]);
+    assert.deepEqual(
+      byKey.get("SharedNode")?.fields.map((field) => [field.key, field.defaultValue]),
+      [["value", "imported"]]
+    );
+  } finally {
+    await rm(bundledRoot, { recursive: true, force: true });
+    await rm(importedRoot, { recursive: true, force: true });
+  }
+});
+
 test("importTreeNodesModelToNodeLibrary writes .btt files by model category", async () => {
   const root = await mkdtemp(join(tmpdir(), "btt-node-library-import-"));
   try {
@@ -145,6 +181,40 @@ test("importTreeNodesModelToNodeLibrary lets callers skip conflicting nodes", as
     assert.match(await readFile(join(root, "Action", "NewNode.btt"), "utf8"), /<node name="NewNode"/);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("importTreeNodesModelToNodeLibrary detects conflicts in read-only library roots", async () => {
+  const bundledRoot = await mkdtemp(join(tmpdir(), "btt-node-library-conflict-bundled-"));
+  const importedRoot = await mkdtemp(join(tmpdir(), "btt-node-library-conflict-imported-"));
+  try {
+    await mkdir(join(bundledRoot, "Action"), { recursive: true });
+    await writeFile(join(bundledRoot, "Action", "TESTTT.btt"), "bundled content\n", "utf8");
+
+    const result = await importTreeNodesModelToNodeLibrary(
+      `<TreeNodesModel>
+  <Action ID="TESTTT">
+    <input_port name="value" default="1" />
+  </Action>
+</TreeNodesModel>`,
+      importedRoot,
+      {
+        conflictRootPaths: [bundledRoot],
+        resolveConflicts: async (conflicts) => {
+          assert.deepEqual(conflicts.map((conflict) => `${conflict.category}/${conflict.nodeId}`), ["Action/TESTTT"]);
+          assert.equal(conflicts[0]?.filePath, join(importedRoot, "Action", "TESTTT.btt"));
+          return "skip";
+        }
+      }
+    );
+
+    assert.equal(result.importedCount, 0);
+    assert.equal(result.skippedCount, 1);
+    assert.equal(result.canceled, false);
+    await assert.rejects(readFile(join(importedRoot, "Action", "TESTTT.btt"), "utf8"), /ENOENT/);
+  } finally {
+    await rm(bundledRoot, { recursive: true, force: true });
+    await rm(importedRoot, { recursive: true, force: true });
   }
 });
 

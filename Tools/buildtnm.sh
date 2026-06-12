@@ -350,13 +350,41 @@ def locate_provided_ports_body(text: str, class_open_index: int, class_close_ind
     return parse_ports_from_function(function_text)
 
 
-def classify_category(file_path: pathlib.Path, class_name: str, base_name: Optional[str]) -> str:
-    path = file_path.as_posix()
-    if "/topic/" in path:
+ACTION_BASES = {
+    "ActionNodeBase",
+    "SyncActionNode",
+    "StatefulActionNode",
+    "ThreadedAction",
+    "CoroActionNode",
+    "AsyncActionNode",
+}
+CONDITION_BASES = {"ConditionNode", "SimpleConditionNode"}
+CONTROL_BASES = {"ControlNode"}
+DECORATOR_BASES = {"DecoratorNode"}
+
+
+def category_from_base(base_name: Optional[str]) -> Optional[str]:
+    if base_name in ACTION_BASES:
+        return "Action"
+    if base_name in CONDITION_BASES:
         return "Condition"
+    if base_name in CONTROL_BASES:
+        return "Control"
+    if base_name in DECORATOR_BASES:
+        return "Decorator"
+    return None
+
+
+def classify_category(file_path: pathlib.Path, class_name: str, base_name: Optional[str], base_category: Optional[str]) -> str:
+    direct_category = category_from_base(base_name)
+    if direct_category:
+        return direct_category
+    if base_category:
+        return base_category
+    path = file_path.as_posix()
     if "/action/" in path or "/service/" in path:
         return "Action"
-    if base_name in {"ConditionNode"} or class_name.endswith("Condition"):
+    if class_name.endswith("Condition"):
         return "Condition"
     return "Action"
 
@@ -381,10 +409,10 @@ def resolve_class(name: str) -> ClassInfo:
         file_path, text, base_name, class_open_index, class_open_brace = entry
         class_close_index = find_matching(text, class_open_brace, "{", "}")
         ports = locate_provided_ports_body(text, class_open_brace, class_close_index)
-        if not ports and base_name and base_name != name:
-            base_info = resolve_class(base_name)
+        base_info = resolve_class(base_name) if base_name and base_name != name and base_name in class_map else None
+        if not ports and base_info:
             ports = base_info.ports
-        category = classify_category(file_path, name, base_name)
+        category = classify_category(file_path, name, base_name, base_info.category if base_info else None)
         info = ClassInfo(
             name=name,
             file_path=file_path,

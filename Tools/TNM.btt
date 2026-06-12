@@ -1,6 +1,11 @@
 <TreeNodesModel>
   <Action ID="ReturnFail">
   </Action>
+  <Action ID="StageAndReturn">
+    <input_port name="phase" default="" description="Stage name." />
+    <input_port name="event" default="" description="Stage event." />
+    <input_port name="return_status" default="failure" description="Returns SUCCESS only when set to success." />
+  </Action>
   <Action ID="RaiseException">
     <input_port name="error_id" />
     <input_port name="error_level" />
@@ -110,12 +115,12 @@
     <output_port name="out_error_details" default="{out_error_details}" />
     <output_port name="have_obstracle" />
   </Action>
-  <Condition ID="GetGoalDist">
+  <Action ID="GetGoalDist">
     <output_port name="result" />
-  </Condition>
-  <Condition ID="GetStartDist">
+  </Action>
+  <Action ID="GetStartDist">
     <output_port name="result" />
-  </Condition>
+  </Action>
   <Action ID="StartDistCheck">
     <input_port name="min_threshold" />
     <input_port name="max_threshold" />
@@ -136,18 +141,13 @@
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
   </Action>
-  <Action ID="NavCompensate">
-    <input_port name="offset_x" />
-    <input_port name="offset_y" />
+  <Action ID="BaffleStatus">
     <output_port name="errorMsg" default="{errorMsg}" />
   </Action>
-  <Condition ID="BaffleStatus">
+  <Action ID="LoadStatus">
     <output_port name="errorMsg" default="{errorMsg}" />
-  </Condition>
-  <Condition ID="LoadStatus">
-    <output_port name="errorMsg" default="{errorMsg}" />
-  </Condition>
-  <Condition ID="PhotoSensorStatus">
+  </Action>
+  <Action ID="PhotoSensorStatus">
     <output_port name="errorMsg" default="{errorMsg}" />
     <output_port name="out_error_id" default="{out_error_id}" />
     <output_port name="out_error_level" default="{out_error_level}" />
@@ -169,8 +169,8 @@
     <output_port name="DI14" />
     <output_port name="DI15" />
     <output_port name="DI16" />
-  </Condition>
-  <Condition ID="GetForkHeight">
+  </Action>
+  <Action ID="GetForkHeight">
     <input_port name="lift_safe_position_low" />
     <input_port name="lift_safe_position_high" />
     <output_port name="errorMsg" default="{errorMsg}" />
@@ -179,20 +179,20 @@
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
     <output_port name="fork_height" />
-  </Condition>
-  <Condition ID="GetLoadWeight">
+  </Action>
+  <Action ID="GetLoadWeight">
     <output_port name="errorMsg" default="{errorMsg}" />
     <output_port name="out_error_id" default="{out_error_id}" />
     <output_port name="out_error_level" default="{out_error_level}" />
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
     <output_port name="load_weight" />
-  </Condition>
-  <Condition ID="SlowDownToStop">
+  </Action>
+  <Action ID="SlowDownToStop">
     <input_port name="obs_dist" />
     <output_port name="errorMsg" default="{errorMsg}" />
-  </Condition>
-  <Condition ID="DecelerateNavi">
+  </Action>
+  <Action ID="DecelerateNavi">
     <input_port name="prepare_dist" default="0.0" description="The prepare distance before obstacle. &quot;
                                   &quot;Special: if prepare_dist == -1, force stop immediately." />
     <input_port name="obs_dist" default="0.0" description="The distance of obstacle." />
@@ -201,7 +201,10 @@
     <input_port name="mode" default="in" description="Mode: 'in' for inbound (distance to ending), 'out' for &quot;
                 &quot;outbound (distance to starting)." />
     <output_port name="errorMsg" default="{errorMsg}" />
-  </Condition>
+  </Action>
+  <Action ID="TipPhotoelectricCtrl">
+    <input_port name="ignore_enabled" />
+  </Action>
   <Action ID="SafeLaserCtrl">
     <output_port name="errorMsg" default="{errorMsg}" />
     <output_port name="out_error_id" default="{out_error_id}" />
@@ -244,9 +247,9 @@
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
   </Action>
-  <Condition ID="NavStatus">
+  <Action ID="NavStatus">
     <output_port name="errorMsg" default="{errorMsg}" />
-  </Condition>
+  </Action>
   <Action ID="BaffleStop">
     <output_port name="errorMsg" default="{errorMsg}" />
     <input_port name="baffle_stop_enable" />
@@ -273,7 +276,7 @@
     <input_port name="lowest_priority_speed" />
     <input_port name="reset_priority" />
   </Action>
-  <Condition ID="LiftHeightCheck">
+  <Action ID="LiftHeightCheck">
     <input_port name="high_threshold" />
     <input_port name="low_threshold" />
     <output_port name="errorMsg" default="{errorMsg}" />
@@ -282,7 +285,7 @@
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
     <output_port name="lift_height" />
-  </Condition>
+  </Action>
   <Action ID="ReportSchedule">
     <output_port name="errorMsg" default="{errorMsg}" />
     <output_port name="schedule_report_result" />
@@ -318,7 +321,7 @@
     <input_port name="pallet_args" />
     <input_port name="pallet_mode" />
   </Action>
-  <Condition ID="UnloadingProcess">
+  <Action ID="UnloadingProcess">
     <input_port name="weighing_result" />
     <input_port name="landing_speed" />
     <output_port name="errorMsg" default="{errorMsg}" />
@@ -326,7 +329,17 @@
     <output_port name="out_error_level" default="{out_error_level}" />
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
-  </Condition>
+  </Action>
+  <Action ID="CheckMcsApproval">
+    <input_port name="timeout_sec" />
+    <input_port name="prepare_dist" />
+    <output_port name="mcs_approval" />
+    <output_port name="out_error_details" default="{out_error_details}" />
+    <output_port name="out_error_id" default="{out_error_id}" />
+    <output_port name="out_error_level" default="{out_error_level}" />
+    <output_port name="out_error_name" default="{out_error_name}" />
+    <output_port name="errorMsg" default="{errorMsg}" />
+  </Action>
   <Action ID="CancelServoTask">
     <input_port name="servo_status" />
     <output_port name="errorMsg" default="{errorMsg}" />
@@ -352,6 +365,10 @@
     <input_port name="move_trans_speed" />
     <input_port name="servo_cancel_flag" />
     <output_port name="errorMsg" default="{errorMsg}" />
+    <output_port name="out_error_id" default="{out_error_id}" />
+    <output_port name="out_error_level" default="{out_error_level}" />
+    <output_port name="out_error_name" default="{out_error_name}" />
+    <output_port name="out_error_details" default="{out_error_details}" />
   </Action>
   <Action ID="VisualServo">
     <input_port name="action_args" />
@@ -365,19 +382,19 @@
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
   </Action>
-  <Condition ID="ServoStatus">
+  <Action ID="ServoStatus">
     <output_port name="errorMsg" default="{errorMsg}" />
     <output_port name="out_error_id" default="{out_error_id}" />
     <output_port name="out_error_level" default="{out_error_level}" />
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
     <output_port name="servo_status" />
-  </Condition>
-  <Condition ID="DoubleToString">
+  </Action>
+  <Action ID="DoubleToString">
     <output_port name="output_param" />
     <output_port name="errorMsg" default="{errorMsg}" />
     <input_port name="input_param" />
-  </Condition>
+  </Action>
   <Action ID="ResetEStopStatusCheck">
     <input_port name="dist_to_target" />
     <input_port name="station_args" />
@@ -473,7 +490,7 @@
     <output_port name="out_error_name" default="{out_error_name}" />
     <output_port name="out_error_details" default="{out_error_details}" />
   </Action>
-  <Condition ID="GetMultiLayerPalletInfo">
+  <Action ID="GetMultiLayerPalletInfo">
     <input_port name="station_args" />
     <input_port name="layer" />
     <input_port name="multi_layer_teach_args" />
@@ -482,5 +499,9 @@
     <output_port name="target_height_high" />
     <output_port name="ref_layer_teach_args" />
     <output_port name="errorMsg" default="{errorMsg}" />
-  </Condition>
+    <output_port name="out_error_id" default="{out_error_id}" />
+    <output_port name="out_error_level" default="{out_error_level}" />
+    <output_port name="out_error_name" default="{out_error_name}" />
+    <output_port name="out_error_details" default="{out_error_details}" />
+  </Action>
 </TreeNodesModel>

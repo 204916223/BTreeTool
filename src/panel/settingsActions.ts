@@ -1,11 +1,11 @@
 import { Buffer } from "node:buffer";
+import { promises as fs } from "node:fs";
 import * as vscode from "vscode";
 import {
   importTreeNodesModelToNodeLibrary,
-  NodeLibraryImportResult,
-  restoreDefaultNodeLibrary
+  NodeLibraryImportResult
 } from "../core/nodeLibraryImport";
-import { loadNodeLibraryPresets } from "../core/nodeLibrary";
+import { loadMergedNodeLibraryPresets } from "../core/nodeLibrary";
 import { BtUserSettings } from "../userSettings";
 import { formatImportConflictNames } from "./panelUtils";
 
@@ -23,24 +23,31 @@ export type ImportCustomNodesActionResult =
   | { canceled: false; ok: true; result: NodeLibraryImportResult }
   | { canceled: false; ok: false; message: string };
 
-export function loadNodeLibraryPresetsForExtension(extensionUri: vscode.Uri): Promise<BtUserSettings["presetNodes"]> {
-  const cacheKey = extensionUri.fsPath;
+export function loadNodeLibraryPresetsForExtension(
+  extensionUri: vscode.Uri,
+  globalStorageUri: vscode.Uri
+): Promise<BtUserSettings["presetNodes"]> {
+  const cacheKey = getNodeLibraryCacheKey(extensionUri, globalStorageUri);
   const cached = nodeLibraryPresetsCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const promise = loadNodeLibraryPresets(vscode.Uri.joinPath(extensionUri, "node-library").fsPath).catch(() => []);
+  const promise = loadMergedNodeLibraryPresets([
+    getBundledNodeLibraryUri(extensionUri).fsPath,
+    getImportedNodeLibraryUri(globalStorageUri).fsPath
+  ]).catch(() => []);
   nodeLibraryPresetsCache.set(cacheKey, promise);
   return promise;
 }
 
-export function clearNodeLibraryPresetsCache(extensionUri: vscode.Uri): void {
-  nodeLibraryPresetsCache.delete(extensionUri.fsPath);
+export function clearNodeLibraryPresetsCache(extensionUri: vscode.Uri, globalStorageUri: vscode.Uri): void {
+  nodeLibraryPresetsCache.delete(getNodeLibraryCacheKey(extensionUri, globalStorageUri));
 }
 
 export async function importCustomNodesToNodeLibrary(
   extensionUri: vscode.Uri,
+  globalStorageUri: vscode.Uri,
   copy: ImportCustomNodesCopy
 ): Promise<ImportCustomNodesActionResult> {
   const files = await vscode.window.showOpenDialog({
@@ -64,8 +71,9 @@ export async function importCustomNodesToNodeLibrary(
     const source = Buffer.from(raw).toString("utf8");
     const result = await importTreeNodesModelToNodeLibrary(
       source,
-      vscode.Uri.joinPath(extensionUri, "node-library").fsPath,
+      getImportedNodeLibraryUri(globalStorageUri).fsPath,
       {
+        conflictRootPaths: [getBundledNodeLibraryUri(extensionUri).fsPath],
         resolveConflicts: async (conflicts) => {
           const overwrite = copy.customNodesOverwriteAction;
           const skip = copy.customNodesSkipAction;
@@ -95,6 +103,18 @@ export async function importCustomNodesToNodeLibrary(
   }
 }
 
-export async function restoreBundledNodeLibrary(extensionUri: vscode.Uri): Promise<void> {
-  await restoreDefaultNodeLibrary(vscode.Uri.joinPath(extensionUri, "node-library").fsPath);
+export async function clearImportedNodeLibrary(globalStorageUri: vscode.Uri): Promise<void> {
+  await fs.rm(getImportedNodeLibraryUri(globalStorageUri).fsPath, { recursive: true, force: true });
+}
+
+function getBundledNodeLibraryUri(extensionUri: vscode.Uri): vscode.Uri {
+  return vscode.Uri.joinPath(extensionUri, "node-library");
+}
+
+function getImportedNodeLibraryUri(globalStorageUri: vscode.Uri): vscode.Uri {
+  return vscode.Uri.joinPath(globalStorageUri, "node-library");
+}
+
+function getNodeLibraryCacheKey(extensionUri: vscode.Uri, globalStorageUri: vscode.Uri): string {
+  return `${extensionUri.fsPath}\n${globalStorageUri.fsPath}`;
 }
