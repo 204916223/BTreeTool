@@ -245,6 +245,7 @@
         runtime.search.updateUi();
         return;
       }
+      reconcileOptimisticAttributeSnapshots(result);
       renderCurrentTree(result, { preserveViewport: hadViewport });
       updateSaveIndicator();
       runtime.search.updateUi();
@@ -380,6 +381,27 @@
     function getNodeFromResult(result, treeId, nodePath) {
       const tree = (result.behaviorTrees || []).find((entry) => entry.id === treeId);
       return tree ? findNodeByPath(tree.node, nodePath) : null;
+    }
+
+    function reconcileOptimisticAttributeSnapshots(result) {
+      const snapshots = runtime.state.pendingAttributeSnapshots || {};
+      Object.keys(snapshots).forEach((key) => {
+        const [treeId, nodePath] = parseAttributeSnapshotKey(key);
+        const node = getNodeFromResult(result, treeId, nodePath);
+        if (!node) {
+          return;
+        }
+        runtime.canvas.clearOptimisticNodeAttributes?.(treeId, nodePath, node.attributes || {});
+      });
+    }
+
+    function parseAttributeSnapshotKey(key) {
+      try {
+        const parsed = JSON.parse(key);
+        return [String(parsed?.[0] || ""), String(parsed?.[1] || "")];
+      } catch (_error) {
+        return ["", ""];
+      }
     }
 
     function setPreviewMode(mode) {

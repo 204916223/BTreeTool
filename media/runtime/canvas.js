@@ -1215,7 +1215,7 @@
       return;
     }
 
-    const attributes = { ...(node.attributes || {}) };
+    const attributes = getOptimisticNodeAttributes(node, treeId);
     if (!nextValue && !field.required) {
       delete attributes[field.key];
     } else {
@@ -1235,6 +1235,7 @@
       previousValue: originalValue,
       nextValue
     };
+    setOptimisticNodeAttributes(treeId, node.nodePath, attributes);
     syncAttributeInputs(treeId, node.nodePath, field.key, nextValue, {
       saving: true,
       commitInFlight: true,
@@ -1250,6 +1251,40 @@
         attributes
       }
     });
+  }
+
+  function getOptimisticNodeAttributes(node, treeId) {
+    const key = getAttributeSnapshotKey(treeId, node.nodePath);
+    const snapshot = runtime.state.pendingAttributeSnapshots?.[key];
+    return { ...(snapshot || node.attributes || {}) };
+  }
+
+  function setOptimisticNodeAttributes(treeId, nodePath, attributes) {
+    runtime.state.pendingAttributeSnapshots = {
+      ...(runtime.state.pendingAttributeSnapshots || {}),
+      [getAttributeSnapshotKey(treeId, nodePath)]: { ...(attributes || {}) }
+    };
+  }
+
+  function clearOptimisticNodeAttributes(treeId, nodePath, attributes) {
+    const key = getAttributeSnapshotKey(treeId, nodePath);
+    const snapshots = runtime.state.pendingAttributeSnapshots || {};
+    const snapshot = snapshots[key];
+    if (!snapshot || !attributesEqual(snapshot, attributes || {})) {
+      return;
+    }
+
+    const nextSnapshots = { ...snapshots };
+    delete nextSnapshots[key];
+    runtime.state.pendingAttributeSnapshots = nextSnapshots;
+  }
+
+  function getAttributeSnapshotKey(treeId, nodePath) {
+    return JSON.stringify([treeId || "", nodePath || ""]);
+  }
+
+  function attributesEqual(left, right) {
+    return JSON.stringify(left || {}) === JSON.stringify(right || {});
   }
 
   function syncAttributeInputs(treeId, nodePath, attributeKey, value, options = {}) {
@@ -1270,6 +1305,9 @@
     }
 
     const value = ok === false ? pending.previousValue || "" : pending.nextValue || "";
+    if (ok === false) {
+      clearOptimisticNodeAttributes(pending.treeId, pending.nodePath, pending.attributes || {});
+    }
     syncAttributeInputs(pending.treeId, pending.nodePath, pending.attributeKey, value, {
       saving: false,
       commitInFlight: false,
@@ -1416,6 +1454,7 @@
     renderCanvasTree,
     renderCanvasNode,
     buildNodeCard,
+    clearOptimisticNodeAttributes,
     getCanvasRootNode,
     getParentNodePath,
     getNodeIndex,

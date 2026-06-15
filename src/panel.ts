@@ -239,6 +239,7 @@ export class BehaviorTreePreviewPanel {
   private nodeLibraryPresets: BtUserSettings["presetNodes"] = [];
   private webviewReady = false;
   private readonly xmlUndoStack: string[] = [];
+  private xmlMutationQueue: Promise<void> = Promise.resolve();
   private suppressedDocumentRefresh: { uri: string; version: number | null } | null = null;
   private invalidDocumentPrompt: Promise<void> | null = null;
   private getCopy() {
@@ -778,6 +779,12 @@ export class BehaviorTreePreviewPanel {
   }
 
   private async applyXmlMutation(mutation: XmlMutation): Promise<void> {
+    const queuedMutation = this.xmlMutationQueue.then(() => this.applyXmlMutationNow(mutation));
+    this.xmlMutationQueue = queuedMutation.catch(() => undefined);
+    await queuedMutation;
+  }
+
+  private async applyXmlMutationNow(mutation: XmlMutation): Promise<void> {
     if (!this.latestDocumentUri) {
       this.postEditResult(false, this.getCopy().noAttachedDocument);
       return;

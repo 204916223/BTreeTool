@@ -119,6 +119,7 @@
       currentSettings: normalizedInitialSettings,
       copiedNodeTemplate: null,
       pendingAttributeEdit: null,
+      pendingAttributeSnapshots: {},
       forceHideNodeDetails: false,
       settingsFilePath: "",
       currentZoom: 1,
