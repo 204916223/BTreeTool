@@ -395,11 +395,19 @@
     kind.className = "flow-node-kind";
     kind.textContent = getNodeBadge(node);
 
+    const uid = document.createElement("span");
+    uid.className = "flow-node-uid";
+    uid.textContent = String(node.uid || "");
+    uid.title = node.uid ? `UID ${node.uid}` : "";
+
     const name = document.createElement("span");
     name.className = "flow-node-name";
     name.textContent = node.title;
 
     heading.appendChild(kind);
+    if (node.uid) {
+      heading.appendChild(uid);
+    }
     heading.appendChild(name);
 
     if (node.warningCount > 0) {
@@ -419,6 +427,11 @@
         runtime.overlays.hideNodeContextMenu();
         runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
         runtime.state.selectedNodePath = node.nodePath;
+        if (runtime.editAssistant?.insertNodeUid?.(node.uid)) {
+          runtime.app.persistUiState();
+          runtime.viewport.updateCanvasSelection(node.nodePath, options.currentTreeId);
+          return;
+        }
         runtime.app.stagePlaybackTransitionUidFilter?.(node.attributes?._uid);
         runtime.app.persistUiState();
         runtime.viewport.updateCanvasSelection(node.nodePath, options.currentTreeId);

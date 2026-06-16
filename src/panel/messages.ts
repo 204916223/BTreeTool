@@ -114,6 +114,17 @@ export type WebviewMessage =
       };
     }
   | {
+      type: "editAssistantAsk";
+      payload?: {
+        requestId?: string;
+        prompt?: string;
+        action?: string;
+        treeId?: string;
+        nodePath?: string;
+        queueTreeIds?: string[];
+      };
+    }
+  | {
       type: "saveUserSettings";
       payload?: BtUserSettings;
     }

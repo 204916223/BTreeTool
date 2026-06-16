@@ -37,6 +37,9 @@
       addNodeModelButton: root.getElementById("add-node-model"),
       catalogResizer: root.getElementById("catalog-resizer"),
       toggleCatalogButton: root.getElementById("toggle-catalog"),
+      editAssistantPanel: root.getElementById("edit-assistant-panel"),
+      editAssistantResizer: root.getElementById("edit-assistant-resizer"),
+      toggleEditAssistantButton: root.getElementById("toggle-edit-assistant"),
       openSettingsButton: root.getElementById("open-settings")
     };
   }

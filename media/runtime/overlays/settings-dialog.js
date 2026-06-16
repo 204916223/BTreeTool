@@ -26,7 +26,9 @@
     const closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.className = "settings-close-button";
-    closeButton.textContent = "X";
+    closeButton.setAttribute("aria-label", "Close");
+    closeButton.innerHTML =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.3-6.29 1.41 1.41Z"/></svg>';
     closeButton.addEventListener("click", hideSettingsDialog);
 
     const form = document.createElement("div");

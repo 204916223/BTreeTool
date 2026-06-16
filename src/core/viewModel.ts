@@ -26,6 +26,7 @@ export interface BtPreviewNodeField {
 }
 
 export interface BtPreviewNode {
+  uid: number;
   nodePath: string;
   title: string;
   instanceName: string;
@@ -99,9 +100,10 @@ export function buildPreviewDocument(ast: BtDocumentAst, settings?: BtUserSettin
   const normalizedSettings = cloneUserSettings(settings || DEFAULT_USER_SETTINGS);
   const catalog = buildNodeCatalog(ast, normalizedSettings);
   const warningIndex = buildWarningIndex(ast.warnings);
+  let nextUid = 1;
   const behaviorTrees = ast.behaviorTrees.map((tree) => ({
     id: tree.id,
-    node: tree.node ? toPreviewNode(tree.node, catalog, tree.id, "0", warningIndex) : null
+    node: tree.node ? toPreviewNode(tree.node, catalog, tree.id, "0", warningIndex, () => nextUid++) : null
   }));
 
   return {
@@ -122,7 +124,8 @@ function toPreviewNode(
   catalog: ReturnType<typeof buildNodeCatalog>,
   treeId: string,
   nodePath: string,
-  warningIndex: Map<string, BtPreviewWarning[]>
+  warningIndex: Map<string, BtPreviewWarning[]>,
+  nextUid: () => number
 ): BtPreviewNode {
   const entry = resolveNodeCatalogEntry(node, catalog);
   const title = getNodeTitle(node, entry);
@@ -131,6 +134,7 @@ function toPreviewNode(
   const blockingWarnings = warnings.filter(isBlockingWarning);
 
   return {
+    uid: nextUid(),
     nodePath,
     title,
     instanceName: node.attributes.name || "",
@@ -149,7 +153,7 @@ function toPreviewNode(
     hasError: blockingWarnings.length > 0,
     warnings,
     children: node.children.map((child, index) =>
-      toPreviewNode(child, catalog, treeId, `${nodePath}.${index}`, warningIndex)
+      toPreviewNode(child, catalog, treeId, `${nodePath}.${index}`, warningIndex, nextUid)
     )
   };
 }
