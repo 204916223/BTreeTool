@@ -1,5 +1,6 @@
 .tree-workspace {
   --catalog-width: 280px;
+  --edit-assistant-width: 320px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
@@ -13,6 +14,14 @@
 
 .tree-workspace.show-catalog {
   grid-template-columns: var(--catalog-width) 4px minmax(0, 1fr);
+}
+
+.tree-workspace.show-edit-assistant {
+  grid-template-columns: minmax(0, 1fr) 4px var(--edit-assistant-width);
+}
+
+.tree-workspace.show-catalog.show-edit-assistant {
+  grid-template-columns: var(--catalog-width) 4px minmax(0, 1fr) 4px var(--edit-assistant-width);
 }
 
 .catalog-card {
@@ -64,6 +73,22 @@ body.is-resizing-rows {
 }
 
 .tree-workspace.show-catalog .tree-root {
+  grid-column: 3;
+}
+
+.tree-workspace.show-edit-assistant #edit-assistant-resizer {
+  grid-column: 2;
+}
+
+.tree-workspace.show-edit-assistant .tree-root {
+  grid-column: 1;
+}
+
+.tree-workspace.show-catalog.show-edit-assistant #edit-assistant-resizer {
+  grid-column: 4;
+}
+
+.tree-workspace.show-catalog.show-edit-assistant .tree-root {
   grid-column: 3;
 }
 
@@ -129,4 +154,20 @@ body.is-resizing-rows {
 
 .tree-workspace.show-catalog .panel-edge-toggle-left::before {
   content: "‹";
+}
+
+.panel-edge-toggle-right {
+  right: 8px;
+}
+
+.panel-edge-toggle-right::before {
+  content: "‹";
+}
+
+.tree-workspace.show-edit-assistant .panel-edge-toggle-right {
+  right: calc(var(--edit-assistant-width) + 10px);
+}
+
+.tree-workspace.show-edit-assistant .panel-edge-toggle-right::before {
+  content: "›";
 }

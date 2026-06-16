@@ -104,9 +104,11 @@
     });
 
     runtime.catalog.init();
+    runtime.editAssistant?.init?.();
     runtime.overlays.init();
     runtime.viewport.init();
     runtime.workspacePanels.enableResize(runtime.refs.catalogResizer, "catalog");
+    runtime.workspacePanels.enableResize(runtime.refs.editAssistantResizer, "editAssistant");
     runtime.mainEvents.bindChromeControls({
       persistUiState,
       setPreviewMode,
@@ -202,6 +204,7 @@
 
       renderWarnings(result.warnings);
       runtime.catalog.renderCatalog(runtime.state.currentCatalogGroups);
+      runtime.editAssistant?.render?.();
 
       if (result.warnings.some((warning) => warning.code === "empty_document")) {
         runtime.state.currentCanvasState = null;
@@ -636,10 +639,14 @@
         selectedTreeId: runtime.state.selectedTreeId,
         selectedNodePath: runtime.state.selectedNodePath,
         showCatalog: runtime.state.showCatalog,
+        editAssistantVisible: runtime.state.editAssistantVisible,
+        editAssistantMessages: runtime.state.editAssistantMessages,
+        editAssistantTreeQueue: runtime.state.editAssistantTreeQueue,
         editModeEnabled: runtime.state.editModeEnabled,
         collapsedCatalogGroups: runtime.state.collapsedCatalogGroups,
         collapsedNodePickerGroups: runtime.state.collapsedNodePickerGroups,
         catalogWidth: runtime.state.catalogWidth,
+        editAssistantWidth: runtime.state.editAssistantWidth,
         treeSwitcherScrollLeft: runtime.state.treeSwitcherScrollLeft,
         treeNavigationParents: runtime.state.treeNavigationParents,
         splitViewEnabled: runtime.state.splitViewEnabled,

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { Buffer } from "node:buffer";
 import { BtPlaybackLog } from "./core/btlog";
+import { scanEditAssistantRules } from "./core/editAssistantScan";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { serializeBehaviorTreeDocument } from "./core/serialize";
 import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
@@ -405,6 +406,11 @@ export class BehaviorTreePreviewPanel {
       return true;
     }
 
+    if (message.type === "editAssistantAsk" && "payload" in message) {
+      this.handleEditAssistantAsk(message.payload);
+      return true;
+    }
+
     return false;
   }
 
@@ -732,6 +738,57 @@ export class BehaviorTreePreviewPanel {
     payload: { treeId?: string; nodePath?: string; attributes?: Record<string, string> } | undefined
   ): Promise<void> {
     await handleUpdateNodeAttributesAction(payload, this.getEditActionContext());
+  }
+
+  private handleEditAssistantAsk(
+    payload:
+      | {
+          requestId?: string;
+          prompt?: string;
+          action?: string;
+          treeId?: string;
+          nodePath?: string;
+          queueTreeIds?: string[];
+        }
+      | undefined
+  ): void {
+    const copy = this.getCopy();
+    const prompt = payload?.prompt?.trim() || "";
+    const treeId = payload?.treeId?.trim() || this.latestPayload.preview?.defaultTreeId || "";
+    const nodePath = payload?.nodePath?.trim() || "0";
+    if (payload?.action === "scan") {
+      const scan = scanEditAssistantRules(this.latestPayload.preview, {
+        queueTreeIds: payload.queueTreeIds,
+        currentTreeId: treeId,
+        language: this.currentSettings.language
+      });
+      this.panel.webview.postMessage({
+        type: "editAssistantAnswer",
+        payload: {
+          requestId: payload?.requestId || "",
+          ok: true,
+          action: "scan",
+          scan
+        }
+      });
+      return;
+    }
+
+    const warnings = this.latestPayload.preview?.warnings.length ?? 0;
+    const target = treeId ? `树 "${treeId}" / 节点 ${nodePath}` : "当前行为树";
+    const answer = prompt
+      ? `已收到针对 ${target} 的请求：${prompt}\n\n当前框架已接入编辑模式右侧面板和消息通道。本阶段还没有执行规则扫描或生成编辑操作；下一步可以把本地规则检查、模板化编辑计划和 AI 规划分别接到这个入口。当前文档告警数量：${warnings}。`
+      : "编辑助手请求为空。";
+
+    this.panel.webview.postMessage({
+      type: "editAssistantAnswer",
+      payload: {
+        requestId: payload?.requestId || "",
+        ok: true,
+        answer,
+        notice: copy.nodeCreateUnchanged
+      }
+    });
   }
 
   private async revealTreeNodesModel(): Promise<void> {

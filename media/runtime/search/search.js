@@ -69,11 +69,11 @@
 
     updateSearchUi();
     if (renderTree && result) {
-      runtime.app.renderCurrentTree(result, { preserveViewport: true });
       if (focusActive && runtime.state.activeSearchResultIndex >= 0) {
-        requestAnimationFrame(() => {
-          runtime.viewport.focusNodePath(runtime.state.searchResults[runtime.state.activeSearchResultIndex].nodePath);
-        });
+        const activeResult = runtime.state.searchResults[runtime.state.activeSearchResultIndex];
+        focusSearchResult(activeResult.treeId, activeResult.nodePath, { updateUi: false });
+      } else {
+        runtime.app.renderCurrentTree(result, { preserveViewport: true });
       }
     }
   }
@@ -97,12 +97,27 @@
     const nextIndex = Math.max(0, Math.min(index, runtime.state.searchResults.length - 1));
     const nextResult = runtime.state.searchResults[nextIndex];
     runtime.state.activeSearchResultIndex = nextIndex;
-    runtime.state.selectedTreeId = nextResult.treeId;
-    runtime.state.selectedNodePath = nextResult.nodePath;
+    focusSearchResult(nextResult.treeId, nextResult.nodePath, { updateUi: false });
     updateSearchUi();
-    runtime.app.renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
+  }
+
+  function focusSearchResult(treeId, nodePath, options = {}) {
+    if (!runtime.state.currentPreview || !treeId || !nodePath) {
+      return;
+    }
+
+    runtime.state.selectedTreeId = treeId;
+    runtime.state.selectedNodePath = nodePath;
+    runtime.app.activateTreePaneByTreeId?.(treeId, nodePath);
+    runtime.app.persistUiState?.();
+    if (options.updateUi !== false) {
+      updateSearchUi();
+    }
+    runtime.app.renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true, ensureActiveTreeVisible: true });
     requestAnimationFrame(() => {
-      runtime.viewport.focusNodePath(nextResult.nodePath);
+      requestAnimationFrame(() => {
+        runtime.viewport.focusNodePath(nodePath, treeId);
+      });
     });
   }
 
@@ -298,6 +313,7 @@
     refreshResults: refreshSearchResults,
     navigateResults: navigateSearchResults,
     activateResult: activateSearchResult,
+    focusResult: focusSearchResult,
     updateUi: updateSearchUi
   };
 })();

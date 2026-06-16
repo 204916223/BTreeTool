@@ -713,10 +713,85 @@
     );
   }
 
+  function getEditAssistantCopy(language = getCurrentLanguage()) {
+    const base = {
+      title: "Tree Assistant",
+      hidePanel: "Hide assistant",
+      configure: "Configure AI",
+      configNotReady: "AI configuration is not implemented yet.",
+      discardPendingConfirm: "The assistant has pending edits. Collapse it without applying them?",
+      queueTitle: "Queue",
+      treeLabel: "Tree",
+      nodeLabel: "Node",
+      warningLabel: "Warnings",
+      scanTree: "Scan current tree",
+      addCurrentTree: "Add current subtree",
+      removeCurrentTree: "Remove current subtree",
+      messages: "Assistant",
+      empty: "Ask for a scan or an edit plan. Rule checks and AI planning will be added here.",
+      placeholder: "Describe what to check or what logic to add...",
+      localProvider: "Local",
+      send: "Ask",
+      you: "You",
+      assistant: "Assistant",
+      none: "None",
+      notReady: "The edit assistant backend is ready for wiring. Rule checks and AI planning are not enabled yet.",
+      scanQueueEmpty: "Queue is empty. Add a subtree with + before scanning.",
+      scanNoIssues: (trees) => `Scan finished for ${trees}; no issues found.`,
+      scanSummary: (trees, total, counts) =>
+        `Scan finished for ${trees}; found ${total} issue(s): ${counts.error} error, ${counts.warning} warning, ${counts.info} info.`,
+      scanScopeDocument: "Current XML",
+      scanGroupTitle: (scope, trees, count) => `${scope}: ${trees} (${count})`,
+      scanGroupNoIssues: "No issues in this scope.",
+      jumpToIssue: "Jump to this node",
+      treeAttached: (treeId) => `Added "${treeId}" to the assistant tree queue.`,
+      treeDetached: (treeId) => `Removed "${treeId}" from the assistant tree queue.`
+    };
+
+    return localize(
+      base,
+      {
+        title: "行为树助手",
+        hidePanel: "隐藏助手",
+        configure: "配置 AI",
+        configNotReady: "AI 配置入口已预留，功能尚未实现。",
+        discardPendingConfirm: "助手中有尚未应用的修改，确定收起吗？",
+        queueTitle: "队列",
+        treeLabel: "树",
+        nodeLabel: "节点",
+        warningLabel: "告警",
+        scanTree: "扫描当前树",
+        addCurrentTree: "加入当前子树",
+        removeCurrentTree: "移出当前子树",
+        messages: "助手",
+        empty: "可以先请求扫描或编辑计划。规则检查和 AI 规划会继续接到这里。",
+        placeholder: "描述要检查的问题，或要追加的行为树逻辑...",
+        localProvider: "本地",
+        send: "发送",
+        you: "你",
+        assistant: "助手",
+        none: "无",
+        notReady: "编辑助手后端通道已预留，规则检查和 AI 规划尚未启用。",
+        scanQueueEmpty: "队列为空，请先用 + 加入需要扫描的子树。",
+        scanNoIssues: (trees) => `已扫描 ${trees}，未发现问题。`,
+        scanSummary: (trees, total, counts) =>
+          `已扫描 ${trees}，发现 ${total} 个问题：${counts.error} 个错误，${counts.warning} 个警告，${counts.info} 个提示。`,
+      scanScopeDocument: "当前窗口",
+        scanGroupTitle: (scope, trees, count) => `${scope}：${trees}（${count}）`,
+        scanGroupNoIssues: "这个范围内未发现问题。",
+        jumpToIssue: "跳转到该节点",
+        treeAttached: (treeId) => `已将 "${treeId}" 加入助手树队列。`,
+        treeDetached: (treeId) => `已将 "${treeId}" 从助手树队列移出。`
+      },
+      language
+    );
+  }
+
   runtime.i18n = {
     getCurrentLanguage,
     getChromeCopy,
     getSearchCopy,
+    getEditAssistantCopy,
     getCatalogCopy,
     getAttributeCopy,
     getOverlayCopy,

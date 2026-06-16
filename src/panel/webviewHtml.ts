@@ -15,6 +15,7 @@ export function getWebviewHtml(options: GetWebviewHtmlOptions): string {
       "chrome.css",
       "tree-surface.css",
       "workspace.css",
+      "assistant.css",
       "catalog.css",
       "canvas.css",
       "menus.css",
@@ -120,6 +121,9 @@ export function getWebviewHtml(options: GetWebviewHtmlOptions): string {
     const editSplitViewScriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(extensionUri, "media", "runtime", "edit", "edit-split-view.js")
     );
+    const editAssistantScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extensionUri, "media", "runtime", "edit", "edit-assistant.js")
+    );
     const editControllerScriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(extensionUri, "media", "runtime", "edit", "edit-controller.js")
     );
@@ -207,6 +211,13 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
             title="Show or hide the node palette"
             aria-label="Show or hide the node palette"
           ></button>
+          <button
+            id="toggle-edit-assistant"
+            class="panel-edge-toggle panel-edge-toggle-right"
+            type="button"
+            title="Show or hide the behavior tree assistant"
+            aria-label="Show or hide the behavior tree assistant"
+          ></button>
           <aside id="catalog-panel" class="catalog-card" hidden>
             <div class="catalog-header">
               <span id="catalog-eyebrow" class="eyebrow">Node Palette</span>
@@ -286,6 +297,8 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
             </div>
             <aside id="main-tree-locator" class="main-tree-locator" hidden></aside>
           </div>
+          <div id="edit-assistant-resizer" class="panel-resizer" hidden></div>
+          <aside id="edit-assistant-panel" class="edit-assistant-panel" hidden></aside>
         </div>
       </section>
     </main>
@@ -322,6 +335,7 @@ ${overlayPartScriptUris.map((uri) => `    <script nonce="${nonce}" src="${uri}">
 <script nonce="${nonce}" src="${playbackDashboardScriptUri}"></script>
 <script nonce="${nonce}" src="${playbackControllerScriptUri}"></script>
 <script nonce="${nonce}" src="${editSplitViewScriptUri}"></script>
+<script nonce="${nonce}" src="${editAssistantScriptUri}"></script>
 <script nonce="${nonce}" src="${editControllerScriptUri}"></script>
 <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>

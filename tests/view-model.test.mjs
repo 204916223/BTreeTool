@@ -157,6 +157,17 @@ test("buildPreviewDocument classifies builtin decorators without relying on chil
   const preview = buildPreviewDocument(document);
   const node = preview.behaviorTrees[0].node;
 
+  assert.equal(node.uid, 1);
   assert.equal(node.category, "Decorator");
   assert.equal(node.modelKind, "Decorator");
+});
+
+test("buildPreviewDocument assigns stable pre-order node uids", () => {
+  const preview = buildPreviewDocument(createDocument());
+
+  assert.equal(preview.behaviorTrees[0].node.uid, 1);
+  assert.equal(preview.behaviorTrees[0].node.children[0].uid, 2);
+  assert.equal(preview.behaviorTrees[1].node.uid, 3);
+  assert.equal(preview.behaviorTrees[2].node.uid, 4);
+  assert.equal(preview.behaviorTrees[3].node.uid, 5);
 });

@@ -110,6 +110,11 @@
         return;
       }
 
+      if (message?.type === "editAssistantAnswer") {
+        runtime.editAssistant?.handleAnswer?.(message.payload);
+        return;
+      }
+
       if (message?.type === "panelVisibility") {
         if (message.payload?.visible === false) {
           handlers.pausePlayback();
@@ -206,6 +211,9 @@
       runtime.state.showCatalog = !runtime.state.showCatalog;
       handlers.persistUiState();
       runtime.workspacePanels.apply();
+    });
+    runtime.refs.toggleEditAssistantButton?.addEventListener("click", () => {
+      runtime.editAssistant?.setVisible?.(!runtime.state.editAssistantVisible);
     });
 
     runtime.refs.editModeButton?.addEventListener("click", () => {

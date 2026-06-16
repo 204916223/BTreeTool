@@ -393,13 +393,19 @@
   border: 1px solid var(--line);
   background: var(--color-surface-subtle);
   color: var(--text);
-  font: inherit;
-  font-size: 16px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .settings-close-button:hover {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.settings-close-button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 
 .settings-switch {
