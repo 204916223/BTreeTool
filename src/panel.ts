@@ -16,13 +16,14 @@ import { addTraceProvider, getTraceConfigState, loadTraceConfig, setActiveTraceP
 import { createTraceFeedbackRecord, TraceFeedbackPayload, storeTraceFeedback } from "./traceLearning";
 import { getWebviewHtml } from "./panel/webviewHtml";
 import {
+  NodeCopyTemplateMessage,
   PreviewPayload,
   ShortcutAction,
   WebviewMessage
 } from "./panel/messages";
 import { routeWebviewMessage } from "./panel/messageRouter";
 import { getPanelCopy } from "./panel/panelCopy";
-import { mergePresetNodeSets } from "./panel/panelUtils";
+import { mergePresetNodeSets, normalizeNodeCopyChildren } from "./panel/panelUtils";
 import { choosePlaybackLogFile } from "./panel/playbackLogActions";
 import { cancelTraceRequest, createTraceRequestControllers, handleTraceAskAction } from "./panel/traceActions";
 import {
@@ -71,6 +72,7 @@ export class BehaviorTreePreviewPanel {
   private static readonly panelsByDocument = new Map<string, Set<BehaviorTreePreviewPanel>>();
   private static readonly noDocumentPanels = new Set<BehaviorTreePreviewPanel>();
   private static activePanel: BehaviorTreePreviewPanel | null = null;
+  private static copiedNodeTemplate: NodeCopyTemplateMessage | null = null;
   private static readonly invalidDocumentMessage = "当前文件不符合规则";
   private static readonly invalidDocumentConfirm = "确定";
   private static readonly emptyPayload: PreviewPayload = {
@@ -165,6 +167,15 @@ export class BehaviorTreePreviewPanel {
     BehaviorTreePreviewPanel.panelsByDocument.clear();
     BehaviorTreePreviewPanel.noDocumentPanels.clear();
     BehaviorTreePreviewPanel.activePanel = null;
+  }
+
+  private static broadcastNodeClipboardState(): void {
+    const panels = new Set<BehaviorTreePreviewPanel>(BehaviorTreePreviewPanel.noDocumentPanels);
+    for (const documentPanels of BehaviorTreePreviewPanel.panelsByDocument.values()) {
+      documentPanels.forEach((panel) => panels.add(panel));
+    }
+
+    panels.forEach((panel) => panel.postNodeClipboardState());
   }
 
   private static addPanelForDocument(uri: vscode.Uri, panel: BehaviorTreePreviewPanel): void {
@@ -334,6 +345,16 @@ export class BehaviorTreePreviewPanel {
   }
 
   private handleEditMessage(message: WebviewMessage): boolean {
+    if (message.type === "copyNodeTemplate" && "payload" in message) {
+      this.handleCopyNodeTemplate(message.payload);
+      return true;
+    }
+
+    if (message.type === "pasteSharedNodeTemplate" && "payload" in message) {
+      void this.handlePasteSharedNodeTemplate(message.payload);
+      return true;
+    }
+
     if (message.type === "updateNodeAttributes" && "payload" in message) {
       void this.handleUpdateNodeAttributes(message.payload);
       return true;
@@ -537,6 +558,7 @@ export class BehaviorTreePreviewPanel {
       type: "btreeDocument",
       payload: this.latestPayload
     });
+    this.postNodeClipboardState();
   }
 
   private async postTraceConfigState(): Promise<void> {
@@ -587,6 +609,15 @@ export class BehaviorTreePreviewPanel {
       payload: {
         settings: cloneUserSettings(this.currentSettings),
         settingsFilePath: this.settingsFileUri?.fsPath || ""
+      }
+    });
+  }
+
+  private postNodeClipboardState(): void {
+    this.panel.webview.postMessage({
+      type: "nodeClipboardState",
+      payload: {
+        hasNodeTemplate: Boolean(BehaviorTreePreviewPanel.copiedNodeTemplate)
       }
     });
   }
@@ -765,6 +796,45 @@ export class BehaviorTreePreviewPanel {
 
   private async handleCreateNodeCopy(payload: Parameters<typeof handleCreateNodeCopyAction>[0]): Promise<void> {
     await handleCreateNodeCopyAction(payload, this.getEditActionContext());
+  }
+
+  private handleCopyNodeTemplate(payload: { nodeTemplate?: NodeCopyTemplateMessage } | undefined): void {
+    const nodeTemplate = payload?.nodeTemplate;
+    if (!nodeTemplate?.tagName || !nodeTemplate.attributes) {
+      return;
+    }
+
+    BehaviorTreePreviewPanel.copiedNodeTemplate = {
+      tagName: nodeTemplate.tagName,
+      attributes: { ...nodeTemplate.attributes },
+      children: normalizeNodeCopyChildren(nodeTemplate.children)
+    };
+    BehaviorTreePreviewPanel.broadcastNodeClipboardState();
+  }
+
+  private async handlePasteSharedNodeTemplate(
+    payload:
+      | {
+          treeId?: string;
+          targetParentPath?: string;
+          targetIndex?: number;
+        }
+      | undefined
+  ): Promise<void> {
+    const nodeTemplate = BehaviorTreePreviewPanel.copiedNodeTemplate;
+    if (!nodeTemplate) {
+      this.postNodeClipboardState();
+      return;
+    }
+
+    await this.handleCreateNodeCopy({
+      ...payload,
+      nodeTemplate: {
+        tagName: nodeTemplate.tagName,
+        attributes: { ...(nodeTemplate.attributes || {}) },
+        children: normalizeNodeCopyChildren(nodeTemplate.children)
+      }
+    });
   }
 
   private async handleDeleteNode(

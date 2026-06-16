@@ -92,6 +92,21 @@ export type WebviewMessage =
       };
     }
   | {
+      type: "copyNodeTemplate";
+      payload?: {
+        nodeTemplate?: NodeCopyTemplateMessage;
+      };
+    }
+  | {
+      type: "pasteSharedNodeTemplate";
+      payload?: {
+        treeId?: string;
+        paneId?: string;
+        targetParentPath?: string;
+        targetIndex?: number;
+      };
+    }
+  | {
       type: "deleteNode";
       payload?: {
         treeId?: string;

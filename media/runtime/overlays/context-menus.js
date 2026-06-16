@@ -140,6 +140,17 @@
         ? []
         : cloneNodeTemplateChildren(state.nodeTemplate.children)
     };
+    runtime.state.hasSharedNodeTemplate = true;
+    runtime.vscode.postMessage({
+      type: "copyNodeTemplate",
+      payload: {
+        nodeTemplate: {
+          tagName: runtime.state.copiedNodeTemplate.tagName,
+          attributes: { ...(runtime.state.copiedNodeTemplate.attributes || {}) },
+          children: cloneNodeTemplateChildren(runtime.state.copiedNodeTemplate.children)
+        }
+      }
+    });
     return true;
   }
 
@@ -203,18 +214,13 @@
   function pasteCopiedNode(target) {
     const copiedNodeTemplate = runtime.state.copiedNodeTemplate;
     if (!copiedNodeTemplate) {
-      return false;
+      if (runtime.state.hasSharedNodeTemplate !== true) {
+        return false;
+      }
+      return pasteSharedNodeTemplate(target);
     }
 
-    runtime.state.selectedNodePath = target.targetParentPath === "__btree_root__"
-      ? "0"
-      : `${target.targetParentPath}.${target.targetIndex}`;
-    if (target.paneId) {
-      runtime.app.activateTreePane(target.paneId, target.treeId, runtime.state.selectedNodePath);
-    } else {
-      runtime.app.activateTreePaneByTreeId(target.treeId, runtime.state.selectedNodePath);
-    }
-    runtime.app.persistUiState();
+    selectPasteTarget(target);
     runtime.vscode.postMessage({
       type: "createNodeCopy",
       payload: {
@@ -227,6 +233,27 @@
       }
     });
     return true;
+  }
+
+  function pasteSharedNodeTemplate(target) {
+    selectPasteTarget(target);
+    runtime.vscode.postMessage({
+      type: "pasteSharedNodeTemplate",
+      payload: target
+    });
+    return true;
+  }
+
+  function selectPasteTarget(target) {
+    runtime.state.selectedNodePath = target.targetParentPath === "__btree_root__"
+      ? "0"
+      : `${target.targetParentPath}.${target.targetIndex}`;
+    if (target.paneId) {
+      runtime.app.activateTreePane(target.paneId, target.treeId, runtime.state.selectedNodePath);
+    } else {
+      runtime.app.activateTreePaneByTreeId(target.treeId, runtime.state.selectedNodePath);
+    }
+    runtime.app.persistUiState();
   }
 
   function getSelectedNodeContextState() {
@@ -349,7 +376,7 @@
     const overlayCopy = runtime.i18n.getOverlayCopy();
     runtime.app.activateTreePane(state?.paneId, state?.treeId, state?.nodePath);
     overlayState.nodeContextMenu.state = state;
-    const hasCopiedNode = Boolean(runtime.state.copiedNodeTemplate);
+    const hasCopiedNode = Boolean(runtime.state.copiedNodeTemplate) || runtime.state.hasSharedNodeTemplate === true;
     overlayState.nodeContextMenu.copyNodeButton.hidden = !state?.nodeTemplate;
     overlayState.nodeContextMenu.addBeforeButton.hidden = !state?.parentPath || !Number.isInteger(state?.siblingIndex);
     overlayState.nodeContextMenu.addAfterButton.hidden = !state?.parentPath || !Number.isInteger(state?.siblingIndex);
@@ -394,6 +421,17 @@
     overlayState.nodeContextMenu.element.style.top = `${y}px`;
   }
 
+  function syncNodeContextMenu() {
+    if (!overlayState.nodeContextMenu || overlayState.nodeContextMenu.element.hidden) {
+      return;
+    }
+
+    const rect = overlayState.nodeContextMenu.element.getBoundingClientRect?.();
+    const x = rect?.left ?? 0;
+    const y = rect?.top ?? 0;
+    showNodeContextMenu(x, y, overlayState.nodeContextMenu.state);
+  }
+
   function hideNodeContextMenu() {
     if (!overlayState.nodeContextMenu) {
       return;
@@ -431,6 +469,7 @@
     createNodeContextMenu,
     createCanvasContextMenu,
     showNodeContextMenu,
+    syncNodeContextMenu,
     hideNodeContextMenu,
     showCanvasContextMenu,
     hideCanvasContextMenu,

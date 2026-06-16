@@ -101,6 +101,7 @@
     init,
     hideAll,
     showNodeContextMenu: (...args) => getPart("contextMenus").showNodeContextMenu(...args),
+    syncNodeContextMenu: (...args) => getPart("contextMenus").syncNodeContextMenu(...args),
     hideNodeContextMenu: (...args) => getPart("contextMenus").hideNodeContextMenu(...args),
     showCanvasContextMenu: (...args) => getPart("contextMenus").showCanvasContextMenu(...args),
     hideCanvasContextMenu: (...args) => getPart("contextMenus").hideCanvasContextMenu(...args),

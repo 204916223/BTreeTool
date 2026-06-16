@@ -21,6 +21,12 @@
         runtime.canvas.finishPendingAttributeEdit?.(message.payload?.ok !== false);
       }
 
+      if (message?.type === "nodeClipboardState") {
+        runtime.state.hasSharedNodeTemplate = message.payload?.hasNodeTemplate === true;
+        runtime.overlays.syncNodeContextMenu?.();
+        return;
+      }
+
       if (message?.type === "shortcutAction") {
         if (message.payload?.action === "undo") {
           runtime.vscode.postMessage({ type: "undoCurrentDocument" });
