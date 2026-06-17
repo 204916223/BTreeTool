@@ -6,20 +6,32 @@
     const isPlayback = runtime.modeRules?.isPlaybackMode?.() === true;
     const showCatalog = hasDocument && !isPlayback && runtime.state.showCatalog;
     const showEditAssistant = hasDocument && !isPlayback && runtime.state.editAssistantVisible;
-    runtime.refs.catalogPanel.hidden = !showCatalog;
-    runtime.refs.catalogResizer.hidden = !showCatalog;
-    runtime.refs.editAssistantPanel.hidden = !showEditAssistant;
-    runtime.refs.editAssistantResizer.hidden = !showEditAssistant;
-    runtime.refs.toggleCatalogButton.hidden = !hasDocument || isPlayback;
-    runtime.refs.toggleEditAssistantButton.hidden = !hasDocument || isPlayback;
+    if (runtime.refs.catalogPanel) {
+      runtime.refs.catalogPanel.hidden = !showCatalog;
+    }
+    if (runtime.refs.catalogResizer) {
+      runtime.refs.catalogResizer.hidden = !showCatalog;
+    }
+    if (runtime.refs.editAssistantPanel) {
+      runtime.refs.editAssistantPanel.hidden = !showEditAssistant;
+    }
+    if (runtime.refs.editAssistantResizer) {
+      runtime.refs.editAssistantResizer.hidden = !showEditAssistant;
+    }
+    if (runtime.refs.toggleCatalogButton) {
+      runtime.refs.toggleCatalogButton.hidden = !hasDocument || isPlayback;
+    }
+    if (runtime.refs.toggleEditAssistantButton) {
+      runtime.refs.toggleEditAssistantButton.hidden = !hasDocument || isPlayback;
+    }
 
-    runtime.refs.treeWorkspace.style.setProperty("--catalog-width", `${runtime.state.catalogWidth}px`);
-    runtime.refs.treeWorkspace.style.setProperty("--edit-assistant-width", `${runtime.state.editAssistantWidth}px`);
-    runtime.refs.treeWorkspace.classList.toggle("show-catalog", showCatalog);
-    runtime.refs.treeWorkspace.classList.toggle("show-edit-assistant", showEditAssistant);
+    runtime.refs.treeWorkspace?.style?.setProperty("--catalog-width", `${runtime.state.catalogWidth}px`);
+    runtime.refs.treeWorkspace?.style?.setProperty("--edit-assistant-width", `${runtime.state.editAssistantWidth}px`);
+    runtime.refs.treeWorkspace?.classList?.toggle("show-catalog", showCatalog);
+    runtime.refs.treeWorkspace?.classList?.toggle("show-edit-assistant", showEditAssistant);
 
-    runtime.refs.toggleCatalogButton.classList.toggle("is-active", showCatalog);
-    runtime.refs.toggleEditAssistantButton.classList.toggle("is-active", showEditAssistant);
+    runtime.refs.toggleCatalogButton?.classList?.toggle("is-active", showCatalog);
+    runtime.refs.toggleEditAssistantButton?.classList?.toggle("is-active", showEditAssistant);
 
     runtime.catalog.syncDeleteTargetIndicator?.();
 

@@ -449,6 +449,8 @@
       runtime.state.currentCatalogGroups = [];
       runtime.state.currentZoom = 1;
       runtime.state.currentHasBlockingIssues = false;
+      runtime.state.showCatalog = false;
+      runtime.state.editAssistantVisible = false;
       runtime.viewport.updateZoomLabel();
       runtime.workspacePanels.apply();
       updateSplitViewButton();
