@@ -193,7 +193,7 @@
       }
       runtime.refs.catalogList.replaceChildren();
       runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
-      runtime.search.clearResults();
+      runtime.search.closePanel({ renderTree: false });
       if (log?.preview) {
         renderPlaybackLog();
       } else {

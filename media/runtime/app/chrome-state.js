@@ -35,8 +35,11 @@
     const searchCopy = runtime.i18n.getSearchCopy();
     runtime.refs.treeSearchTitle.textContent = searchCopy.title;
     runtime.refs.treeSearchInput.placeholder = searchCopy.placeholder;
-    runtime.refs.treeSearchCloseButton.textContent = searchCopy.close;
-    runtime.refs.treeSearchAdvancedToggle.textContent = searchCopy.filters;
+    runtime.refs.treeSearchCloseButton.title = searchCopy.close;
+    runtime.refs.treeSearchCloseButton.setAttribute("aria-label", searchCopy.close);
+    runtime.refs.treeSearchAdvancedToggle.title = searchCopy.searchAction;
+    runtime.refs.treeSearchAdvancedToggle.setAttribute("aria-label", searchCopy.searchAction);
+    runtime.refs.treeSearchNodeLabel.textContent = searchCopy.searchNode;
     runtime.refs.treeSearchDescriptionLabel.textContent = searchCopy.searchDescription;
     runtime.refs.treeSearchAttributesLabel.textContent = searchCopy.searchAttributes;
     runtime.refs.treeSearchPrevButton.title = searchCopy.prev;

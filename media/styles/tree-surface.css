@@ -1929,18 +1929,56 @@ body.is-panning-playback-duration .playback-duration-viewport {
 }
 
 .tree-search-title {
+  min-width: 0;
+  overflow: hidden;
   font-size: 13px;
   letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tree-search-input {
   flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tree-search-close,
+.tree-search-action,
+.tree-search-nav-btn {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.tree-search-close svg,
+.tree-search-action svg,
+.tree-search-nav-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tree-search-nav-btn svg {
+  width: 13px;
+  height: 13px;
 }
 
 .tree-search-options {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
   padding-top: 2px;
+}
+
+.tree-search-option {
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .tree-search-count {

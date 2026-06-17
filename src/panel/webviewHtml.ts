@@ -257,7 +257,9 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
             <aside id="tree-search-panel" class="tree-search-panel" hidden>
               <div class="tree-search-header">
                 <strong id="tree-search-title" class="tree-search-title">Node Search</strong>
-                <button id="tree-search-close" class="canvas-btn subtle tree-search-close" type="button">Close</button>
+                <button id="tree-search-close" class="canvas-btn icon-btn subtle tree-search-close" type="button">
+                  ${iconHtml("close")}
+                </button>
               </div>
               <div class="tree-search-input-row">
                 <input
@@ -267,16 +269,20 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
                   placeholder="Search node names"
                   spellcheck="false"
                 />
-                <button id="tree-search-advanced-toggle" class="canvas-btn subtle tree-search-advanced-toggle" type="button">
-                  Filters
+                <button id="tree-search-advanced-toggle" class="canvas-btn icon-btn subtle tree-search-action" type="button">
+                  ${iconHtml("search")}
                 </button>
               </div>
-              <div id="tree-search-options" class="tree-search-options" hidden>
-                <label class="settings-checkbox">
+              <div id="tree-search-options" class="tree-search-options">
+                <label class="settings-checkbox tree-search-option">
+                  <input id="tree-search-node" type="checkbox" />
+                  <span id="tree-search-node-label">Node</span>
+                </label>
+                <label class="settings-checkbox tree-search-option">
                   <input id="tree-search-description" type="checkbox" />
                   <span id="tree-search-description-label">Description</span>
                 </label>
-                <label class="settings-checkbox">
+                <label class="settings-checkbox tree-search-option">
                   <input id="tree-search-attributes" type="checkbox" />
                   <span id="tree-search-attributes-label">Attributes</span>
                 </label>
@@ -284,8 +290,12 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
               <div class="tree-search-toolbar">
                 <span id="tree-search-count" class="tree-search-count">0 / 0</span>
                 <div class="tree-search-nav">
-                  <button id="tree-search-prev" class="canvas-btn subtle" type="button">↑</button>
-                  <button id="tree-search-next" class="canvas-btn subtle" type="button">↓</button>
+                  <button id="tree-search-prev" class="canvas-btn icon-btn subtle tree-search-nav-btn" type="button">
+                    ${iconHtml("arrowUp")}
+                  </button>
+                  <button id="tree-search-next" class="canvas-btn icon-btn subtle tree-search-nav-btn" type="button">
+                    ${iconHtml("arrowDown")}
+                  </button>
                 </div>
               </div>
               <div id="tree-search-results" class="tree-search-results"></div>
@@ -360,6 +370,16 @@ function iconHtml(name: string): string {
   const paths: Record<string, string[]> = {
     add: [
       "M896 469.333333h-341.333333V128a42.666667 42.666667 0 0 0-85.333334 0v341.333333H128a42.666667 42.666667 0 0 0 0 85.333334h341.333333v341.333333a42.666667 42.666667 0 0 0 85.333334 0v-341.333333h341.333333a42.666667 42.666667 0 0 0 0-85.333334z"
+    ],
+    close: [
+      "M853.333333 896c-10.666667 0-21.333333-4.266667-29.866666-12.8l-682.666667-682.666667c-17.066667-17.066667-17.066667-42.666667 0-59.733333 17.066667-17.066667 42.666667-17.066667 59.733333 0l682.666667 682.666667c17.066667 17.066667 17.066667 42.666667 0 59.733333-8.533333 8.533333-19.2 12.8-29.866667 12.8z",
+      "M170.666667 896c-10.666667 0-21.333333-4.266667-29.866667-12.8-17.066667-17.066667-17.066667-42.666667 0-59.733333l682.666667-682.666667c17.066667-17.066667 42.666667-17.066667 59.733333 0 17.066667 17.066667 17.066667 42.666667 0 59.733333l-682.666667 682.666667c-8.533333 8.533333-19.2 12.8-29.866666 12.8z"
+    ],
+    arrowUp: [
+      "M554.666667 895.658667V230.656l225.834666 225.834667a42.666667 42.666667 0 0 0 60.330667-60.330667l-298.666667-298.666667a42.666667 42.666667 0 0 0-60.330666 0l-298.666667 298.666667a42.666667 42.666667 0 0 0 60.330667 60.330667L469.333333 230.656v665.002667a42.666667 42.666667 0 0 0 85.333334 0z"
+    ],
+    arrowDown: [
+      "M469.333333 128.341333v665.002667l-225.834666-225.834667a42.666667 42.666667 0 0 0-60.330667 60.330667l298.666667 298.666667a42.666667 42.666667 0 0 0 60.330666 0l298.666667-298.666667a42.666667 42.666667 0 0 0-60.330667-60.330667L554.666667 793.344V128.341333a42.666667 42.666667 0 0 0-85.333334 0z"
     ],
     editMode: [
       "M763.733333 981.333333H85.333333c-23.466667 0-42.666667-19.2-42.666666-42.666666V262.4c0-23.466667 19.2-42.666667 42.666666-42.666667h279.466667c23.466667 0 42.666667 19.2 42.666667 42.666667s-19.2 42.666667-42.666667 42.666667H128V896h590.933333V620.8c0-23.466667 19.2-42.666667 42.666667-42.666667s42.666667 19.2 42.666667 42.666667V938.666667c2.133333 23.466667-17.066667 42.666667-40.533334 42.666666z",

@@ -690,16 +690,18 @@
   function getSearchCopy(language = getCurrentLanguage()) {
     const base = {
       title: "Node Search",
-      placeholder: "Search node names",
+      placeholder: "Search nodes",
       close: "Close",
       filters: "Filters",
+      searchAction: "Search",
+      searchNode: "Node",
       searchDescription: "Description",
       searchAttributes: "Attributes",
       noQuery: "Type to search the current XML.",
       noResults: "No nodes matched the current search.",
       prev: "Previous",
       next: "Next",
-      matchName: "Name",
+      matchNode: "Node",
       matchDescription: "Description",
       matchAttributes: "Attributes"
     };
@@ -708,16 +710,18 @@
       base,
       {
         title: "节点搜索",
-        placeholder: "按节点名称搜索",
+        placeholder: "搜索节点",
         close: "关闭",
         filters: "筛选",
+        searchAction: "搜索",
+        searchNode: "节点",
         searchDescription: "描述",
         searchAttributes: "属性",
         noQuery: "输入关键字后搜索当前 XML。",
         noResults: "当前搜索没有匹配的节点。",
         prev: "上一条",
         next: "下一条",
-        matchName: "名称",
+        matchNode: "节点",
         matchDescription: "描述",
         matchAttributes: "属性"
       },

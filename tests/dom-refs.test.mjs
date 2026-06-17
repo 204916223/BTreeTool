@@ -35,5 +35,6 @@ test("dom refs resolves the webview elements used by main runtime", () => {
   assert.equal(refs.treeWorkspace.selector, ".tree-workspace");
   assert.equal(refs.openSettingsButton.id, "open-settings");
   assert.equal(ids.includes("tree-content"), true);
+  assert.equal(ids.includes("tree-search-node"), true);
   assert.equal(ids.includes("catalog-search"), true);
 });

@@ -76,11 +76,7 @@ body.has-blocking-overlay .settings-dialog {
 .canvas-fit-view-btn svg {
   width: 17px;
   height: 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  fill: currentColor;
 }
 
 .canvas-stage {

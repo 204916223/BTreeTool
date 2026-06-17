@@ -20,6 +20,8 @@
       treeSearchCloseButton: root.getElementById("tree-search-close"),
       treeSearchAdvancedToggle: root.getElementById("tree-search-advanced-toggle"),
       treeSearchOptions: root.getElementById("tree-search-options"),
+      treeSearchNodeCheckbox: root.getElementById("tree-search-node"),
+      treeSearchNodeLabel: root.getElementById("tree-search-node-label"),
       treeSearchDescriptionCheckbox: root.getElementById("tree-search-description"),
       treeSearchDescriptionLabel: root.getElementById("tree-search-description-label"),
       treeSearchAttributesCheckbox: root.getElementById("tree-search-attributes"),

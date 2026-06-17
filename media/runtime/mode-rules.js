@@ -22,7 +22,8 @@
     revealNodeModelSource: isEditingEnabled,
     saveNodeModel: isEditingEnabled,
     deleteNodeModel: isEditingEnabled,
-    saveNodeEditor: isEditingEnabled
+    saveNodeEditor: isEditingEnabled,
+    openTreeSearch: isEditingEnabled
   };
 
   function getMode(state = runtime.state) {

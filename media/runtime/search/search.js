@@ -2,15 +2,20 @@
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
 
   function openSearchPanel() {
+    if (runtime.modeRules?.can?.("openTreeSearch") === false) {
+      closeSearchPanel({ renderTree: false });
+      return false;
+    }
     runtime.state.searchVisible = true;
     updateSearchUi();
     requestAnimationFrame(() => {
       runtime.refs.treeSearchInput?.focus();
       runtime.refs.treeSearchInput?.select();
     });
+    return true;
   }
 
-  function closeSearchPanel() {
+  function closeSearchPanel(options = {}) {
     runtime.state.searchVisible = false;
     runtime.state.searchQuery = "";
     runtime.state.searchResults = [];
@@ -20,7 +25,7 @@
       runtime.refs.treeSearchInput.value = "";
     }
     updateSearchUi();
-    if (runtime.state.currentPreview) {
+    if (options.renderTree !== false && runtime.state.currentPreview) {
       runtime.app.renderCurrentTree(runtime.state.currentPreview, { preserveViewport: true });
     }
   }
@@ -125,7 +130,8 @@
     const refs = runtime.refs;
     const searchCopy = runtime.i18n.getSearchCopy();
     refs.treeSearchPanel.hidden = !runtime.state.searchVisible;
-    refs.treeSearchOptions.hidden = !runtime.state.searchAdvancedVisible;
+    refs.treeSearchOptions.hidden = false;
+    refs.treeSearchNodeCheckbox.checked = runtime.state.searchIncludeNode !== false;
     refs.treeSearchDescriptionCheckbox.checked = runtime.state.searchIncludeDescription;
     refs.treeSearchAttributesCheckbox.checked = runtime.state.searchIncludeAttributes;
 
@@ -201,8 +207,8 @@
         const defaultSearchText = buildDefaultSearchText(node);
         let previewText = "";
 
-        if (matchesTokens(defaultSearchText, tokens)) {
-          matchScopes.push(searchCopy.matchName);
+        if (runtime.state.searchIncludeNode !== false && matchesTokens(defaultSearchText, tokens)) {
+          matchScopes.push(searchCopy.matchNode);
           previewText = buildNamePreview(node);
         }
         if (runtime.state.searchIncludeDescription && matchesTokens(node.description, tokens)) {

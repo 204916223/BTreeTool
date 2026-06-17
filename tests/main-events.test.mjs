@@ -39,6 +39,12 @@ function loadMainEventsRuntime(mode = "playback") {
     modeRules: {
       isPlaybackMode() {
         return mode === "playback";
+      },
+      can(action) {
+        if (action === "openTreeSearch") {
+          return mode !== "playback";
+        }
+        return mode !== "playback";
       }
     },
     viewport: {
@@ -48,7 +54,10 @@ function loadMainEventsRuntime(mode = "playback") {
       }
     },
     search: {
-      openPanel() {},
+      openCount: 0,
+      openPanel() {
+        this.openCount += 1;
+      },
       closePanel() {}
     },
     overlays: {
@@ -91,6 +100,8 @@ function createKeyEvent(HTMLElementStub, options = {}) {
     code: options.code || "Space",
     key: options.key || " ",
     repeat: options.repeat === true,
+    metaKey: options.metaKey === true,
+    ctrlKey: options.ctrlKey === true,
     target: options.target || new HTMLElementStub("DIV"),
     defaultPrevented: false,
     preventDefault() {
@@ -120,6 +131,38 @@ test("space toggles playback in playback mode without entering canvas pan mode",
   const repeatEvent = createKeyEvent(HTMLElementStub, { repeat: true });
   listeners.keydown(repeatEvent);
   assert.equal(toggleCount, 1);
+});
+
+test("ctrl f does not open tree search in playback mode", () => {
+  const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("playback");
+
+  runtime.mainEvents.bindGlobalKeys();
+
+  const event = createKeyEvent(HTMLElementStub, {
+    code: "KeyF",
+    key: "f",
+    ctrlKey: true
+  });
+  listeners.keydown(event);
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(runtime.search.openCount, 0);
+});
+
+test("ctrl f opens tree search in edit mode", () => {
+  const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("edit");
+
+  runtime.mainEvents.bindGlobalKeys();
+
+  const event = createKeyEvent(HTMLElementStub, {
+    code: "KeyF",
+    key: "f",
+    ctrlKey: true
+  });
+  listeners.keydown(event);
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(runtime.search.openCount, 1);
 });
 
 test("space keeps canvas pan behavior in edit mode", () => {

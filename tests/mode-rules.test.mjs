@@ -38,6 +38,7 @@ test("mode rules block editing actions in playback mode", () => {
   assert.equal(modeRules.can("createBehaviorTree", { state, hasPreview: true }), false);
   assert.equal(modeRules.can("deleteBehaviorTree", { state, treeId: "SubTreeA" }), false);
   assert.equal(modeRules.can("dragCanvasNode", { state, parentPath: "0", siblingIndex: 1 }), false);
+  assert.equal(modeRules.can("openTreeSearch", { state }), false);
 });
 
 test("mode rules allow canvas drag only for valid editable nodes", () => {
@@ -63,4 +64,5 @@ test("mode rules require a parsed preview before adding BehaviorTree blocks", ()
   assert.equal(modeRules.can("createBehaviorTree", { state, hasPreview: false }), false);
   assert.equal(modeRules.can("deleteBehaviorTree", { state, treeId: "SubTreeA" }), true);
   assert.equal(modeRules.can("deleteBehaviorTree", { state, treeId: "" }), false);
+  assert.equal(modeRules.can("openTreeSearch", { state }), true);
 });

@@ -42,6 +42,9 @@ test("app state initializes edit and playback modes from persisted webview state
   assert.equal(editState.catalogWidth, 460);
   assert.equal(editState.playbackRightTab, "trace");
   assert.equal(editState.playbackExpandedBlackboardKeys.has("robot.pose"), true);
+  assert.equal(editState.searchIncludeNode, true);
+  assert.equal(editState.searchIncludeDescription, true);
+  assert.equal(editState.searchIncludeAttributes, true);
 
   const playbackState = appState.createInitialState({ editModeEnabled: true }, "playback");
   assert.equal(playbackState.editModeEnabled, false);

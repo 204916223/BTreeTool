@@ -172,6 +172,10 @@
         if (document.body.classList.contains("has-blocking-overlay")) {
           return;
         }
+        if (runtime.modeRules?.can?.("openTreeSearch") === false) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
         runtime.search.openPanel();
         return;
@@ -264,8 +268,11 @@
       runtime.search.closePanel();
     });
     runtime.refs.treeSearchAdvancedToggle?.addEventListener("click", () => {
-      runtime.state.searchAdvancedVisible = !runtime.state.searchAdvancedVisible;
-      runtime.search.updateUi();
+      runtime.search.refreshResults({ renderTree: true, focusActive: true });
+    });
+    runtime.refs.treeSearchNodeCheckbox?.addEventListener("change", () => {
+      runtime.state.searchIncludeNode = Boolean(runtime.refs.treeSearchNodeCheckbox.checked);
+      runtime.search.refreshResults({ renderTree: true, focusActive: false });
     });
     runtime.refs.treeSearchDescriptionCheckbox?.addEventListener("change", () => {
       runtime.state.searchIncludeDescription = Boolean(runtime.refs.treeSearchDescriptionCheckbox.checked);
