@@ -27,8 +27,7 @@
     closeButton.type = "button";
     closeButton.className = "settings-close-button";
     closeButton.setAttribute("aria-label", "Close");
-    closeButton.innerHTML =
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.3-6.29 1.41 1.41Z"/></svg>';
+    closeButton.innerHTML = runtime.icons.iconHtml("close");
     closeButton.addEventListener("click", hideSettingsDialog);
 
     const form = document.createElement("div");
@@ -143,7 +142,7 @@
 
     playbackSection.body.appendChild(playbackRow);
 
-    const traceSection = createSettingsSection("Trace Mode");
+    const traceSection = createSettingsSection("AI Assistant");
     traceSection.element.classList.add("settings-section-trace");
     const traceLearningRow = document.createElement("div");
     traceLearningRow.className = "settings-toggle-row";
@@ -175,7 +174,7 @@
     traceField.className = "settings-field";
     const traceFieldLabel = document.createElement("div");
     traceFieldLabel.className = "settings-field-label";
-    traceFieldLabel.textContent = "Trace Config";
+    traceFieldLabel.textContent = "AI Assistant Config";
     const traceFieldControl = document.createElement("div");
     traceFieldControl.className = "settings-field-control settings-trace-control";
     const traceDirectoryValue = document.createElement("div");
@@ -252,6 +251,7 @@
           JSON.stringify(nextSettings.simplifyHiddenSections || []);
       runtime.state.currentSettings = nextSettings;
       runtime.app.applyUserSettings();
+      runtime.editAssistant?.render?.();
       if (runtime.modeRules?.isPlaybackMode?.() && runtime.state.playbackLog) {
         runtime.app.renderPlaybackLog({ preserveViewport });
       } else if (runtime.state.currentPreview) {
@@ -511,7 +511,7 @@
 
     const copy = runtime.i18n.getSettingsCopy();
     overlayState.settingsDialog.title.textContent = copy.title;
-    overlayState.settingsDialog.closeButton.textContent = "X";
+    overlayState.settingsDialog.closeButton.innerHTML = runtime.icons.iconHtml("close");
     overlayState.settingsDialog.closeButton.title = copy.close;
     overlayState.settingsDialog.closeButton.setAttribute("aria-label", copy.close);
     overlayState.settingsDialog.commonSectionTitle.textContent = copy.generalMode;

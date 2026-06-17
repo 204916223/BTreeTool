@@ -320,6 +320,11 @@ body.is-resizing-panels .playback-duration-panel {
   box-shadow: 0 8px 18px color-mix(in srgb, #000 10%, transparent);
 }
 
+.playback-duration-height-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
 .playback-duration-height-btn:hover {
   background: var(--color-surface-subtle-hover);
 }

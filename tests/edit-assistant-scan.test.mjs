@@ -13,15 +13,17 @@ Module._load = function loadWithVscodeStub(request, parent, isMain) {
 const { parseBehaviorTreeDocument } = await import("../dist/core/parse.js");
 const { buildPreviewDocument } = await import("../dist/core/viewModel.js");
 const { scanEditAssistantRules } = await import("../dist/core/editAssistantScan.js");
+const { DEFAULT_USER_SETTINGS } = await import("../dist/userSettings.js");
 Module._load = originalLoad;
 
-function scanXml(xml, queueTreeIds = ["MainTree"], currentTreeId = "MainTree") {
+function scanXml(xml, queueTreeIds = ["MainTree"], currentTreeId = "MainTree", options = {}, settings = undefined) {
   const ast = parseBehaviorTreeDocument(xml);
-  const preview = buildPreviewDocument(ast);
+  const preview = buildPreviewDocument(ast, settings);
   return scanEditAssistantRules(preview, {
     queueTreeIds,
     currentTreeId,
-    language: "zh-CN"
+    language: "zh-CN",
+    ...options
   });
 }
 
@@ -184,4 +186,80 @@ test("edit assistant scan follows subtree references from the current tree only"
   assert.deepEqual(result.scannedTreeIds, ["EnterServo", "EnterCarrierCtrl", "EnterHeightServo"]);
   assert.deepEqual(result.groups[0].scannedTreeIds, ["EnterServo", "EnterCarrierCtrl", "EnterHeightServo"]);
   assert.equal(result.scannedTreeIds.includes("UnusedTree"), false);
+});
+
+test("edit assistant scan warns for empty custom node parameters", () => {
+  const result = scanXml(`
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <CustomAction />
+  </BehaviorTree>
+  <TreeNodesModel>
+    <Action ID="CustomAction">
+      <input_port name="target" />
+      <output_port name="result" />
+    </Action>
+  </TreeNodesModel>
+</root>
+`);
+
+  const issue = result.issues.find((entry) => entry.ruleId === "custom_parameter_empty");
+  assert.equal(issue?.severity, "warning");
+  assert.match(issue?.message || "", /target/);
+});
+
+test("edit assistant scan skips custom parameter warnings for whitelisted nodes", () => {
+  const result = scanXml(`
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <CustomAction />
+  </BehaviorTree>
+  <TreeNodesModel>
+    <Action ID="CustomAction">
+      <input_port name="target" />
+    </Action>
+  </TreeNodesModel>
+</root>
+`, ["MainTree"], "MainTree", {
+    warningWhitelist: ["CustomAction"]
+  });
+
+  assert.equal(result.issues.some((entry) => entry.ruleId === "custom_parameter_empty"), false);
+});
+
+test("edit assistant scan warns for empty imported preset node parameters", () => {
+  const result = scanXml(`
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <CarrierCtrl carrier_id="1" action_cmd="position" target_position="{safe_height}" />
+  </BehaviorTree>
+</root>
+`, ["MainTree"], "MainTree", {}, {
+    ...DEFAULT_USER_SETTINGS,
+    presetNodes: [
+      {
+        key: "CarrierCtrl",
+        title: "CarrierCtrl",
+        category: "Action",
+        modelKind: "Action",
+        allowCustomAttributes: true,
+        fields: [
+          { key: "carrier_id", role: "input", required: false, editableKey: false, editableValue: true, removable: false },
+          { key: "action_cmd", role: "input", required: false, editableKey: false, editableValue: true, removable: false },
+          { key: "target_position", role: "input", required: false, editableKey: false, editableValue: true, removable: false },
+          { key: "velocity_max", role: "input", required: false, editableKey: false, editableValue: true, removable: false },
+          { key: "stop_action", role: "input", required: false, editableKey: false, editableValue: true, removable: false },
+          { key: "errorMsg", role: "output", required: false, editableKey: false, editableValue: true, removable: false }
+        ]
+      }
+    ]
+  });
+
+  const messages = result.issues
+    .filter((entry) => entry.ruleId === "custom_parameter_empty")
+    .map((entry) => entry.message);
+  assert.equal(messages.length, 2);
+  assert.match(messages.join("\n"), /velocity_max/);
+  assert.match(messages.join("\n"), /stop_action/);
+  assert.doesNotMatch(messages.join("\n"), /errorMsg/);
 });

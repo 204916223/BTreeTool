@@ -56,6 +56,7 @@ export interface BtUserSettings {
   playbackPanelLayout: BtPlaybackPanelLayout;
   playbackPanelOpacity: number;
   simplifyHiddenSections: BtSimplifySection[];
+  editAssistantWarningWhitelist: string[];
   presetNodes: BtPresetNodeSettings[];
 }
 
@@ -87,6 +88,7 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   playbackPanelLayout: "classic",
   playbackPanelOpacity: 0.6,
   simplifyHiddenSections: [],
+  editAssistantWarningWhitelist: [],
   presetNodes: []
 };
 
@@ -219,6 +221,7 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     playbackPanelLayout: normalizePlaybackPanelLayout(settings.playbackPanelLayout),
     playbackPanelOpacity: normalizePlaybackPanelOpacity(settings.playbackPanelOpacity),
     simplifyHiddenSections: [...settings.simplifyHiddenSections],
+    editAssistantWarningWhitelist: normalizeStringList(settings.editAssistantWarningWhitelist),
     presetNodes: settings.presetNodes.map(clonePresetNodeSettings)
   };
 }
@@ -266,6 +269,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const simplifyHiddenSections = Array.isArray(input.simplifyHiddenSections)
     ? input.simplifyHiddenSections.map(normalizeSimplifySection).filter((value): value is BtSimplifySection => Boolean(value))
     : [...DEFAULT_USER_SETTINGS.simplifyHiddenSections];
+  const editAssistantWarningWhitelist = normalizeStringList(input.editAssistantWarningWhitelist);
 
   const presetNodes = Array.isArray(input.presetNodes)
     ? input.presetNodes.map(normalizePresetNode).filter((node): node is BtPresetNodeSettings => Boolean(node))
@@ -289,8 +293,30 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     playbackPanelLayout,
     playbackPanelOpacity,
     simplifyHiddenSections: Array.from(new Set(simplifyHiddenSections)),
+    editAssistantWarningWhitelist,
     presetNodes
   };
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+    const normalized = entry.trim();
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
 }
 
 function normalizeCustomTheme(value: unknown): BtCustomThemeSettings {

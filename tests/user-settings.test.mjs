@@ -51,6 +51,7 @@ test("default user settings match the product defaults", () => {
   assert.equal(DEFAULT_USER_SETTINGS.allowUnclosedPlaybackLog, true);
   assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnabled, false);
   assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnhancementEnabled, false);
+  assert.deepEqual(DEFAULT_USER_SETTINGS.editAssistantWarningWhitelist, []);
 });
 
 test("cloned user settings keep the new boolean defaults", () => {
@@ -67,6 +68,7 @@ test("cloned user settings keep the new boolean defaults", () => {
   assert.equal(cloned.allowUnclosedPlaybackLog, true);
   assert.equal(cloned.traceLearningEnabled, false);
   assert.equal(cloned.traceLearningEnhancementEnabled, false);
+  assert.deepEqual(cloned.editAssistantWarningWhitelist, []);
 });
 
 test("custom theme settings are normalized when loading user settings", async () => {
@@ -132,6 +134,18 @@ test("legacy learning collection setting maps to learning enhancement", async ()
 
   assert.equal(settings.traceLearningEnabled, true);
   assert.equal(settings.traceLearningEnhancementEnabled, true);
+});
+
+test("edit assistant warning whitelist is normalized when loading user settings", async () => {
+  fsState.files.clear();
+  fsState.writes = [];
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    editAssistantWarningWhitelist: ["CustomAction", " CustomAction ", "", "OtherAction"]
+  }));
+
+  const { settings } = await loadUserSettings({ fsPath: "/storage" });
+
+  assert.deepEqual(settings.editAssistantWarningWhitelist, ["CustomAction", "OtherAction"]);
 });
 
 test("load user settings creates defaults only when the file is missing", async () => {

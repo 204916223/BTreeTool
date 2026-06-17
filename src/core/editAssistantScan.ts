@@ -32,12 +32,14 @@ export interface EditAssistantScanGroup {
 export interface EditAssistantScanOptions {
   queueTreeIds?: string[];
   currentTreeId?: string;
+  warningWhitelist?: string[];
   language?: "zh-CN" | "en-US";
 }
 
 type ScanContext = {
   language: "zh-CN" | "en-US";
   issues: EditAssistantScanIssue[];
+  warningWhitelist: Set<string>;
 };
 
 const INTEGER_ATTRIBUTE_NAMES = new Set([
@@ -50,6 +52,53 @@ const INTEGER_ATTRIBUTE_NAMES = new Set([
   "delay_msec"
 ]);
 
+const STANDARD_BUILTIN_NODE_KINDS = new Set([
+  "AlwaysFailure",
+  "AlwaysSuccess",
+  "AsyncFallback",
+  "AsyncSequence",
+  "Delay",
+  "Fallback",
+  "ForceFailure",
+  "ForceSuccess",
+  "IfThenElse",
+  "Inverter",
+  "KeepRunningUntilFailure",
+  "LoopBool",
+  "LoopDouble",
+  "LoopInt",
+  "LoopString",
+  "Parallel",
+  "ParallelAll",
+  "Precondition",
+  "ReactiveFallback",
+  "ReactiveSequence",
+  "Repeat",
+  "RetryUntilFailure",
+  "RetryUntilSuccessful",
+  "RunOnce",
+  "Script",
+  "ScriptCondition",
+  "Sequence",
+  "SequenceWithMemory",
+  "SetBlackboard",
+  "SkipUnlessUpdated",
+  "Sleep",
+  "SubTree",
+  "Switch",
+  "Switch2",
+  "Switch3",
+  "Switch4",
+  "Switch5",
+  "Switch6",
+  "Timeout",
+  "TryCatch",
+  "UnsetBlackboard",
+  "WaitValueUpdate",
+  "WasEntryUpdated",
+  "WhileDoElse"
+]);
+
 export function scanEditAssistantRules(
   preview: BtPreviewDocument | null | undefined,
   options: EditAssistantScanOptions = {}
@@ -57,7 +106,8 @@ export function scanEditAssistantRules(
   const language = options.language === "zh-CN" ? "zh-CN" : "en-US";
   const context: ScanContext = {
     language,
-    issues: []
+    issues: [],
+    warningWhitelist: new Set(normalizeStringList(options.warningWhitelist))
   };
 
   if (!preview) {
@@ -207,6 +257,7 @@ function scanNode(treeId: string, node: BtPreviewNode, context: ScanContext): vo
   scanIfThenElse(treeId, node, context);
   scanSwitch(treeId, node, context);
   scanRequiredLogicParams(treeId, node, context);
+  scanCustomNodeEmptyParams(treeId, node, context);
   scanParallel(treeId, node, context);
   scanAttributeTypes(treeId, node, context);
 }
@@ -333,6 +384,34 @@ function scanRequiredLogicParams(treeId: string, node: BtPreviewNode, context: S
   }
 }
 
+function scanCustomNodeEmptyParams(treeId: string, node: BtPreviewNode, context: ScanContext): void {
+  if (isBuiltinNode(node) || isWhitelisted(node, context)) {
+    return;
+  }
+
+  for (const field of node.attributeFields || []) {
+    if (field.source === "extra" || field.source === "subtree" || field.editableValue === false || field.role === "output") {
+      continue;
+    }
+    if (node.attributes?.[field.key] != null && String(node.attributes[field.key]).trim() !== "") {
+      continue;
+    }
+
+    pushNodeIssue(
+      context,
+      "custom_parameter_empty",
+      "warning",
+      treeId,
+      node,
+      text(
+        context.language,
+        `#${node.uid} ${node.title} 的自定义参数 ${field.key} 未填写，请确认是否允许为空。`,
+        `#${node.uid} ${node.title} custom parameter ${field.key} is empty; confirm whether this is intentional.`
+      )
+    );
+  }
+}
+
 function scanParallel(treeId: string, node: BtPreviewNode, context: ScanContext): void {
   if (node.kind !== "Parallel") {
     return;
@@ -436,6 +515,15 @@ function isControlNode(node: BtPreviewNode): boolean {
   return node.category === "Control";
 }
 
+function isBuiltinNode(node: BtPreviewNode): boolean {
+  return STANDARD_BUILTIN_NODE_KINDS.has(node.kind);
+}
+
+function isWhitelisted(node: BtPreviewNode, context: ScanContext): boolean {
+  const candidates = [node.kind, node.title, node.modelKind, node.attributes?.ID].filter((value): value is string => Boolean(value));
+  return candidates.some((candidate) => context.warningWhitelist.has(candidate));
+}
+
 function parseIntegerAttribute(value: string | undefined): number | null {
   if (value == null || String(value).trim() === "") {
     return null;
@@ -454,17 +542,21 @@ function walkTree(node: BtPreviewNode, visitor: (node: BtPreviewNode) => void): 
 }
 
 function normalizeQueue(queueTreeIds: string[] | undefined): string[] {
+  return normalizeStringList(queueTreeIds);
+}
+
+function normalizeStringList(values: string[] | undefined): string[] {
   const seen = new Set<string>();
-  const queue: string[] = [];
-  for (const treeId of queueTreeIds || []) {
-    const normalized = String(treeId || "").trim();
+  const result: string[] = [];
+  for (const value of values || []) {
+    const normalized = String(value || "").trim();
     if (!normalized || seen.has(normalized)) {
       continue;
     }
     seen.add(normalized);
-    queue.push(normalized);
+    result.push(normalized);
   }
-  return queue;
+  return result;
 }
 
 function unique(values: string[]): string[] {

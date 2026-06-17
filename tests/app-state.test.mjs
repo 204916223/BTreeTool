@@ -60,6 +60,7 @@ test("app state gives each instance independent default settings collections", (
   assert.equal(firstState.currentSettings.allowUnclosedPlaybackLog, true);
   assert.equal(firstState.currentSettings.traceLearningEnabled, false);
   assert.equal(firstState.currentSettings.traceLearningEnhancementEnabled, false);
+  assert.deepEqual(Array.from(firstState.currentSettings.editAssistantWarningWhitelist), []);
   assert.equal(JSON.stringify(firstState.currentSettings.customTheme), JSON.stringify({
     primaryColor: "#5e8de6",
     secondaryColor: "#df78cf"
@@ -125,6 +126,7 @@ test("app state seeds full current settings from initial settings", () => {
       playbackTreeRenderMode: "expanded",
       playbackPanelLayout: "dashboard",
       playbackPanelOpacity: 0.68,
+      editAssistantWarningWhitelist: ["CustomAction"],
       simplifyHiddenSections: ["description"],
       presetNodes: [{ key: "Custom", fields: [{ key: "value" }] }]
     }
@@ -151,6 +153,7 @@ test("app state seeds full current settings from initial settings", () => {
     playbackPanelLayout: "dashboard",
     playbackPanelOpacity: 0.68,
     simplifyHiddenSections: ["description"],
+    editAssistantWarningWhitelist: ["CustomAction"],
     presetNodes: [{ key: "Custom", fields: [{ key: "value" }] }]
   }));
 

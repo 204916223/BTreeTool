@@ -22,6 +22,7 @@
     playbackPanelLayout: "classic",
     playbackPanelOpacity: 0.6,
     simplifyHiddenSections: [],
+    editAssistantWarningWhitelist: [],
     presetNodes: []
   };
 
@@ -184,8 +185,26 @@
       playbackPanelLayout: input.playbackPanelLayout === "dashboard" ? "dashboard" : "classic",
       playbackPanelOpacity: normalizePlaybackPanelOpacity(input.playbackPanelOpacity),
       simplifyHiddenSections: Array.isArray(input.simplifyHiddenSections) ? [...input.simplifyHiddenSections] : [],
+      editAssistantWarningWhitelist: normalizeStringList(input.editAssistantWarningWhitelist),
       presetNodes: Array.isArray(input.presetNodes) ? input.presetNodes.map(clonePresetNodeSettings) : []
     };
+  }
+
+  function normalizeStringList(value) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    const seen = new Set();
+    const result = [];
+    value.forEach((entry) => {
+      const normalized = typeof entry === "string" ? entry.trim() : "";
+      if (!normalized || seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      result.push(normalized);
+    });
+    return result;
   }
 
   function normalizePlaybackPanelOpacity(value) {

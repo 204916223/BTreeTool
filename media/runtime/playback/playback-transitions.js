@@ -64,7 +64,7 @@
       menuIcon.className = "canvas-btn icon-btn playback-transition-filter-button";
       menuIcon.title = playbackCopy.applyTransitionFilter || playbackCopy.filterByNodeName;
       menuIcon.setAttribute("aria-label", menuIcon.title);
-      menuIcon.appendChild(createFilterIcon());
+      menuIcon.appendChild(runtime.icons.createIcon("search"));
       menuIcon.addEventListener("click", () => {
         applyFilter(log);
       });
@@ -96,16 +96,6 @@
       updateRows(log, list);
       updateFilterButtonState(panel);
       return panel;
-    }
-
-    function createFilterIcon() {
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("viewBox", "0 0 24 24");
-      svg.setAttribute("aria-hidden", "true");
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M4 6h16v2H4V6Zm3 5h10v2H7v-2Zm3 5h4v2h-4v-2Z");
-      svg.appendChild(path);
-      return svg;
     }
 
     function applyFilter(log) {

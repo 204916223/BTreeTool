@@ -224,7 +224,7 @@ export async function callTraceChat(
   const { config } = await loadTraceConfig(globalStorageUri);
   const state = getTraceConfigState(config, "");
   if (!state.ready) {
-    throw new Error("Trace provider is incomplete.");
+    throw new Error("AI assistant provider is incomplete.");
   }
 
   const providerConfig = config.providers[state.activeProvider];
@@ -384,7 +384,7 @@ function getProviderDescriptor(providerId: string): TraceProviderDescriptor | un
 
 function buildTracePrompt(request: TraceChatRequest): string {
   return [
-    "You are Trace, an assistant embedded in BTreeTool.",
+    "You are the AI assistant embedded in BTreeTool.",
     "Scope: only diagnose the currently opened btlog playback file and the frame context provided below.",
     "Answer in the user's language. Be concise, evidence-driven, and point to the likely first meaningful failure.",
     "Always answer with the conclusion first, then the core evidence.",
@@ -417,7 +417,7 @@ function formatLearningContextForPrompt(learningContext: string | undefined): st
     return "Historical feedback examples: none.";
   }
   return [
-    "Historical feedback examples from prior reviewed Trace answers:",
+    "Historical feedback examples from prior reviewed AI assistant answers:",
     "Use reasonable examples as guidance when they match the current evidence.",
     "Use nonsense examples as negative examples; avoid repeating their unsupported conclusions.",
     value
@@ -461,14 +461,14 @@ async function callOpenAiCompatibleProvider(
   if (response.streamed) {
     const content = extractOpenAiStreamContent(response.raw);
     if (!content.trim()) {
-      throw new Error("Trace provider returned an empty response.");
+      throw new Error("AI assistant provider returned an empty response.");
     }
     return content.trim();
   }
 
   const content = response?.json?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) {
-    throw new Error("Trace provider returned an empty response.");
+    throw new Error("AI assistant provider returned an empty response.");
   }
   await emitProgressively(content.trim(), handlers, signal);
   return content.trim();
@@ -518,7 +518,7 @@ async function callClaudeProvider(
   if (response.streamed) {
     const text = extractClaudeStreamContent(response.raw);
     if (!text) {
-      throw new Error("Trace provider returned an empty response.");
+      throw new Error("AI assistant provider returned an empty response.");
     }
     return text.trim();
   }
@@ -530,7 +530,7 @@ async function callClaudeProvider(
         .trim()
     : "";
   if (!text) {
-    throw new Error("Trace provider returned an empty response.");
+    throw new Error("AI assistant provider returned an empty response.");
   }
   await emitProgressively(text, handlers, signal);
   return text;
@@ -597,7 +597,7 @@ function requestProviderResponse(
     );
 
     request.on("timeout", () => {
-      request.destroy(new Error("Trace provider request timed out."));
+      request.destroy(new Error("AI assistant provider request timed out."));
     });
     request.on("error", reject);
     request.write(body);
@@ -713,7 +713,7 @@ async function emitProgressively(
   const chunks = text.split(/(\n+)/).filter((chunk) => chunk.length > 0);
   for (const chunk of chunks) {
     if (signal?.aborted) {
-      throw new Error("Trace request cancelled.");
+      throw new Error("AI assistant request cancelled.");
     }
     handlers.onDelta(chunk);
     await delay(8);

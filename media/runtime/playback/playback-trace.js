@@ -317,7 +317,7 @@
         const clear = document.createElement("button");
         clear.type = "button";
         clear.className = "playback-trace-attachment-clear";
-        clear.textContent = "×";
+        clear.replaceChildren(runtime.icons.createIcon("close"));
         clear.title = playbackCopy.traceClearLog;
         clear.setAttribute("aria-label", playbackCopy.traceClearLog);
         clear.disabled = isPending;
@@ -333,7 +333,7 @@
       attach.type = "button";
       attach.className = "canvas-btn icon-btn playback-trace-attach";
       attach.dataset.traceAttachButton = "true";
-      attach.textContent = "+";
+      attach.replaceChildren(runtime.icons.createIcon("add"));
       attach.title = playbackCopy.traceAttachLog;
       attach.setAttribute("aria-label", playbackCopy.traceAttachLog);
       attach.disabled = isPending;
@@ -724,14 +724,7 @@
     }
 
     function createPlaybackSendIcon() {
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("viewBox", "0 0 24 24");
-      svg.setAttribute("aria-hidden", "true");
-
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M4 12.5 19.5 4l-4.1 16-4.4-5.4L4 12.5Zm6.4-.3 4 4.8 2.6-10.4-6.6 5.6Z");
-      svg.appendChild(path);
-      return svg;
+      return runtime.icons.createIcon("send");
     }
 
     function createPlaybackStopIcon() {

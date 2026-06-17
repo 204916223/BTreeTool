@@ -266,7 +266,8 @@
   transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
 }
 
-.catalog-item-edit svg {
+.catalog-item-edit svg,
+.catalog-item-remove svg {
   width: 14px;
   height: 14px;
   fill: currentColor;
@@ -279,8 +280,8 @@
 }
 
 .catalog-item-remove {
-  font-size: 17px;
-  line-height: 1;
+  font-size: inherit;
+  line-height: normal;
 }
 
 .catalog-item-remove:hover {

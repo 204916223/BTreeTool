@@ -39,10 +39,9 @@
     configButton.type = "button";
     configButton.title = copy.configure;
     configButton.setAttribute("aria-label", copy.configure);
-    configButton.innerHTML =
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.06-.94l2.03-1.58-1.92-3.32-2.39.96a7.2 7.2 0 0 0-1.63-.94L14.87 3h-3.74l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96-1.92 3.32 2.03 1.58c-.04.31-.06.62-.06.94s.02.63.06.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54h3.74l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96 1.92-3.32-2.03-1.58ZM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4Z"/></svg>';
+    configButton.innerHTML = runtime.icons.iconHtml("menu");
     configButton.addEventListener("click", () => {
-      appendMessage("assistant", copy.configNotReady);
+      runtime.overlays?.showAssistantWhitelistDialog?.();
     });
 
     header.appendChild(titleWrap);
@@ -135,11 +134,10 @@
     send.type = "submit";
     send.title = copy.send;
     send.setAttribute("aria-label", copy.send);
-    send.innerHTML =
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 19.5 4l-4.1 16-4.4-5.4L4 12.5Zm6.4-.3 4 4.8 2.6-10.4-6.6 5.6Z"/></svg>';
+    send.innerHTML = runtime.icons.iconHtml("send");
 
     footer.appendChild(statusbar);
-    footer.appendChild(createIconAction(copy.scanTree, "scan", '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4V5Zm0 6h10v2H4v-2Zm0 6h16v2H4v-2Zm13-7 1.5 1.5L22 8l-1.5-1.5L18.5 8.5 17 7l-1.5 1.5L17 10Z"/></svg>'));
+    footer.appendChild(createIconAction(copy.scanTree, "scan", runtime.icons.iconHtml("repeat")));
     footer.appendChild(send);
     shell.appendChild(input);
     shell.appendChild(footer);
@@ -231,7 +229,7 @@
     return createIconAction(
       copy.addCurrentTree,
       "attachTree",
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/></svg>',
+      runtime.icons.iconHtml("add"),
       (event) => {
         event.preventDefault();
         addCurrentTreeToQueue();
@@ -244,7 +242,7 @@
     return createIconAction(
       copy.removeCurrentTree,
       "detachTree",
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14v2H5v-2Z"/></svg>',
+      runtime.icons.iconHtml("remove"),
       (event) => {
         event.preventDefault();
         removeCurrentTreeFromQueue();

@@ -292,6 +292,11 @@
   padding: 0;
 }
 
+.tree-model-port-remove svg {
+  width: 15px;
+  height: 15px;
+}
+
 .tree-model-table tbody tr:last-child td {
   border-bottom: none;
 }

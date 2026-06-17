@@ -760,6 +760,7 @@ export class BehaviorTreePreviewPanel {
       const scan = scanEditAssistantRules(this.latestPayload.preview, {
         queueTreeIds: payload.queueTreeIds,
         currentTreeId: treeId,
+        warningWhitelist: this.currentSettings.editAssistantWarningWhitelist,
         language: this.currentSettings.language
       });
       this.panel.webview.postMessage({

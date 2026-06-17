@@ -92,12 +92,12 @@
       const shrinkButton = document.createElement("button");
       shrinkButton.type = "button";
       shrinkButton.className = "canvas-btn icon-btn playback-duration-height-btn";
-      shrinkButton.textContent = "-";
+      shrinkButton.replaceChildren(runtime.icons.createIcon("remove"));
       shrinkButton.title = "Decrease track height";
       const growButton = document.createElement("button");
       growButton.type = "button";
       growButton.className = "canvas-btn icon-btn playback-duration-height-btn";
-      growButton.textContent = "+";
+      growButton.replaceChildren(runtime.icons.createIcon("add"));
       growButton.title = "Increase track height";
       heightControls.appendChild(shrinkButton);
       heightControls.appendChild(growButton);

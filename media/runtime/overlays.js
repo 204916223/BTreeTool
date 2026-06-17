@@ -20,6 +20,7 @@
     overlayState.deleteConfirmBar = getPart("deleteConfirm").createDeleteConfirmBar();
     overlayState.nodePicker = getPart("nodePicker").createNodePicker();
     overlayState.settingsDialog = getPart("settingsDialog").createSettingsDialog();
+    overlayState.assistantWhitelistDialog = getPart("assistantWhitelistDialog").createAssistantWhitelistDialog();
     overlayState.behaviorTreeDialog = getPart("behaviorTreeDialog").createBehaviorTreeDialog();
     overlayState.treeNodesModelDialog = getPart("treeModelDialog").createTreeNodesModelDialog();
     overlayState.nodeEditorDialog = getPart("nodeEditorDialog").createNodeEditorDialog();
@@ -29,6 +30,7 @@
     document.body.appendChild(overlayState.deleteConfirmBar.element);
     document.body.appendChild(overlayState.nodePicker.element);
     document.body.appendChild(overlayState.settingsDialog.element);
+    document.body.appendChild(overlayState.assistantWhitelistDialog.element);
     document.body.appendChild(overlayState.behaviorTreeDialog.element);
     document.body.appendChild(overlayState.treeNodesModelDialog.element);
     document.body.appendChild(overlayState.nodeEditorDialog.element);
@@ -40,6 +42,7 @@
     api.hideDeleteConfirm();
     api.hideNodePicker();
     api.hideSettingsDialog();
+    api.hideAssistantWhitelistDialog();
     api.hideBehaviorTreeDialog();
     api.hideTreeNodesModelDialog();
     api.hideNodeEditorDialog();
@@ -112,6 +115,8 @@
     hideNodePicker: (...args) => getPart("nodePicker").hideNodePicker(...args),
     showSettingsDialog: (...args) => getPart("settingsDialog").showSettingsDialog(...args),
     hideSettingsDialog: (...args) => getPart("settingsDialog").hideSettingsDialog(...args),
+    showAssistantWhitelistDialog: (...args) => getPart("assistantWhitelistDialog").showAssistantWhitelistDialog(...args),
+    hideAssistantWhitelistDialog: (...args) => getPart("assistantWhitelistDialog").hideAssistantWhitelistDialog(...args),
     showBehaviorTreeDialog: (...args) => getPart("behaviorTreeDialog").showBehaviorTreeDialog(...args),
     showBehaviorTreeDeleteDialog: (...args) => getPart("behaviorTreeDialog").showBehaviorTreeDeleteDialog(...args),
     hideBehaviorTreeDialog: (...args) => getPart("behaviorTreeDialog").hideBehaviorTreeDialog(...args),

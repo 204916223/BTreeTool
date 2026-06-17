@@ -134,8 +134,7 @@
           const editTitle = copy.editModelTitle(item.title);
           editButton.title = editTitle;
           editButton.setAttribute("aria-label", editTitle);
-          editButton.innerHTML =
-            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 15.75 8.94-8.94 3.25 3.25L7.25 19H4zm12.85-9.6 1.4-1.4a1 1 0 0 1 1.41 0l.79.79a1 1 0 0 1 0 1.41l-1.4 1.4-3.25-3.25z"/></svg>';
+          editButton.innerHTML = runtime.icons.iconHtml("edit");
           editButton.disabled = !app.canPerformAction("openNodeModelEditor", {
             editableModelId: item.editableModelId
           });
@@ -157,7 +156,7 @@
           const removeTitle = copy.removeSubTreeTitle(item.title);
           removeButton.title = removeTitle;
           removeButton.setAttribute("aria-label", removeTitle);
-          removeButton.textContent = "-";
+          removeButton.innerHTML = runtime.icons.iconHtml("remove");
           removeButton.disabled = !app.canPerformAction("deleteBehaviorTree", {
             treeId: item.removableTreeId
           });

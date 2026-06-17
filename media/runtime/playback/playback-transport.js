@@ -75,7 +75,7 @@
       const prevButton = document.createElement("button");
       prevButton.type = "button";
       prevButton.className = "canvas-btn icon-btn playback-step-btn";
-      prevButton.textContent = "<";
+      prevButton.replaceChildren(runtime.icons.createIcon("previous"));
       prevButton.title = playbackCopy.previousNodeStatusChange;
       bindPlaybackRepeatButton(prevButton, () => {
         stepPlaybackTransition(log, -1);
@@ -84,7 +84,7 @@
       const nextButton = document.createElement("button");
       nextButton.type = "button";
       nextButton.className = "canvas-btn icon-btn playback-step-btn";
-      nextButton.textContent = ">";
+      nextButton.replaceChildren(runtime.icons.createIcon("next"));
       nextButton.title = playbackCopy.nextNodeStatusChange;
       bindPlaybackRepeatButton(nextButton, () => {
         stepPlaybackTransition(log, 1);
@@ -251,16 +251,7 @@
     }
 
     function createPlaybackTransportIcon(kind) {
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("viewBox", "0 0 24 24");
-      svg.setAttribute("aria-hidden", "true");
-
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", kind === "pause"
-        ? "M7 5h3v14H7zm7 0h3v14h-3z"
-        : "M8 5.5v13l10-6.5z");
-      svg.appendChild(path);
-      return svg;
+      return runtime.icons.createIcon(kind === "pause" ? "pause" : "play");
     }
 
     return {

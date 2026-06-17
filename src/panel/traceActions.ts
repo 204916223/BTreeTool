@@ -52,10 +52,10 @@ export async function handleTraceAskAction(options: TraceAskOptions): Promise<vo
 
   try {
     if (!requestId || !question || !context) {
-      throw new Error("Trace request is incomplete.");
+      throw new Error("AI assistant request is incomplete.");
     }
     if (!latestPlaybackLog || latestPlaybackLog.filePath !== logFilePath) {
-      throw new Error("Trace only works with the currently opened btlog file.");
+      throw new Error("AI assistant only works with the currently opened btlog file.");
     }
 
     const enrichedContext = enrichTraceContextWithQuestionEvidence(context, [question, externalContext || ""].join("\n"));

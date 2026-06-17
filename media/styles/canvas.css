@@ -843,6 +843,14 @@ body.is-playback-mode .flow-attribute-pair.tone-output .flow-attribute-chip-valu
   fill: currentColor;
 }
 
+.canvas-btn svg,
+.settings-close-button svg,
+.catalog-item-edit svg,
+.catalog-item-remove svg,
+.tree-model-port-remove svg {
+  fill: currentColor;
+}
+
 .canvas-btn:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
   background: var(--color-surface-subtle-hover);

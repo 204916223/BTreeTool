@@ -78,7 +78,7 @@
     const addPortButton = document.createElement("button");
     addPortButton.type = "button";
     addPortButton.className = "canvas-btn subtle";
-    addPortButton.textContent = "+";
+    addPortButton.innerHTML = runtime.icons.iconHtml("add");
     addPortButton.addEventListener("click", () => {
       appendTreeNodePortRow(createBlankPortModel());
     });
@@ -371,7 +371,7 @@
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "canvas-btn subtle tree-model-port-remove";
-    removeButton.textContent = "×";
+    removeButton.innerHTML = runtime.icons.iconHtml("remove");
     removeButton.addEventListener("click", () => {
       row.remove();
       if (!overlayState.treeNodesModelDialog.tableBody.children.length) {
