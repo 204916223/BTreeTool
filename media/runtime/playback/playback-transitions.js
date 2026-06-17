@@ -64,7 +64,7 @@
       menuIcon.className = "canvas-btn icon-btn playback-transition-filter-button";
       menuIcon.title = playbackCopy.applyTransitionFilter || playbackCopy.filterByNodeName;
       menuIcon.setAttribute("aria-label", menuIcon.title);
-      menuIcon.appendChild(runtime.icons.createIcon("search"));
+      menuIcon.appendChild(runtime.icons.createIcon("filter"));
       menuIcon.addEventListener("click", () => {
         applyFilter(log);
       });
@@ -73,16 +73,21 @@
 
       const table = document.createElement("div");
       table.className = "playback-transition-table";
+      applyColumnWidths(table);
+      observeTableResize(table);
       const tableHeader = document.createElement("div");
       tableHeader.className = "playback-transition-table-header";
       [
-        playbackCopy.transitionColumns.time,
-        playbackCopy.transitionColumns.nodeName,
-        playbackCopy.transitionColumns.prev,
-        playbackCopy.transitionColumns.status
-      ].forEach((label) => {
+        { key: "time", label: playbackCopy.transitionColumns.time },
+        { key: "node", label: playbackCopy.transitionColumns.nodeName },
+        { key: "prev", label: playbackCopy.transitionColumns.prev },
+        { key: "status", label: playbackCopy.transitionColumns.status }
+      ].forEach((column, index, columns) => {
         const cell = document.createElement("span");
-        cell.textContent = label;
+        cell.textContent = column.label;
+        if (index < columns.length - 1) {
+          cell.appendChild(createColumnResizeHandle(table, column.key));
+        }
         tableHeader.appendChild(cell);
       });
       const list = document.createElement("div");
@@ -96,6 +101,124 @@
       updateRows(log, list);
       updateFilterButtonState(panel);
       return panel;
+    }
+
+    function createColumnResizeHandle(table, columnKey) {
+      const handle = document.createElement("button");
+      handle.type = "button";
+      handle.className = "playback-table-column-resizer";
+      handle.title = "Resize column";
+      handle.setAttribute("aria-label", handle.title);
+      handle.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const pointerId = event.pointerId;
+        const startX = event.clientX;
+        const startWidth = getColumnWidths()[columnKey];
+        handle.setPointerCapture(pointerId);
+        document.body.classList.add("is-resizing-columns");
+
+        const onPointerMove = (moveEvent) => {
+          const widths = getColumnWidths();
+          widths[columnKey] = clampColumnWidthForTable(table, columnKey, startWidth + moveEvent.clientX - startX, widths);
+          runtime.state.playbackTransitionColumnWidths = widths;
+          applyColumnWidths(table);
+          persistUiState();
+        };
+        const finish = () => {
+          document.body.classList.remove("is-resizing-columns");
+          handle.removeEventListener("pointermove", onPointerMove);
+          handle.removeEventListener("pointerup", onPointerUp);
+          handle.removeEventListener("pointercancel", onPointerCancel);
+          try {
+            handle.releasePointerCapture(pointerId);
+          } catch (_error) {
+            // Ignore stale pointer capture state.
+          }
+        };
+        const onPointerUp = () => finish();
+        const onPointerCancel = () => finish();
+        handle.addEventListener("pointermove", onPointerMove);
+        handle.addEventListener("pointerup", onPointerUp);
+        handle.addEventListener("pointercancel", onPointerCancel);
+      });
+      return handle;
+    }
+
+    function applyColumnWidths(table) {
+      const widths = getColumnWidths();
+      const displayWidths = distributeExtraWidth(table, widths);
+      table.style.setProperty("--playback-transition-col-time", `${displayWidths.time}px`);
+      table.style.setProperty("--playback-transition-col-node", `${displayWidths.node}px`);
+      table.style.setProperty("--playback-transition-col-prev", `${displayWidths.prev}px`);
+      table.style.setProperty("--playback-transition-col-status", `${displayWidths.status}px`);
+      table.style.setProperty(
+        "--playback-transition-table-min-width",
+        `${displayWidths.time + displayWidths.node + displayWidths.prev + displayWidths.status}px`
+      );
+    }
+
+    function observeTableResize(table) {
+      if (typeof ResizeObserver !== "function") {
+        return;
+      }
+      const observer = new ResizeObserver(() => applyColumnWidths(table));
+      observer.observe(table);
+    }
+
+    function getColumnWidths() {
+      const input = runtime.state.playbackTransitionColumnWidths || {};
+      return {
+        time: clampColumnWidth("time", input.time ?? 52),
+        node: clampColumnWidth("node", input.node ?? 100),
+        prev: clampColumnWidth("prev", input.prev ?? 60),
+        status: clampColumnWidth("status", input.status ?? 68)
+      };
+    }
+
+    function clampColumnWidthForTable(table, key, value, widths) {
+      const scrollbarWidth = getCssPixelValue(table, "--playback-transition-scrollbar-width", 11);
+      const available = (table.clientWidth || 0) - scrollbarWidth - 1;
+      if (!available) {
+        return clampColumnWidth(key, value);
+      }
+      const otherWidth = Object.entries(widths)
+        .filter(([otherKey]) => otherKey !== key)
+        .reduce((total, [_otherKey, width]) => total + width, 0);
+      return clampColumnWidth(key, Math.min(value, available - otherWidth));
+    }
+
+    function distributeExtraWidth(table, widths) {
+      const scrollbarWidth = getCssPixelValue(table, "--playback-transition-scrollbar-width", 11);
+      const available = Math.max(0, (table.clientWidth || 0) - scrollbarWidth);
+      const total = widths.time + widths.node + widths.prev + widths.status;
+      if (!available || available <= total) {
+        return widths;
+      }
+      const extra = Math.floor((available - total) / 4);
+      const remainder = (available - total) - extra * 4;
+      return {
+        time: widths.time + extra + (remainder > 0 ? 1 : 0),
+        node: widths.node + extra + (remainder > 1 ? 1 : 0),
+        prev: widths.prev + extra + (remainder > 2 ? 1 : 0),
+        status: widths.status + extra
+      };
+    }
+
+    function clampColumnWidth(key, value) {
+      const limits = {
+        time: [44, 140],
+        node: [90, 360],
+        prev: [54, 160],
+        status: [62, 180]
+      };
+      const [min, max] = limits[key] || [40, 400];
+      return clampNumber(Number(value), min, max, min);
+    }
+
+    function getCssPixelValue(element, name, fallback) {
+      const numeric = Number.parseFloat(getComputedStyle(element).getPropertyValue(name));
+      return Number.isFinite(numeric) ? numeric : fallback;
     }
 
     function applyFilter(log) {

@@ -225,6 +225,8 @@ test("edit assistant scan skips custom parameter warnings for whitelisted nodes"
   });
 
   assert.equal(result.issues.some((entry) => entry.ruleId === "custom_parameter_empty"), false);
+  assert.equal(result.ignored.warning, 1);
+  assert.equal(result.groups[0].ignored.warning, 1);
 });
 
 test("edit assistant scan warns for empty imported preset node parameters", () => {

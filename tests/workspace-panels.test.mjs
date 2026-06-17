@@ -136,6 +136,8 @@ test("workspace panels place catalog and assistant only when a document is edita
   assert.equal(editAssistantPanel.hidden, false);
   assert.equal(treeWorkspace.style.getPropertyValue("--catalog-width"), "300px");
   assert.equal(treeWorkspace.style.getPropertyValue("--edit-assistant-width"), "360px");
+  assert.equal(treeWorkspace.style.getPropertyValue("--workspace-left-overlay"), "300px");
+  assert.equal(treeWorkspace.style.getPropertyValue("--workspace-right-overlay"), "360px");
   assert.equal(treeWorkspace.classList.contains("show-catalog"), true);
   assert.equal(treeWorkspace.classList.contains("show-edit-assistant"), true);
 });

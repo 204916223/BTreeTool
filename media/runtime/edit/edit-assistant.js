@@ -79,9 +79,10 @@
 
     const contextList = document.createElement("div");
     contextList.className = "edit-assistant-context-list";
-    contextList.appendChild(createContextRow(copy.treeLabel, runtime.state?.selectedTreeId || copy.none));
-    contextList.appendChild(createContextRow(copy.nodeLabel, getSelectedNodeUidLabel()));
-    contextList.appendChild(createContextRow(copy.warningLabel, String(getWarningCount())));
+    const status = getAssistantStatusSummary();
+    contextList.appendChild(createContextRow(copy.errorLabel, String(status.error)));
+    contextList.appendChild(createContextRow(copy.warningLabel, String(status.warning)));
+    contextList.appendChild(createContextRow(copy.ignoredLabel, copy.ignoredWarningValue(status.ignoredWarning)));
     panel.appendChild(contextList);
     return panel;
   }
@@ -267,14 +268,45 @@
 
   function handleAnswer(payload) {
     if (payload?.action === "scan" && payload.scan) {
+      if (payload.silent === true) {
+        applyScanStatus(payload.scan);
+        return;
+      }
       appendScanResult(payload.scan);
       return;
     }
     appendMessage("assistant", payload?.answer || getCopy().notReady);
   }
 
+  function refreshLocalScan() {
+    if (!runtime.state?.currentPreview || runtime.modeRules?.isPlaybackMode?.()) {
+      runtime.state.editAssistantLastScan = null;
+      refreshQueuePanel();
+      return;
+    }
+    runtime.vscode.postMessage({
+      type: "editAssistantAsk",
+      payload: {
+        requestId: createRequestId(),
+        prompt: "",
+        action: "scan",
+        silent: true,
+        treeId: runtime.state?.selectedTreeId || "",
+        nodePath: runtime.state?.selectedNodePath || "",
+        queueTreeIds: []
+      }
+    });
+  }
+
+  function applyScanStatus(scan) {
+    runtime.state.editAssistantLastScan = scan;
+    refreshQueuePanel();
+    runtime.app?.persistUiState?.();
+  }
+
   function appendScanResult(scan) {
     const text = formatScanSummary(scan);
+    applyScanStatus(scan);
     runtime.state.editAssistantMessages = [
       ...(runtime.state.editAssistantMessages || []),
       { role: "assistant", text }
@@ -481,31 +513,6 @@
     return queue.length > 0 ? queue.join(", ") : getCopy().none;
   }
 
-  function getSelectedNodeUidLabel() {
-    const node = findCurrentPreviewNode(runtime.state?.selectedTreeId, runtime.state?.selectedNodePath);
-    if (!node) {
-      return runtime.state?.selectedNodePath || getCopy().none;
-    }
-    return `${node.uid}`;
-  }
-
-  function findCurrentPreviewNode(treeId, nodePath) {
-    const tree = (runtime.state?.currentPreview?.behaviorTrees || []).find((entry) => entry.id === treeId);
-    if (!tree?.node || !nodePath) {
-      return null;
-    }
-    const parts = String(nodePath).split(".");
-    let current = tree.node;
-    for (const part of parts.slice(1)) {
-      const index = Number(part);
-      if (!Number.isInteger(index) || !current.children?.[index]) {
-        return null;
-      }
-      current = current.children[index];
-    }
-    return current;
-  }
-
   function setVisible(visible) {
     if (!visible && hasPendingChanges() && !window.confirm(getCopy().discardPendingConfirm)) {
       return;
@@ -522,9 +529,45 @@
     return runtime.state.editAssistantHasPendingChanges === true;
   }
 
-  function getWarningCount() {
-    const warnings = runtime.state?.currentPreview?.warnings;
-    return Array.isArray(warnings) ? warnings.length : 0;
+  function refreshQueuePanel() {
+    const panel = document.querySelector(".edit-assistant-queue-panel");
+    if (!panel) {
+      return;
+    }
+    panel.replaceWith(createQueuePanel());
+  }
+
+  function getAssistantStatusSummary() {
+    const scan = runtime.state?.editAssistantLastScan;
+    if (scan) {
+      const counts = countIssues(scan.issues);
+      return {
+        error: counts.error,
+        warning: counts.warning,
+        ignoredWarning: Number(scan.ignored?.warning) || 0
+      };
+    }
+
+    const counts = countIssues(runtime.state?.currentPreview?.warnings);
+    return {
+      error: counts.error,
+      warning: counts.warning,
+      ignoredWarning: 0
+    };
+  }
+
+  function countIssues(issues) {
+    return (Array.isArray(issues) ? issues : []).reduce(
+      (summary, issue) => {
+        if (issue?.severity === "error") {
+          summary.error += 1;
+        } else if (issue?.severity === "warning") {
+          summary.warning += 1;
+        }
+        return summary;
+      },
+      { error: 0, warning: 0 }
+    );
   }
 
   function formatScanSummary(scan) {
@@ -566,9 +609,10 @@
       configNotReady: "AI configuration is not implemented yet.",
       discardPendingConfirm: "The assistant has pending edits. Collapse it without applying them?",
       queueTitle: "Queue",
-      treeLabel: "Tree",
-      nodeLabel: "Node",
+      errorLabel: "Errors",
       warningLabel: "Warnings",
+      ignoredLabel: "Ignored",
+      ignoredWarningValue: (count) => `Warnings ${count}`,
       quickActions: "Quick actions",
       scanTree: "Scan tree",
       addCurrentTree: "Add current subtree",
@@ -600,6 +644,7 @@
     render,
     setVisible,
     handleAnswer,
-    insertNodeUid
+    insertNodeUid,
+    refreshLocalScan
   };
 })();

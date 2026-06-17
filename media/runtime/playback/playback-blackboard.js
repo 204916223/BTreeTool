@@ -41,15 +41,19 @@
     function renderBody(log, snapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
       const table = document.createElement("div");
       table.className = "playback-blackboard-table";
+      applyColumnWidths(table);
 
       const tableHeader = document.createElement("div");
       tableHeader.className = "playback-blackboard-table-header";
       [
-        playbackCopy.blackboardColumns.key,
-        playbackCopy.blackboardColumns.value
-      ].forEach((label) => {
+        { key: "key", label: playbackCopy.blackboardColumns.key },
+        { key: "value", label: playbackCopy.blackboardColumns.value }
+      ].forEach((column, index, columns) => {
         const cell = document.createElement("span");
-        cell.textContent = label;
+        cell.textContent = column.label;
+        if (index < columns.length - 1) {
+          cell.appendChild(createColumnResizeHandle(table, column.key));
+        }
         tableHeader.appendChild(cell);
       });
 
@@ -89,6 +93,90 @@
       table.appendChild(tableHeader);
       table.appendChild(list);
       return table;
+    }
+
+    function createColumnResizeHandle(table, columnKey) {
+      const handle = document.createElement("button");
+      handle.type = "button";
+      handle.className = "playback-table-column-resizer";
+      handle.title = "Resize column";
+      handle.setAttribute("aria-label", handle.title);
+      handle.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const pointerId = event.pointerId;
+        const startX = event.clientX;
+        const startWidth = getColumnWidths()[columnKey];
+        handle.setPointerCapture(pointerId);
+        document.body.classList.add("is-resizing-columns");
+
+        const onPointerMove = (moveEvent) => {
+          const widths = getColumnWidths();
+          widths[columnKey] = clampColumnWidthForTable(table, columnKey, startWidth + moveEvent.clientX - startX, widths);
+          runtime.state.playbackBlackboardColumnWidths = widths;
+          applyColumnWidths(table);
+          persistUiState();
+        };
+        const finish = () => {
+          document.body.classList.remove("is-resizing-columns");
+          handle.removeEventListener("pointermove", onPointerMove);
+          handle.removeEventListener("pointerup", onPointerUp);
+          handle.removeEventListener("pointercancel", onPointerCancel);
+          try {
+            handle.releasePointerCapture(pointerId);
+          } catch (_error) {
+            // Ignore stale pointer capture state.
+          }
+        };
+        const onPointerUp = () => finish();
+        const onPointerCancel = () => finish();
+        handle.addEventListener("pointermove", onPointerMove);
+        handle.addEventListener("pointerup", onPointerUp);
+        handle.addEventListener("pointercancel", onPointerCancel);
+      });
+      return handle;
+    }
+
+    function applyColumnWidths(table) {
+      const widths = getColumnWidths();
+      table.style.setProperty("--playback-blackboard-col-key", `${widths.key}px`);
+      table.style.setProperty("--playback-blackboard-col-value", `${widths.value}px`);
+      table.style.setProperty("--playback-blackboard-table-min-width", `${widths.key + widths.value + 1}px`);
+    }
+
+    function getColumnWidths() {
+      const input = runtime.state.playbackBlackboardColumnWidths || {};
+      return {
+        key: clampColumnWidth("key", input.key ?? 150),
+        value: clampColumnWidth("value", input.value ?? 180)
+      };
+    }
+
+    function clampColumnWidthForTable(table, key, value, widths) {
+      const scrollbarWidth = getCssPixelValue(table, "--playback-blackboard-scrollbar-width", 11);
+      const available = (table.clientWidth || 0) - scrollbarWidth - 1;
+      if (!available) {
+        return clampColumnWidth(key, value);
+      }
+      const otherWidth = Object.entries(widths)
+        .filter(([otherKey]) => otherKey !== key)
+        .reduce((total, [_otherKey, width]) => total + width, 0);
+      return clampColumnWidth(key, Math.min(value, available - otherWidth));
+    }
+
+    function clampColumnWidth(key, value) {
+      const limits = {
+        key: [120, 360],
+        value: [140, 520]
+      };
+      const [min, max] = limits[key] || [80, 520];
+      const numeric = Number(value);
+      return Math.min(max, Math.max(min, Math.round(Number.isFinite(numeric) ? numeric : min)));
+    }
+
+    function getCssPixelValue(element, name, fallback) {
+      const numeric = Number.parseFloat(getComputedStyle(element).getPropertyValue(name));
+      return Number.isFinite(numeric) ? numeric : fallback;
     }
 
     function updatePanel(log, snapshot) {

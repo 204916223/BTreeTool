@@ -28,26 +28,12 @@
 
 .playback-shell {
   --playback-left-width: 300px;
-  --playback-right-width: 320px;
+  --playback-right-width: 360px;
   position: relative;
   min-width: 0;
   min-height: 0;
-  display: grid;
-  grid-template-columns: var(--playback-left-width) 4px minmax(0, 1fr) 4px var(--playback-right-width);
-  gap: 8px;
+  display: block;
   overflow: hidden;
-}
-
-.playback-shell.hide-left {
-  grid-template-columns: minmax(0, 1fr) 4px var(--playback-right-width);
-}
-
-.playback-shell.hide-right {
-  grid-template-columns: var(--playback-left-width) 4px minmax(0, 1fr);
-}
-
-.playback-shell.hide-left.hide-right {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .playback-shell.hide-left .playback-transition-panel,
@@ -55,6 +41,14 @@
 .playback-shell.hide-right .playback-right-panel,
 .playback-shell.hide-right .playback-resizer-right {
   display: none;
+}
+
+.playback-resizer-left {
+  left: var(--playback-left-width);
+}
+
+.playback-resizer-right {
+  right: var(--playback-right-width);
 }
 
 .playback-dashboard-layout {
@@ -230,6 +224,7 @@
 }
 
 body.is-resizing-panels .playback-dashboard-panel,
+body.is-resizing-panels .playback-side-panel,
 body.is-resizing-panels .playback-duration-panel {
   pointer-events: none;
 }
@@ -702,6 +697,11 @@ body.is-panning-playback-duration .playback-duration-viewport {
 }
 
 .playback-side-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  box-sizing: border-box;
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -714,7 +714,14 @@ body.is-panning-playback-duration .playback-duration-viewport {
   backdrop-filter: blur(8px);
 }
 
+.playback-transition-panel {
+  left: 0;
+  width: var(--playback-left-width);
+}
+
 .playback-right-panel {
+  right: 0;
+  width: var(--playback-right-width);
   grid-template-rows: auto minmax(0, 1fr);
 }
 
@@ -848,6 +855,11 @@ body.is-panning-playback-duration .playback-duration-viewport {
 
 .playback-transition-table {
   --playback-transition-scrollbar-width: 11px;
+  --playback-transition-col-time: 52px;
+  --playback-transition-col-node: 100px;
+  --playback-transition-col-prev: 60px;
+  --playback-transition-col-status: 68px;
+  --playback-transition-table-min-width: 281px;
   min-height: 0;
   overflow: hidden;
   display: grid;
@@ -857,8 +869,13 @@ body.is-panning-playback-duration .playback-duration-viewport {
 .playback-transition-table-header,
 .playback-transition-row {
   display: grid;
-  grid-template-columns: 58px minmax(78px, 1fr) 70px 78px;
+  grid-template-columns:
+    var(--playback-transition-col-time)
+    var(--playback-transition-col-node)
+    var(--playback-transition-col-prev)
+    var(--playback-transition-col-status);
   align-items: center;
+  min-width: var(--playback-transition-table-min-width);
 }
 
 .playback-transition-table-header {
@@ -877,6 +894,7 @@ body.is-panning-playback-duration .playback-duration-viewport {
 }
 
 .playback-transition-table-header span {
+  position: relative;
   min-width: 0;
   padding: 5px 6px;
   border-right: 1px solid color-mix(in srgb, var(--line-strong) 72%, transparent);
@@ -885,10 +903,46 @@ body.is-panning-playback-duration .playback-duration-viewport {
   white-space: nowrap;
 }
 
+.playback-table-column-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  z-index: 3;
+  width: 8px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: col-resize;
+}
+
+.playback-table-column-resizer::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 3px;
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.playback-table-column-resizer:hover::before,
+.playback-table-column-resizer:focus-visible::before {
+  background: color-mix(in srgb, var(--accent) 54%, var(--line-strong));
+}
+
+.playback-table-column-resizer:focus-visible {
+  outline: none;
+}
+
 .playback-transition-list {
   min-height: 0;
   overflow: auto;
   display: block;
+  scrollbar-gutter: stable;
   background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) color-mix(in srgb, var(--color-bg-panel) 80%, transparent);
@@ -1021,6 +1075,10 @@ body.is-panning-playback-duration .playback-duration-viewport {
 }
 
 .playback-blackboard-table {
+  --playback-blackboard-scrollbar-width: 11px;
+  --playback-blackboard-col-key: 150px;
+  --playback-blackboard-col-value: 180px;
+  --playback-transition-scrollbar-width: var(--playback-blackboard-scrollbar-width);
   min-height: 0;
   overflow: hidden;
   display: grid;
@@ -1030,11 +1088,16 @@ body.is-panning-playback-duration .playback-duration-viewport {
 .playback-blackboard-table-header,
 .playback-blackboard-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(140px, 1.2fr);
+  grid-template-columns:
+    minmax(0, var(--playback-blackboard-col-key))
+    minmax(0, 1fr);
   align-items: center;
+  min-width: 0;
 }
 
 .playback-blackboard-table-header {
+  box-sizing: border-box;
+  padding-right: var(--playback-blackboard-scrollbar-width);
   min-height: 25px;
   border-bottom: 1px solid var(--line-strong);
   background: linear-gradient(
@@ -1057,10 +1120,15 @@ body.is-panning-playback-duration .playback-duration-viewport {
   white-space: nowrap;
 }
 
+.playback-blackboard-table-header span {
+  position: relative;
+}
+
 .playback-blackboard-list {
   min-height: 0;
   overflow: auto;
   display: block;
+  scrollbar-gutter: stable;
   background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) color-mix(in srgb, var(--color-bg-panel) 80%, transparent);
@@ -1580,6 +1648,8 @@ body.is-panning-playback-duration .playback-duration-viewport {
 }
 
 .playback-canvas-pane {
+  position: absolute;
+  inset: 0;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -1789,13 +1859,6 @@ body.is-panning-playback-duration .playback-duration-viewport {
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .playback-shell,
-  .playback-shell.hide-left,
-  .playback-shell.hide-right,
-  .playback-shell.hide-left.hide-right {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .playback-side-panel,
   .playback-resizer,
   .playback-edge-toggle {
@@ -1834,10 +1897,10 @@ body.is-panning-playback-duration .playback-duration-viewport {
 
 .tree-search-panel {
   position: absolute;
-  left: 12px;
+  left: calc(var(--workspace-left-overlay, 0px) + 12px);
   top: 12px;
   z-index: 12;
-  width: min(320px, calc(100% - 24px));
+  width: min(320px, calc(100% - var(--workspace-left-overlay, 0px) - var(--workspace-right-overlay, 0px) - 24px));
   max-height: calc(100% - 24px);
   display: grid;
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
@@ -1949,10 +2012,10 @@ body.is-panning-playback-duration .playback-duration-viewport {
 
 .main-tree-locator {
   position: absolute;
-  left: 12px;
+  left: calc(var(--workspace-left-overlay, 0px) + 12px);
   top: 12px;
-  z-index: 7;
-  width: min(330px, calc(100% - 24px));
+  z-index: 10;
+  width: min(330px, calc(100% - var(--workspace-left-overlay, 0px) - var(--workspace-right-overlay, 0px) - 24px));
   height: min(230px, calc(100% - 24px));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);

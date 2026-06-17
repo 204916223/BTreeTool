@@ -79,7 +79,7 @@
       playbackRightTab:
         persistedState.playbackRightTab === "trace" || persistedState.playbackRightTab === "ai" ? "trace" : "blackboard",
       playbackLeftWidth: clampNumber(persistedState.playbackLeftWidth, 220, 520, 300),
-      playbackRightWidth: clampNumber(persistedState.playbackRightWidth, 220, 560, 320),
+      playbackRightWidth: clampNumber(persistedState.playbackRightWidth, 360, 560, 360),
       playbackDashboardBottomVisible: persistedState.playbackDashboardBottomVisible !== false,
       playbackDashboardBottomHeight: clampNumber(persistedState.playbackDashboardBottomHeight, 180, 720, 320),
       playbackDashboardLeftWidth: clampNumber(persistedState.playbackDashboardLeftWidth, 240, 960, 520),
@@ -101,11 +101,23 @@
       playbackTransitionScrollTop: Number.isFinite(persistedState.playbackTransitionScrollTop)
         ? persistedState.playbackTransitionScrollTop
         : 0,
+      playbackTransitionColumnWidths: normalizePlaybackColumnWidths(
+        persistedState.playbackTransitionColumnWidths,
+        { time: 52, node: 100, prev: 60, status: 68 },
+        { time: 44, node: 90, prev: 54, status: 62 },
+        { time: 140, node: 360, prev: 160, status: 180 }
+      ),
       playbackBlackboardFilter: persistedState.playbackBlackboardFilter || "",
       playbackExpandedBlackboardKeys: new Set(persistedState.playbackExpandedBlackboardKeys || []),
       playbackBlackboardScrollTop: Number.isFinite(persistedState.playbackBlackboardScrollTop)
         ? persistedState.playbackBlackboardScrollTop
         : 0,
+      playbackBlackboardColumnWidths: normalizePlaybackColumnWidths(
+        persistedState.playbackBlackboardColumnWidths,
+        { key: 150, value: 180 },
+        { key: 120, value: 140 },
+        { key: 360, value: 520 }
+      ),
       traceConfig: null,
       traceMessages: [],
       tracePendingRequestId: "",
@@ -205,6 +217,19 @@
       result.push(normalized);
     });
     return result;
+  }
+
+  function normalizePlaybackColumnWidths(value, defaults, mins, maxes) {
+    const input = value && typeof value === "object" ? value : {};
+    return Object.fromEntries(
+      Object.entries(defaults).map(([key, fallback]) => {
+        const numeric = Number(input[key]);
+        const min = Number(mins[key]);
+        const max = Number(maxes[key]);
+        const width = Number.isFinite(numeric) ? numeric : fallback;
+        return [key, Math.min(max, Math.max(min, Math.round(width)))];
+      })
+    );
   }
 
   function normalizePlaybackPanelOpacity(value) {

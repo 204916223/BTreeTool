@@ -6,6 +6,7 @@
     const isPlayback = runtime.modeRules?.isPlaybackMode?.() === true;
     const showCatalog = hasDocument && !isPlayback && runtime.state.showCatalog;
     const showEditAssistant = hasDocument && !isPlayback && runtime.state.editAssistantVisible;
+
     if (runtime.refs.catalogPanel) {
       runtime.refs.catalogPanel.hidden = !showCatalog;
     }
@@ -27,6 +28,11 @@
 
     runtime.refs.treeWorkspace?.style?.setProperty("--catalog-width", `${runtime.state.catalogWidth}px`);
     runtime.refs.treeWorkspace?.style?.setProperty("--edit-assistant-width", `${runtime.state.editAssistantWidth}px`);
+    runtime.refs.treeWorkspace?.style?.setProperty("--workspace-left-overlay", showCatalog ? `${runtime.state.catalogWidth}px` : "0px");
+    runtime.refs.treeWorkspace?.style?.setProperty(
+      "--workspace-right-overlay",
+      showEditAssistant ? `${runtime.state.editAssistantWidth}px` : "0px"
+    );
     runtime.refs.treeWorkspace?.classList?.toggle("show-catalog", showCatalog);
     runtime.refs.treeWorkspace?.classList?.toggle("show-edit-assistant", showEditAssistant);
 
@@ -34,12 +40,6 @@
     runtime.refs.toggleEditAssistantButton?.classList?.toggle("is-active", showEditAssistant);
 
     runtime.catalog.syncDeleteTargetIndicator?.();
-
-    if (hasDocument && runtime.state.currentCanvasState) {
-      requestAnimationFrame(() => {
-        runtime.viewport.refreshViewport();
-      });
-    }
   }
 
   function enablePanelResize(handle, side) {

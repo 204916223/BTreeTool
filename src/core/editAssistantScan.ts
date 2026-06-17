@@ -19,6 +19,7 @@ export interface EditAssistantScanResult {
   missingTreeIds: string[];
   queueEmpty: boolean;
   groups: EditAssistantScanGroup[];
+  ignored: EditAssistantIgnoredIssues;
 }
 
 export interface EditAssistantScanGroup {
@@ -27,6 +28,11 @@ export interface EditAssistantScanGroup {
   issues: EditAssistantScanIssue[];
   scannedTreeIds: string[];
   missingTreeIds: string[];
+  ignored: EditAssistantIgnoredIssues;
+}
+
+export interface EditAssistantIgnoredIssues {
+  warning: number;
 }
 
 export interface EditAssistantScanOptions {
@@ -40,6 +46,7 @@ type ScanContext = {
   language: "zh-CN" | "en-US";
   issues: EditAssistantScanIssue[];
   warningWhitelist: Set<string>;
+  ignored: EditAssistantIgnoredIssues;
 };
 
 const INTEGER_ATTRIBUTE_NAMES = new Set([
@@ -107,7 +114,8 @@ export function scanEditAssistantRules(
   const context: ScanContext = {
     language,
     issues: [],
-    warningWhitelist: new Set(normalizeStringList(options.warningWhitelist))
+    warningWhitelist: new Set(normalizeStringList(options.warningWhitelist)),
+    ignored: { warning: 0 }
   };
 
   if (!preview) {
@@ -123,9 +131,11 @@ export function scanEditAssistantRules(
           title: text(language, "当前窗口", "Current window"),
           issues: context.issues,
           scannedTreeIds: [],
-          missingTreeIds: []
+          missingTreeIds: [],
+          ignored: { warning: 0 }
         }
-      ]
+      ],
+      ignored: { ...context.ignored }
     };
   }
 
@@ -176,7 +186,8 @@ export function scanEditAssistantRules(
     scannedTreeIds: unique(groups.flatMap((group) => group.scannedTreeIds)),
     missingTreeIds: unique(groups.flatMap((group) => group.missingTreeIds)),
     queueEmpty: queueTreeIds.length === 0,
-    groups
+    groups,
+    ignored: { ...context.ignored }
   };
 }
 
@@ -190,6 +201,7 @@ function scanTreeGroup(options: {
   missingMessage: (treeId: string) => string;
 }): EditAssistantScanGroup {
   const startIndex = options.context.issues.length;
+  const startIgnoredWarning = options.context.ignored.warning;
   const scannedTreeIds: string[] = [];
   const missingTreeIds: string[] = [];
   const visitedTreeIds = new Set<string>();
@@ -203,7 +215,10 @@ function scanTreeGroup(options: {
     title: options.title,
     issues: options.context.issues.slice(startIndex),
     scannedTreeIds,
-    missingTreeIds
+    missingTreeIds,
+    ignored: {
+      warning: options.context.ignored.warning - startIgnoredWarning
+    }
   };
 }
 
@@ -385,7 +400,7 @@ function scanRequiredLogicParams(treeId: string, node: BtPreviewNode, context: S
 }
 
 function scanCustomNodeEmptyParams(treeId: string, node: BtPreviewNode, context: ScanContext): void {
-  if (isBuiltinNode(node) || isWhitelisted(node, context)) {
+  if (isBuiltinNode(node)) {
     return;
   }
 
@@ -394,6 +409,10 @@ function scanCustomNodeEmptyParams(treeId: string, node: BtPreviewNode, context:
       continue;
     }
     if (node.attributes?.[field.key] != null && String(node.attributes[field.key]).trim() !== "") {
+      continue;
+    }
+    if (isWhitelisted(node, context)) {
+      context.ignored.warning += 1;
       continue;
     }
 

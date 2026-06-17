@@ -55,9 +55,9 @@
   }
 
   .main-tree-locator {
-    width: min(250px, calc(100% - 18px));
+    width: min(250px, calc(100% - var(--workspace-left-overlay, 0px) - var(--workspace-right-overlay, 0px) - 18px));
     height: min(170px, calc(100% - 18px));
-    left: 9px;
+    left: calc(var(--workspace-left-overlay, 0px) + 9px);
     top: 9px;
   }
 
@@ -72,14 +72,6 @@
 
   .settings-form {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .tree-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .tree-workspace.show-catalog {
-    grid-template-columns: 1fr;
   }
 
   .panel-edge-toggle-left {

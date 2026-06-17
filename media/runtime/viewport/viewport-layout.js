@@ -446,32 +446,60 @@
 
   function restoreCanvasViewportWhenReady(canvasState, viewportState, activateAfterRestore) {
     waitForStableCanvasSize(canvasState, () => {
-      canvasState.zoom = viewportState.zoom || 1;
-      const anchorEntry = findViewportAnchorEntry(canvasState, viewportState.anchor);
-      if (anchorEntry && viewportState.anchor) {
-        const anchorWorldX = Number.isFinite(viewportState.anchor.localX)
-          ? anchorEntry.x + viewportState.anchor.localX
-          : anchorEntry.centerX;
-        const anchorWorldY = Number.isFinite(viewportState.anchor.localY)
-          ? anchorEntry.y + viewportState.anchor.localY
-          : anchorEntry.y + anchorEntry.height / 2;
-        setCanvasPan(
-          viewportState.anchor.screenX - anchorWorldX * canvasState.zoom,
-          viewportState.anchor.screenY - anchorWorldY * canvasState.zoom,
-          canvasState
-        );
-      } else {
-        setCanvasPan(viewportState.panX || 0, viewportState.panY || 0, canvasState);
-      }
-      canvasState.restoringViewportState = null;
-      revealCanvasStage(canvasState);
+      restoreCanvasViewportState(viewportState, canvasState, { reveal: true, activate: false });
       if (activateAfterRestore) {
         activateCanvasState(canvasState);
       }
     });
   }
 
-  function getCanvasViewportState(canvasState) {
+  function restoreCanvasViewportState(viewportState, canvasState = runtime.state.currentCanvasState, options = {}) {
+    if (!canvasState?.shell || !canvasState?.layout || !viewportState) {
+      refreshViewport();
+      return;
+    }
+
+    canvasState.zoom = viewportState.zoom || 1;
+    const anchor = viewportState.anchor || null;
+    const anchorEntry = findViewportAnchorEntry(canvasState, anchor);
+    const viewportRect = anchor?.absoluteScreen ? canvasState.shell.getBoundingClientRect() : null;
+    const targetScreenX = anchor?.absoluteScreen ? anchor.screenX - viewportRect.left : anchor?.screenX;
+    const targetScreenY = anchor?.absoluteScreen ? anchor.screenY - viewportRect.top : anchor?.screenY;
+
+    if (anchor && Number.isFinite(anchor.worldX) && Number.isFinite(anchor.worldY)) {
+      setCanvasPan(
+        targetScreenX - anchor.worldX * canvasState.zoom,
+        targetScreenY - anchor.worldY * canvasState.zoom,
+        canvasState
+      );
+    } else if (anchorEntry && anchor) {
+      const anchorWorldX = Number.isFinite(anchor.localX)
+        ? anchorEntry.x + anchor.localX
+        : anchorEntry.centerX;
+      const anchorWorldY = Number.isFinite(anchor.localY)
+        ? anchorEntry.y + anchor.localY
+        : anchorEntry.y + anchorEntry.height / 2;
+      setCanvasPan(
+        targetScreenX - anchorWorldX * canvasState.zoom,
+        targetScreenY - anchorWorldY * canvasState.zoom,
+        canvasState
+      );
+    } else {
+      setCanvasPan(viewportState.panX || 0, viewportState.panY || 0, canvasState);
+    }
+
+    canvasState.restoringViewportState = null;
+    if (options.reveal !== false) {
+      revealCanvasStage(canvasState);
+    }
+    if (options.activate !== false) {
+      activateCanvasState(canvasState);
+    } else {
+      updateZoomLabel();
+    }
+  }
+
+  function getCanvasViewportState(canvasState, options = {}) {
     if (!canvasState) {
       return null;
     }
@@ -484,7 +512,7 @@
       zoom: canvasState.zoom || runtime.state.currentZoom || 1,
       panX: canvasState.panX || 0,
       panY: canvasState.panY || 0,
-      anchor: takePendingViewportAnchor(canvasState) || captureCanvasViewportAnchor(canvasState)
+      anchor: takePendingViewportAnchor(canvasState) || captureCanvasViewportAnchor(canvasState, options)
     };
   }
 
@@ -498,10 +526,21 @@
     return pendingAnchor;
   }
 
-  function captureCanvasViewportAnchor(canvasState) {
+  function captureCanvasViewportAnchor(canvasState, options = {}) {
     if (!canvasState?.layout || !canvasState.shell) {
       return null;
     }
+
+    const zoom = canvasState.zoom || runtime.state.currentZoom || 1;
+    const toScreenAnchor = (localX, localY, extra = {}) => {
+      const rect = options.absoluteScreen ? canvasState.shell.getBoundingClientRect() : null;
+      return {
+        ...extra,
+        screenX: options.absoluteScreen ? rect.left + localX : localX,
+        screenY: options.absoluteScreen ? rect.top + localY : localY,
+        absoluteScreen: options.absoluteScreen === true || undefined
+      };
+    };
 
     const selectedTreeId = runtime.state.selectedTreeId || "";
     const selectedNodePath = runtime.state.selectedNodePath || "";
@@ -512,18 +551,28 @@
         (!selectedTreeId || !node?.sourceTreeId || node.sourceTreeId === selectedTreeId)
       );
     });
-    if (!entry) {
+    if (entry) {
+      return toScreenAnchor(
+        entry.centerX * zoom + (canvasState.panX || 0),
+        (entry.y + entry.height / 2) * zoom + (canvasState.panY || 0),
+        {
+          treeId: entry.node?.sourceTreeId || selectedTreeId,
+          nodePath: entry.node?.nodePath || selectedNodePath,
+          renderPath: entry.node?.renderPath || ""
+        }
+      );
+    }
+
+    if (options.fallbackToCenter !== true && options.absoluteScreen !== true) {
       return null;
     }
 
-    const zoom = canvasState.zoom || runtime.state.currentZoom || 1;
-    return {
-      treeId: entry.node?.sourceTreeId || selectedTreeId,
-      nodePath: entry.node?.nodePath || selectedNodePath,
-      renderPath: entry.node?.renderPath || "",
-      screenX: entry.centerX * zoom + (canvasState.panX || 0),
-      screenY: (entry.y + entry.height / 2) * zoom + (canvasState.panY || 0)
-    };
+    const localX = canvasState.shell.clientWidth / 2;
+    const localY = canvasState.shell.clientHeight / 2;
+    return toScreenAnchor(localX, localY, {
+      worldX: (localX - (canvasState.panX || 0)) / zoom,
+      worldY: (localY - (canvasState.panY || 0)) / zoom
+    });
   }
 
   function captureNodePositionViewportAnchor(canvasState, nodePath, treeId) {
@@ -973,6 +1022,26 @@
     updateZoomLabel();
   }
 
+  function captureViewportForLayout() {
+    return getCanvasViewportState(runtime.state.currentCanvasState, {
+      absoluteScreen: true,
+      fallbackToCenter: true
+    });
+  }
+
+  function preserveViewportForLayout(applyLayout, viewportState = captureViewportForLayout(), options = {}) {
+    const result = typeof applyLayout === "function" ? applyLayout() : undefined;
+    const restore = () => {
+      restoreCanvasViewportState(viewportState, runtime.state.currentCanvasState);
+    };
+    if (options.defer === false) {
+      restore();
+    } else {
+      requestAnimationFrame(restore);
+    }
+    return result;
+  }
+
   function refreshDropTargetVisibility() {
     document.querySelectorAll(".canvas-node").forEach((node) => {
       const treeId = node.dataset.treeId || "";
@@ -1031,6 +1100,9 @@
     enableHorizontalWheelScroll,
     getCanvasViewportState,
     captureNodePositionViewportAnchor,
+    restoreViewportState: restoreCanvasViewportState,
+    captureViewportForLayout,
+    preserveViewportForLayout,
     fitCanvas,
     updateZoomLabel,
     syncCanvasInteractionMode,

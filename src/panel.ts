@@ -746,6 +746,7 @@ export class BehaviorTreePreviewPanel {
           requestId?: string;
           prompt?: string;
           action?: string;
+          silent?: boolean;
           treeId?: string;
           nodePath?: string;
           queueTreeIds?: string[];
@@ -769,6 +770,7 @@ export class BehaviorTreePreviewPanel {
           requestId: payload?.requestId || "",
           ok: true,
           action: "scan",
+          silent: payload?.silent === true,
           scan
         }
       });

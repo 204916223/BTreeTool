@@ -1,5 +1,11 @@
 .edit-assistant-panel {
-  grid-column: 3;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: var(--edit-assistant-width);
+  box-sizing: border-box;
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -8,10 +14,6 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--color-bg-panel);
-}
-
-.tree-workspace.show-catalog.show-edit-assistant .edit-assistant-panel {
-  grid-column: 5;
 }
 
 .edit-assistant-header {

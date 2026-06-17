@@ -119,6 +119,7 @@ export type WebviewMessage =
         requestId?: string;
         prompt?: string;
         action?: string;
+        silent?: boolean;
         treeId?: string;
         nodePath?: string;
         queueTreeIds?: string[];

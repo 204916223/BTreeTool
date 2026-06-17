@@ -211,9 +211,14 @@
         return;
       }
       const playbackCopy = runtime.i18n.getPlaybackCopy();
-      const viewportState = options.preserveViewport && runtime.state.currentCanvasState
-        ? getCanvasViewportState(runtime.state.currentCanvasState)
-        : null;
+      const viewportState = options.viewportState || (
+        options.preserveViewport && runtime.state.currentCanvasState
+          ? getCanvasViewportState(runtime.state.currentCanvasState, {
+            absoluteScreen: options.absoluteViewport === true,
+            fallbackToCenter: options.absoluteViewport === true
+          })
+          : null
+      );
 
       const frameCount = log.frames?.length || 0;
       runtime.state.playbackFrameIndex = clampInteger(runtime.state.playbackFrameIndex, 0, Math.max(0, frameCount - 1));
@@ -243,6 +248,7 @@
       }
 
       if (getPlaybackPanelLayout() === "dashboard") {
+        resetWorkspaceOverlayInsets();
         renderPlaybackDashboardLog(log, playbackSnapshot, playbackCopy);
         return;
       }
@@ -259,8 +265,7 @@
       shell.className = "playback-shell";
       shell.style.setProperty("--playback-left-width", `${runtime.state.playbackLeftWidth}px`);
       shell.style.setProperty("--playback-right-width", `${runtime.state.playbackRightWidth}px`);
-      shell.classList.toggle("hide-left", runtime.state.playbackLeftVisible === false);
-      shell.classList.toggle("hide-right", runtime.state.playbackRightVisible === false);
+      applyPlaybackShellPanelState(shell);
 
       const leftToggle = createPlaybackPanelToggle("left");
       const rightToggle = createPlaybackPanelToggle("right");
@@ -551,7 +556,13 @@
       button.setAttribute("aria-label", button.title);
       button.addEventListener("click", () => {
         runtime.state[visibleKey] = runtime.state[visibleKey] === false;
-        renderPlaybackLog();
+        persistUiState();
+        const shell = button.closest(".playback-shell");
+        if (shell) {
+          applyPlaybackShellPanelState(shell);
+        } else {
+          renderPlaybackLog({ preserveViewport: true, absoluteViewport: true });
+        }
       });
       return button;
     }
@@ -570,11 +581,19 @@
 
         const onPointerMove = (moveEvent) => {
           const deltaX = side === "left" ? moveEvent.clientX - startX : startX - moveEvent.clientX;
-          runtime.state[widthKey] = runtime.viewport.clampNumber(startWidth + deltaX, 220, side === "left" ? 520 : 560, startWidth);
+          runtime.state[widthKey] = runtime.viewport.clampNumber(
+            startWidth + deltaX,
+            side === "left" ? 220 : 360,
+            side === "left" ? 520 : 560,
+            startWidth
+          );
           persistUiState();
           const shell = handle.closest(".playback-shell");
-          shell?.style.setProperty(side === "left" ? "--playback-left-width" : "--playback-right-width", `${runtime.state[widthKey]}px`);
-          runtime.viewport.refreshViewport();
+          shell?.style.setProperty(
+            side === "left" ? "--playback-left-width" : "--playback-right-width",
+            `${runtime.state[widthKey]}px`
+          );
+          syncPlaybackOverlayInsets();
         };
 
         const finish = () => {
@@ -596,6 +615,36 @@
         handle.addEventListener("pointercancel", onPointerCancel);
       });
       return handle;
+    }
+
+    function applyPlaybackShellPanelState(shell) {
+      shell.classList.toggle("hide-left", runtime.state.playbackLeftVisible === false);
+      shell.classList.toggle("hide-right", runtime.state.playbackRightVisible === false);
+      const leftResizer = shell.querySelector(".playback-resizer-left");
+      const rightResizer = shell.querySelector(".playback-resizer-right");
+      if (leftResizer) {
+        leftResizer.hidden = runtime.state.playbackLeftVisible === false;
+      }
+      if (rightResizer) {
+        rightResizer.hidden = runtime.state.playbackRightVisible === false;
+      }
+      syncPlaybackOverlayInsets();
+    }
+
+    function syncPlaybackOverlayInsets() {
+      runtime.refs.treeWorkspace?.style?.setProperty(
+        "--workspace-left-overlay",
+        runtime.state.playbackLeftVisible === false ? "0px" : `${runtime.state.playbackLeftWidth}px`
+      );
+      runtime.refs.treeWorkspace?.style?.setProperty(
+        "--workspace-right-overlay",
+        runtime.state.playbackRightVisible === false ? "0px" : `${runtime.state.playbackRightWidth}px`
+      );
+    }
+
+    function resetWorkspaceOverlayInsets() {
+      runtime.refs.treeWorkspace?.style?.setProperty("--workspace-left-overlay", "0px");
+      runtime.refs.treeWorkspace?.style?.setProperty("--workspace-right-overlay", "0px");
     }
 
     function stepPlaybackTransition(log, direction) {

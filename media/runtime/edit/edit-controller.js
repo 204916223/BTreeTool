@@ -159,6 +159,7 @@
       if (payload.parseError) {
         runtime.state.currentFileName = toBaseName(payload.fileName);
         runtime.state.currentPreview = null;
+        runtime.state.editAssistantLastScan = null;
         runtime.state.currentCanvasState = null;
         runtime.state.canvasStatesByPane = {};
         runtime.state.currentHasBlockingIssues = true;
@@ -179,6 +180,7 @@
       if (!result) {
         runtime.state.currentFileName = toBaseName(payload.fileName);
         runtime.state.currentPreview = null;
+        runtime.state.editAssistantLastScan = null;
         runtime.state.currentCanvasState = null;
         runtime.state.canvasStatesByPane = {};
         runtime.state.currentCatalogGroups = [];
@@ -207,6 +209,7 @@
       runtime.editAssistant?.render?.();
 
       if (result.warnings.some((warning) => warning.code === "empty_document")) {
+        runtime.state.editAssistantLastScan = null;
         runtime.state.currentCanvasState = null;
         runtime.state.canvasStatesByPane = {};
         runtime.state.currentZoom = 1;
@@ -223,6 +226,7 @@
       }
 
       if (result.behaviorTrees.length === 0) {
+        runtime.state.editAssistantLastScan = null;
         runtime.state.currentCanvasState = null;
         runtime.state.canvasStatesByPane = {};
         runtime.state.currentZoom = 1;
@@ -510,6 +514,7 @@
       runtime.refs.treeContent.replaceChildren(runtime.canvas.renderTree(selectedTree, result, viewportState));
       runtime.mainTreeLocator.render(result, selectedTree);
       runtime.canvas.clearDragState();
+      runtime.editAssistant?.refreshLocalScan?.();
     }
 
     function selectTreeInActivePane(treeId, result) {
@@ -673,10 +678,12 @@
         playbackTransitionFilter: runtime.state.playbackTransitionFilter,
         playbackTransitionFilterDraft: runtime.state.playbackTransitionFilterDraft,
         playbackTransitionScrollTop: runtime.state.playbackTransitionScrollTop || 0,
+        playbackTransitionColumnWidths: runtime.state.playbackTransitionColumnWidths,
         playbackPlaybackSpeed: runtime.state.playbackPlaybackSpeed,
         playbackBlackboardFilter: runtime.state.playbackBlackboardFilter,
         playbackExpandedBlackboardKeys: Array.from(runtime.state.playbackExpandedBlackboardKeys || []),
-        playbackBlackboardScrollTop: runtime.state.playbackBlackboardScrollTop || 0
+        playbackBlackboardScrollTop: runtime.state.playbackBlackboardScrollTop || 0,
+        playbackBlackboardColumnWidths: runtime.state.playbackBlackboardColumnWidths
       });
     }
 

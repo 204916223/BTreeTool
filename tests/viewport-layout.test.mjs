@@ -203,3 +203,93 @@ test("viewport capture reuses pending restore state before the canvas is ready",
   assert.equal(runtime.viewport.getCanvasViewportState(shell.__btreeCanvasState), viewportState);
   assert.equal(animationFrames.length, 1);
 });
+
+test("absolute viewport anchor preserves screen position across layout shifts", () => {
+  const frames = [];
+  const runtime = loadViewportRuntime({
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+    }
+  });
+  runtime.state.selectedTreeId = "MainTree";
+  runtime.state.selectedNodePath = "0.1";
+  let shellLeft = 100;
+  const canvasState = createCanvasState({
+    x: 500,
+    y: 260,
+    width: 220,
+    height: 120,
+    centerX: 610,
+    node: {
+      sourceTreeId: "MainTree",
+      nodePath: "0.1",
+      renderPath: "MainTree::0.1"
+    }
+  }, {
+    shell: {
+      clientWidth: 800,
+      clientHeight: 600,
+      getBoundingClientRect() {
+        return { left: shellLeft, top: 50, right: shellLeft + 800, bottom: 650 };
+      },
+      addEventListener() {}
+    }
+  });
+  runtime.state.currentCanvasState = canvasState;
+
+  runtime.viewport.preserveViewportForLayout(() => {
+    shellLeft = 320;
+  });
+  assert.equal(frames.length, 1);
+  frames[0]();
+
+  assert.equal(canvasState.panX, -520);
+  assert.equal(canvasState.panY, -120);
+  assert.equal(canvasState.stage.style.transform, "translate(-520px, -120px) scale(1.5)");
+});
+
+test("layout preservation can reuse a fixed drag anchor", () => {
+  const frames = [];
+  const runtime = loadViewportRuntime({
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+    }
+  });
+  runtime.state.selectedTreeId = "MainTree";
+  runtime.state.selectedNodePath = "0.1";
+  let shellLeft = 100;
+  const canvasState = createCanvasState({
+    x: 500,
+    y: 260,
+    width: 220,
+    height: 120,
+    centerX: 610,
+    node: {
+      sourceTreeId: "MainTree",
+      nodePath: "0.1",
+      renderPath: "MainTree::0.1"
+    }
+  }, {
+    shell: {
+      clientWidth: 800,
+      clientHeight: 600,
+      getBoundingClientRect() {
+        return { left: shellLeft, top: 50, right: shellLeft + 800, bottom: 650 };
+      },
+      addEventListener() {}
+    }
+  });
+  runtime.state.currentCanvasState = canvasState;
+  const anchor = runtime.viewport.captureViewportForLayout();
+
+  runtime.viewport.preserveViewportForLayout(() => {
+    shellLeft = 220;
+  }, anchor, { defer: false });
+  runtime.viewport.preserveViewportForLayout(() => {
+    shellLeft = 320;
+  }, anchor, { defer: false });
+  assert.equal(frames.length, 0);
+
+  assert.equal(canvasState.panX, -520);
+  assert.equal(canvasState.panY, -120);
+});
