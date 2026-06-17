@@ -322,7 +322,8 @@
       const hiddenSections = runtime.modeRules?.isPlaybackMode?.() !== true && runtime.state.forceHideNodeDetails
         ? "all"
         : (runtime.state.currentSettings?.simplifyHiddenSections || []).join(",");
-      const cacheKey = `${hiddenSections}::${expanded ? "expanded" : "base"}::${getLayoutNodeKey(node)}`;
+      const sectionTitleMode = normalizeNodeSectionTitleMode(runtime.state.currentSettings?.nodeSectionTitleMode);
+      const cacheKey = `${hiddenSections}::${sectionTitleMode}::${expanded ? "expanded" : "base"}::${getLayoutNodeKey(node)}`;
       if (measuredNodes.has(cacheKey)) {
         return measuredNodes.get(cacheKey);
       }
@@ -361,6 +362,10 @@
       };
     }
 
+  }
+
+  function normalizeNodeSectionTitleMode(value) {
+    return value === "hidden" || value === "emphasis" ? value : "regular";
   }
 
   function getLayoutNodeKey(node) {

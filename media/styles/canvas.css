@@ -597,6 +597,20 @@ body.is-reordering-nodes .drop-slot-overlay {
   color: var(--muted);
 }
 
+.flow-card.is-section-title-hidden .flow-io-label {
+  display: none;
+}
+
+.flow-card.is-section-title-emphasis .flow-io-label {
+  justify-self: start;
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--muted) 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg-card-strong) 82%, var(--accent) 18%);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 12%, transparent);
+  color: color-mix(in srgb, var(--text) 72%, var(--accent) 28%);
+}
+
 .flow-node-attributes {
   display: grid;
   gap: 6px;
@@ -672,6 +686,16 @@ body.is-playback-mode .flow-attribute-chip-value.is-readonly-value {
   background: color-mix(in srgb, var(--color-bg-card-strong) 80%, var(--color-surface-subtle));
   color: var(--text);
   font-weight: 500;
+}
+
+.flow-attribute-chip-value.is-readonly-value[tabindex] {
+  cursor: text;
+}
+
+.flow-attribute-chip-value.is-readonly-value[tabindex]:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-soft) 72%, transparent);
 }
 
 .flow-attribute-input {

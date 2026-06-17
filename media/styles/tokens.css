@@ -21,8 +21,8 @@
   --color-status-warning: #ffb454;
   --color-status-danger: #ff7b72;
   --color-status-success: #7ee787;
-  --color-role-input-accent: #5da3ff;
-  --color-role-output-accent: #6ccc8c;
+  --color-role-input-accent: #42b4ff;
+  --color-role-output-accent: #8ee66f;
   --color-role-inout-accent: #97b5ff;
   --color-role-param-accent: #ffd06e;
   --color-node-action-accent: #ffb454;
@@ -73,11 +73,11 @@
   --color-role-input-bg: color-mix(in srgb, var(--color-role-input-accent) 12%, transparent);
   --color-role-input-border: color-mix(in srgb, var(--color-role-input-accent) 28%, transparent);
   --color-role-input-border-strong: color-mix(in srgb, var(--color-role-input-accent) 32%, transparent);
-  --color-role-input-text: color-mix(in srgb, var(--color-text-primary) 82%, var(--color-role-input-accent) 18%);
+  --color-role-input-text: color-mix(in srgb, var(--color-text-primary) 45%, var(--color-role-input-accent) 55%);
   --color-role-output-bg: color-mix(in srgb, var(--color-role-output-accent) 12%, transparent);
   --color-role-output-border: color-mix(in srgb, var(--color-role-output-accent) 28%, transparent);
   --color-role-output-border-strong: color-mix(in srgb, var(--color-role-output-accent) 32%, transparent);
-  --color-role-output-text: color-mix(in srgb, var(--color-text-primary) 82%, var(--color-role-output-accent) 18%);
+  --color-role-output-text: color-mix(in srgb, var(--color-text-primary) 45%, var(--color-role-output-accent) 55%);
   --color-role-inout-bg: color-mix(in srgb, var(--color-role-inout-accent) 12%, transparent);
   --color-role-inout-border: color-mix(in srgb, var(--color-role-inout-accent) 28%, transparent);
   --color-role-inout-text: color-mix(in srgb, var(--color-text-primary) 82%, var(--color-role-inout-accent) 18%);

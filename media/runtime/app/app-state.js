@@ -17,6 +17,7 @@
     traceLearningEnabled: false,
     traceLearningEnhancementEnabled: false,
     nodeAttributeLayout: "inline",
+    nodeSectionTitleMode: "regular",
     editTreeRenderMode: "paged",
     playbackTreeRenderMode: "paged",
     playbackPanelLayout: "classic",
@@ -192,6 +193,7 @@
         input.traceLearningCollectionEnabled === true ||
         input.traceLearningRemoteEnabled === true,
       nodeAttributeLayout: input.nodeAttributeLayout === "stacked" ? "stacked" : "inline",
+      nodeSectionTitleMode: normalizeNodeSectionTitleMode(input.nodeSectionTitleMode),
       editTreeRenderMode: input.editTreeRenderMode === "expanded" ? "expanded" : "paged",
       playbackTreeRenderMode: input.playbackTreeRenderMode === "expanded" ? "expanded" : "paged",
       playbackPanelLayout: input.playbackPanelLayout === "dashboard" ? "dashboard" : "classic",
@@ -217,6 +219,10 @@
       result.push(normalized);
     });
     return result;
+  }
+
+  function normalizeNodeSectionTitleMode(value) {
+    return value === "hidden" || value === "emphasis" ? value : "regular";
   }
 
   function normalizePlaybackColumnWidths(value, defaults, mins, maxes) {

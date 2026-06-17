@@ -95,6 +95,10 @@
     return hiddenSections.includes(section);
   }
 
+  function normalizeNodeSectionTitleMode(value) {
+    return value === "hidden" || value === "emphasis" ? value : "regular";
+  }
+
   function renderTree(tree, result, viewportState = null, options = {}) {
     const section = document.createElement("section");
     section.className = "tree-section";
@@ -293,6 +297,8 @@
     if (runtime.state.currentSettings?.nodeAttributeLayout === "stacked") {
       card.classList.add("is-attribute-layout-stacked");
     }
+    const sectionTitleMode = normalizeNodeSectionTitleMode(runtime.state.currentSettings?.nodeSectionTitleMode);
+    card.classList.add(`is-section-title-${sectionTitleMode}`);
     if (measuring) {
       card.classList.add("is-measuring");
     }
@@ -1125,6 +1131,9 @@
       if (!field.value) {
         valueChip.classList.add("is-empty");
       }
+      if (!measuring && field.value) {
+        bindAttributeValuePreview(valueChip, field.value, field.key || "");
+      }
       return valueChip;
     }
 
@@ -1151,6 +1160,15 @@
       input.addEventListener("dragstart", (event) => {
         event.preventDefault();
         event.stopPropagation();
+      });
+      input.addEventListener("focus", () => {
+        syncAttributeInputPreview(input);
+      });
+      input.addEventListener("input", () => {
+        syncAttributeInputPreview(input);
+      });
+      input.addEventListener("blur", () => {
+        hideAttributeValuePreview(input);
       });
       input.addEventListener("compositionstart", () => {
         input.dataset.isComposing = "true";
@@ -1188,6 +1206,94 @@
     }
 
     return input;
+  }
+
+  function syncAttributeInputPreview(input) {
+    if (!input || document.activeElement !== input) {
+      return;
+    }
+
+    const value = input.value || "";
+    if (!value) {
+      hideAttributeValuePreview(input, { force: true });
+      return;
+    }
+
+    showAttributeValuePreview(input, value, input.dataset.attributeKey || "");
+  }
+
+  function bindAttributeValuePreview(element, value, attributeKey) {
+    element.tabIndex = 0;
+    element.dataset.attributeKey = attributeKey;
+    element.addEventListener("pointerdown", stopInputEvent);
+    element.addEventListener("click", stopInputEvent);
+    element.addEventListener("dblclick", stopInputEvent);
+    element.addEventListener("contextmenu", stopInputEvent);
+    element.addEventListener("focus", () => {
+      showAttributeValuePreview(element, value, attributeKey);
+    });
+    element.addEventListener("blur", () => {
+      hideAttributeValuePreview(element);
+    });
+    element.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        element.blur();
+      }
+    });
+  }
+
+  function showAttributeValuePreview(source, value, attributeKey) {
+    const preview = ensureAttributeInputPreview();
+    if (!preview?.content) {
+      return;
+    }
+
+    preview.host.dataset.sourceAttributeKey = attributeKey || "";
+    preview.content.textContent = value;
+    preview.host.hidden = false;
+  }
+
+  function hideAttributeValuePreview(source, options = {}) {
+    const preview = runtime.state.attributeInputPreview;
+    if (!preview?.host) {
+      return;
+    }
+
+    if (!options.force && source && document.activeElement === source) {
+      return;
+    }
+
+    preview.host.hidden = true;
+    if (preview.content) {
+      preview.content.textContent = "";
+    }
+    delete preview.host.dataset.sourceAttributeKey;
+  }
+
+  function ensureAttributeInputPreview() {
+    if (runtime.state.attributeInputPreview?.host?.isConnected) {
+      return runtime.state.attributeInputPreview;
+    }
+
+    const workspace = runtime.refs?.treeWorkspace || document.querySelector(".tree-workspace");
+    if (!workspace) {
+      return null;
+    }
+
+    const host = document.createElement("div");
+    host.className = "attribute-input-preview";
+    host.hidden = true;
+    host.setAttribute("aria-hidden", "true");
+
+    const content = document.createElement("div");
+    content.className = "attribute-input-preview-content";
+    host.appendChild(content);
+    workspace.appendChild(host);
+
+    runtime.state.attributeInputPreview = { host, content };
+    return runtime.state.attributeInputPreview;
   }
 
   function isTextEditingShortcut(event) {

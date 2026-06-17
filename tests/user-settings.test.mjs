@@ -51,6 +51,7 @@ test("default user settings match the product defaults", () => {
   assert.equal(DEFAULT_USER_SETTINGS.allowUnclosedPlaybackLog, true);
   assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnabled, false);
   assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnhancementEnabled, false);
+  assert.equal(DEFAULT_USER_SETTINGS.nodeSectionTitleMode, "regular");
   assert.deepEqual(DEFAULT_USER_SETTINGS.editAssistantWarningWhitelist, []);
 });
 
@@ -68,6 +69,7 @@ test("cloned user settings keep the new boolean defaults", () => {
   assert.equal(cloned.allowUnclosedPlaybackLog, true);
   assert.equal(cloned.traceLearningEnabled, false);
   assert.equal(cloned.traceLearningEnhancementEnabled, false);
+  assert.equal(cloned.nodeSectionTitleMode, "regular");
   assert.deepEqual(cloned.editAssistantWarningWhitelist, []);
 });
 
@@ -120,6 +122,23 @@ test("playback panel opacity is clamped when loading user settings", async () =>
   }));
   const high = await loadUserSettings({ fsPath: "/storage" });
   assert.equal(high.settings.playbackPanelOpacity, 0.8);
+});
+
+test("node section title mode is normalized when loading user settings", async () => {
+  fsState.files.clear();
+  fsState.writes = [];
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    nodeSectionTitleMode: "emphasis"
+  }));
+
+  const emphasis = await loadUserSettings({ fsPath: "/storage" });
+  assert.equal(emphasis.settings.nodeSectionTitleMode, "emphasis");
+
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    nodeSectionTitleMode: "loud"
+  }));
+  const fallback = await loadUserSettings({ fsPath: "/storage" });
+  assert.equal(fallback.settings.nodeSectionTitleMode, "regular");
 });
 
 test("legacy learning collection setting maps to learning enhancement", async () => {

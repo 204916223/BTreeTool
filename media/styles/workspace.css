@@ -26,6 +26,39 @@
   inset: 0;
 }
 
+.attribute-input-preview {
+  position: absolute;
+  top: 14px;
+  left: calc(var(--workspace-left-overlay) + 16px);
+  right: calc(var(--workspace-right-overlay) + 16px);
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.attribute-input-preview[hidden] {
+  display: none;
+}
+
+.attribute-input-preview-content {
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 88%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-bg-card-strong) 94%, black 6%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
 .panel-resizer {
   position: absolute;
   top: 0;

@@ -60,6 +60,7 @@ test("app state gives each instance independent default settings collections", (
   assert.equal(firstState.currentSettings.allowUnclosedPlaybackLog, true);
   assert.equal(firstState.currentSettings.traceLearningEnabled, false);
   assert.equal(firstState.currentSettings.traceLearningEnhancementEnabled, false);
+  assert.equal(firstState.currentSettings.nodeSectionTitleMode, "regular");
   assert.deepEqual(Array.from(firstState.currentSettings.editAssistantWarningWhitelist), []);
   assert.equal(JSON.stringify(firstState.currentSettings.customTheme), JSON.stringify({
     primaryColor: "#5e8de6",
@@ -122,6 +123,7 @@ test("app state seeds full current settings from initial settings", () => {
       traceLearningEnabled: true,
       traceLearningEnhancementEnabled: true,
       nodeAttributeLayout: "stacked",
+      nodeSectionTitleMode: "emphasis",
       editTreeRenderMode: "expanded",
       playbackTreeRenderMode: "expanded",
       playbackPanelLayout: "dashboard",
@@ -148,6 +150,7 @@ test("app state seeds full current settings from initial settings", () => {
     traceLearningEnabled: true,
     traceLearningEnhancementEnabled: true,
     nodeAttributeLayout: "stacked",
+    nodeSectionTitleMode: "emphasis",
     editTreeRenderMode: "expanded",
     playbackTreeRenderMode: "expanded",
     playbackPanelLayout: "dashboard",

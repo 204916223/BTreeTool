@@ -50,6 +50,10 @@
       filterInput.value = runtime.state.playbackTransitionFilterDraft || runtime.state.playbackTransitionFilter || "";
       filterInput.addEventListener("input", () => {
         runtime.state.playbackTransitionFilterDraft = filterInput.value;
+        if (!normalizeFilter(filterInput.value)) {
+          applyFilter(log);
+          return;
+        }
         updateFilterButtonState();
         persistUiState();
       });

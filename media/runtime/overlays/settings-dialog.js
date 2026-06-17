@@ -63,6 +63,14 @@
     const detailTitle = document.createElement("div");
     detailTitle.className = "settings-detail-title";
     detailTitle.textContent = "Node Display";
+    const nodeSectionTitleRow = createInlineField("Titles");
+    nodeSectionTitleRow.element.classList.add("settings-inline-field-horizontal");
+    const nodeSectionTitleControl = createSegmentedControl([
+      { value: "hidden", label: "隐藏" },
+      { value: "regular", label: "常规" },
+      { value: "emphasis", label: "强调" }
+    ]);
+    nodeSectionTitleRow.control.appendChild(nodeSectionTitleControl.element);
     const detailGrid = document.createElement("div");
     detailGrid.className = "settings-detail-grid";
     const detailSwitches = createDetailSwitches();
@@ -70,6 +78,7 @@
       detailGrid.appendChild(entry.switchControl.element);
     });
     commonSection.body.appendChild(detailTitle);
+    commonSection.body.appendChild(nodeSectionTitleRow.element);
     commonSection.body.appendChild(detailGrid);
 
     const editSection = createSettingsSection("Edit Mode");
@@ -240,10 +249,12 @@
         allowUnclosedPlaybackLog: true,
         traceLearningEnabled: traceLearningInput.checked || traceLearningEnhancementInput.checked,
         traceLearningEnhancementEnabled: traceLearningEnhancementInput.checked,
+        nodeSectionTitleMode: nodeSectionTitleControl.getValue(),
         simplifyHiddenSections: detailSwitches.filter((entry) => !entry.switchControl.input.checked).map((entry) => entry.key)
       };
       const preserveViewport =
         currentSettings.nodeAttributeLayout === nextSettings.nodeAttributeLayout &&
+        currentSettings.nodeSectionTitleMode === nextSettings.nodeSectionTitleMode &&
         currentSettings.editTreeRenderMode === nextSettings.editTreeRenderMode &&
         currentSettings.playbackTreeRenderMode === nextSettings.playbackTreeRenderMode &&
         currentSettings.playbackPanelLayout === nextSettings.playbackPanelLayout &&
@@ -301,6 +312,8 @@
       copyDescendantsInput,
       copyDescendantsText,
       detailTitle,
+      nodeSectionTitleRow,
+      nodeSectionTitleControl,
       detailSwitches,
       playbackSectionTitle: playbackSection.title,
       playbackTreeRenderModeRow,
@@ -527,6 +540,12 @@
     overlayState.settingsDialog.deleteConfirmText.textContent = copy.deleteConfirmShort;
     overlayState.settingsDialog.copyDescendantsText.textContent = copy.copyDescendantsShort;
     overlayState.settingsDialog.detailTitle.textContent = copy.nodeDisplay;
+    overlayState.settingsDialog.nodeSectionTitleRow.text.textContent = copy.nodeSectionTitle;
+    overlayState.settingsDialog.nodeSectionTitleControl.setLabels({
+      hidden: copy.nodeSectionTitleOptions.hidden,
+      regular: copy.nodeSectionTitleOptions.regular,
+      emphasis: copy.nodeSectionTitleOptions.emphasis
+    });
     overlayState.settingsDialog.detailSwitches.forEach((entry) => {
       entry.switchControl.text.textContent = copy.nodeDetailOptions[entry.key];
     });
@@ -604,6 +623,9 @@
     overlayState.settingsDialog.nodeLayoutControl.setValue(
       runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline"
     );
+    overlayState.settingsDialog.nodeSectionTitleControl.setValue(
+      normalizeNodeSectionTitleMode(runtime.state.currentSettings?.nodeSectionTitleMode)
+    );
     overlayState.settingsDialog.editTreeRenderModeControl.setValue(
       runtime.state.currentSettings?.editTreeRenderMode === "expanded" ? "expanded" : "paged"
     );
@@ -625,6 +647,10 @@
       return 0.6;
     }
     return Math.min(0.8, Math.max(0.2, numeric));
+  }
+
+  function normalizeNodeSectionTitleMode(value) {
+    return value === "hidden" || value === "emphasis" ? value : "regular";
   }
 
   function hideSettingsDialog() {

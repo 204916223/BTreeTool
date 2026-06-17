@@ -10,6 +10,8 @@
     document.documentElement.lang = runtime.state.currentSettings?.language || "en-US";
     document.documentElement.dataset.nodeAttributeLayout =
       runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline";
+    document.documentElement.dataset.nodeSectionTitleMode =
+      normalizeNodeSectionTitleMode(runtime.state.currentSettings?.nodeSectionTitleMode);
     applyPlaybackPanelOpacity(runtime.state.currentSettings?.playbackPanelOpacity);
     runtime.refs.toggleCatalogButton.title = chromeCopy.toggleCatalogTitle;
     runtime.refs.toggleCatalogButton.setAttribute("aria-label", chromeCopy.toggleCatalogTitle);
@@ -85,6 +87,10 @@
       .map((char) => `${char}${char}`)
       .join("")
       .toLowerCase()}`;
+  }
+
+  function normalizeNodeSectionTitleMode(value) {
+    return value === "hidden" || value === "emphasis" ? value : "regular";
   }
 
   function mixHexColors(left, right, rightWeight = 0.5) {

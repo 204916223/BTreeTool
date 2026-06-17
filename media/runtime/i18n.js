@@ -31,6 +31,12 @@
         inline: "Left-right layout",
         stacked: "Top-bottom layout"
       },
+      nodeSectionTitle: "Titles",
+      nodeSectionTitleOptions: {
+        hidden: "Hidden",
+        regular: "Regular",
+        emphasis: "Emphasis"
+      },
       treeRenderMode: "Tree Render",
       treeRenderModeOptions: {
         paged: "Tree tabs",
@@ -87,6 +93,12 @@
         nodeAttributeLayoutOptions: {
           inline: "左右布局",
           stacked: "上下布局"
+        },
+        nodeSectionTitle: "标题",
+        nodeSectionTitleOptions: {
+          hidden: "隐藏",
+          regular: "常规",
+          emphasis: "强调"
         },
         treeRenderMode: "树渲染方式",
         treeRenderModeOptions: {

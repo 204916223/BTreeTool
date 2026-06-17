@@ -15,6 +15,7 @@ export type BtThemePreset =
 export type BtSettingsNodeCategory = "Action" | "Condition" | "Control" | "Decorator" | "SubTree";
 export type BtSettingsFieldRole = "input" | "output" | "inout" | "param";
 export type BtNodeAttributeLayout = "inline" | "stacked";
+export type BtNodeSectionTitleMode = "hidden" | "regular" | "emphasis";
 export type BtTreeRenderMode = "paged" | "expanded";
 export type BtPlaybackPanelLayout = "classic" | "dashboard";
 export type BtSimplifySection = "description" | "code" | "inputs" | "outputs" | "params" | "subtreeJump";
@@ -51,6 +52,7 @@ export interface BtUserSettings {
   traceLearningEnabled: boolean;
   traceLearningEnhancementEnabled: boolean;
   nodeAttributeLayout: BtNodeAttributeLayout;
+  nodeSectionTitleMode: BtNodeSectionTitleMode;
   editTreeRenderMode: BtTreeRenderMode;
   playbackTreeRenderMode: BtTreeRenderMode;
   playbackPanelLayout: BtPlaybackPanelLayout;
@@ -83,6 +85,7 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   traceLearningEnabled: false,
   traceLearningEnhancementEnabled: false,
   nodeAttributeLayout: "inline",
+  nodeSectionTitleMode: "regular",
   editTreeRenderMode: "paged",
   playbackTreeRenderMode: "paged",
   playbackPanelLayout: "classic",
@@ -216,6 +219,7 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     traceLearningEnhancementEnabled: settings.traceLearningEnhancementEnabled === true,
     traceLearningEnabled: settings.traceLearningEnabled === true || settings.traceLearningEnhancementEnabled === true,
     nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
+    nodeSectionTitleMode: normalizeNodeSectionTitleMode(settings.nodeSectionTitleMode),
     editTreeRenderMode: normalizeTreeRenderMode(settings.editTreeRenderMode),
     playbackTreeRenderMode: normalizeTreeRenderMode(settings.playbackTreeRenderMode),
     playbackPanelLayout: normalizePlaybackPanelLayout(settings.playbackPanelLayout),
@@ -262,6 +266,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     input.traceLearningRemoteEnabled === true;
   const traceLearningEnabled = input.traceLearningEnabled === true || traceLearningEnhancementEnabled;
   const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
+  const nodeSectionTitleMode = normalizeNodeSectionTitleMode(input.nodeSectionTitleMode);
   const editTreeRenderMode = normalizeTreeRenderMode(input.editTreeRenderMode);
   const playbackTreeRenderMode = normalizeTreeRenderMode(input.playbackTreeRenderMode);
   const playbackPanelLayout = normalizePlaybackPanelLayout(input.playbackPanelLayout);
@@ -288,6 +293,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     traceLearningEnabled,
     traceLearningEnhancementEnabled,
     nodeAttributeLayout,
+    nodeSectionTitleMode,
     editTreeRenderMode,
     playbackTreeRenderMode,
     playbackPanelLayout,
@@ -329,6 +335,10 @@ function normalizeCustomTheme(value: unknown): BtCustomThemeSettings {
 
 function normalizeNodeAttributeLayout(value: unknown): BtNodeAttributeLayout {
   return value === "stacked" ? "stacked" : "inline";
+}
+
+function normalizeNodeSectionTitleMode(value: unknown): BtNodeSectionTitleMode {
+  return value === "hidden" || value === "emphasis" ? value : "regular";
 }
 
 function normalizeTreeRenderMode(value: unknown): BtTreeRenderMode {
