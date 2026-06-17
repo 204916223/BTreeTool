@@ -152,6 +152,7 @@ test("parseBehaviorTreeDocument preserves preset port directions when inferring 
   );
 
   const output = serializeBehaviorTreeDocument(document);
+  assert.doesNotMatch(output, /\srequired="/);
   const reparsedWithoutSettings = parseBehaviorTreeDocument(output);
 
   assert.deepEqual(

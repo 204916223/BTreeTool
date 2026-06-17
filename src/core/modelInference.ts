@@ -256,9 +256,6 @@ function presetToPorts(preset: BtPresetNodeSettings | undefined): BtPortModel[] 
       if (field.defaultValue) {
         attributes.default = field.defaultValue;
       }
-      if (field.required !== true) {
-        attributes.required = "false";
-      }
 
       return {
         tagName,

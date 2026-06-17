@@ -405,9 +405,34 @@ function scanCustomNodeEmptyParams(treeId: string, node: BtPreviewNode, context:
   }
 
   for (const field of node.attributeFields || []) {
-    if (field.source === "extra" || field.source === "subtree" || field.editableValue === false || field.role === "output") {
+    if (field.source === "extra" || field.source === "subtree" || field.editableValue === false) {
       continue;
     }
+
+    if (field.role === "output") {
+      if (Object.prototype.hasOwnProperty.call(node.attributes || {}, field.key)) {
+        continue;
+      }
+      if (isWhitelisted(node, context)) {
+        context.ignored.warning += 1;
+        continue;
+      }
+
+      pushNodeIssue(
+        context,
+        "custom_output_missing",
+        "warning",
+        treeId,
+        node,
+        text(
+          context.language,
+          `#${node.uid} ${node.title} 的自定义输出 ${field.key} 未配置，请确认是否允许省略。`,
+          `#${node.uid} ${node.title} custom output ${field.key} is missing; confirm whether this is intentional.`
+        )
+      );
+      continue;
+    }
+
     if (node.attributes?.[field.key] != null && String(node.attributes[field.key]).trim() !== "") {
       continue;
     }

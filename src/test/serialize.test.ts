@@ -95,3 +95,30 @@ test("serializeBehaviorTreeDocument orders BehaviorTree and TreeNodesModel entri
     ["ReportSchedule", "ResetEStopStatusCheck", "ServoStatus", "SpeedManager"]
   );
 });
+
+test("serializeBehaviorTreeDocument omits required metadata from TreeNodesModel ports", () => {
+  const document = createDocument();
+  document.nodeModels = [
+    {
+      id: "CarrierCtrl",
+      modelKind: "Action",
+      attributes: { ID: "CarrierCtrl" },
+      ports: [
+        {
+          tagName: "input_port",
+          attributes: {
+            name: "target",
+            default: "{target}",
+            required: "false"
+          }
+        }
+      ]
+    }
+  ];
+  document.topLevelOrder = ["behaviorTree", "behaviorTree", "treeNodesModel"];
+
+  const output = serializeBehaviorTreeDocument(document);
+
+  assert.match(output, /<input_port name="target" default="\{target\}" \/>/);
+  assert.doesNotMatch(output, /\srequired="/);
+});

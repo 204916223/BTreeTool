@@ -3,7 +3,7 @@ import { BtPresetNodeSettings, BtUserSettings } from "../userSettings";
 
 export type BtNodeCategory = "Action" | "Condition" | "Control" | "Decorator" | "SubTree";
 export type BtFieldRole = "input" | "output" | "inout" | "param";
-export type BtFieldSource = "builtin" | "model" | "subtree" | "extra";
+export type BtFieldSource = "builtin" | "model" | "preset" | "subtree" | "extra";
 
 export interface BtNodeFieldDefinition {
   key: string;
@@ -31,12 +31,16 @@ export interface BtNodeCatalog {
 }
 
 export function buildNodeCatalog(document: BtDocumentAst, settings?: BtUserSettings): BtNodeCatalog {
+  const builtinEntries = getBuiltinEntries();
+  const builtinKeys = new Set(builtinEntries.map((entry) => entry.key));
   const entries = [
-    ...getBuiltinEntries(),
+    ...builtinEntries,
     ...document.nodeModels.map(toModelCatalogEntry),
     ...document.behaviorTrees.map((tree) => toSubTreeCatalogEntry(tree.id))
   ];
-  const mergedEntries = settings?.presetNodes?.length ? applyPresetNodeOverrides(entries, settings.presetNodes) : entries;
+  const mergedEntries = settings?.presetNodes?.length
+    ? applyPresetNodeOverrides(entries, settings.presetNodes, builtinKeys)
+    : entries;
 
   const byTagName = new Map<string, BtNodeCatalogEntry>();
   const byId = new Map<string, BtNodeCatalogEntry>();
@@ -279,7 +283,8 @@ function createFixedField(
 
 function applyPresetNodeOverrides(
   builtinEntries: BtNodeCatalogEntry[],
-  presetNodes: BtPresetNodeSettings[]
+  presetNodes: BtPresetNodeSettings[],
+  builtinKeys: Set<string>
 ): BtNodeCatalogEntry[] {
   if (presetNodes.length === 0) {
     return builtinEntries;
@@ -288,6 +293,7 @@ function applyPresetNodeOverrides(
   const byKey = new Map(builtinEntries.map((entry) => [entry.key, entry]));
 
   for (const preset of presetNodes) {
+    const fieldSource: BtFieldSource = builtinKeys.has(preset.key) ? "builtin" : "preset";
     byKey.set(preset.key, {
       key: preset.key,
       title: preset.title,
@@ -297,11 +303,11 @@ function applyPresetNodeOverrides(
       fields: preset.fields.map((field) => ({
         key: field.key,
         role: field.role,
-        required: field.required,
+        required: fieldSource === "builtin" ? field.required : false,
         editableKey: field.editableKey,
         editableValue: field.editableValue,
         removable: field.removable,
-        source: "builtin" as const
+        source: fieldSource
       }))
     });
   }

@@ -403,7 +403,7 @@ function normalizePresetField(value: unknown): BtPresetFieldSettings | null {
   return {
     key: value.key.trim(),
     role: toRole(value.role),
-    required: value.required !== false,
+    required: value.required === true,
     editableKey: value.editableKey === true,
     editableValue: value.editableValue !== false,
     removable: value.removable === true,

@@ -206,6 +206,29 @@ test("edit assistant scan warns for empty custom node parameters", () => {
   const issue = result.issues.find((entry) => entry.ruleId === "custom_parameter_empty");
   assert.equal(issue?.severity, "warning");
   assert.match(issue?.message || "", /target/);
+
+  const outputIssue = result.issues.find((entry) => entry.ruleId === "custom_output_missing");
+  assert.equal(outputIssue?.severity, "warning");
+  assert.match(outputIssue?.message || "", /result/);
+});
+
+test("edit assistant scan treats present custom outputs as configured even when empty", () => {
+  const result = scanXml(`
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <CustomAction target="ready" result="" />
+  </BehaviorTree>
+  <TreeNodesModel>
+    <Action ID="CustomAction">
+      <input_port name="target" />
+      <output_port name="result" />
+    </Action>
+  </TreeNodesModel>
+</root>
+`);
+
+  assert.equal(result.issues.some((entry) => entry.ruleId === "custom_parameter_empty"), false);
+  assert.equal(result.issues.some((entry) => entry.ruleId === "custom_output_missing"), false);
 });
 
 test("edit assistant scan skips custom parameter warnings for whitelisted nodes", () => {
@@ -264,4 +287,10 @@ test("edit assistant scan warns for empty imported preset node parameters", () =
   assert.match(messages.join("\n"), /velocity_max/);
   assert.match(messages.join("\n"), /stop_action/);
   assert.doesNotMatch(messages.join("\n"), /errorMsg/);
+
+  const outputMessages = result.issues
+    .filter((entry) => entry.ruleId === "custom_output_missing")
+    .map((entry) => entry.message);
+  assert.equal(outputMessages.length, 1);
+  assert.match(outputMessages.join("\n"), /errorMsg/);
 });

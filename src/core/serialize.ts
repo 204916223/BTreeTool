@@ -93,11 +93,16 @@ function serializeNodeModel(nodeModel: BtNodeModel, depth: number): string[] {
   const lines = renderOpenTag(nodeModel.modelKind, nodeModel.attributes, depth);
 
   for (const port of nodeModel.ports) {
-    lines.push(...renderSelfClosingTag(port.tagName, port.attributes, depth + 1));
+    lines.push(...renderSelfClosingTag(port.tagName, omitPortSerializationAttributes(port.attributes), depth + 1));
   }
 
   lines.push(`${indent(depth)}</${nodeModel.modelKind}>`);
   return lines;
+}
+
+function omitPortSerializationAttributes(attributes: Record<string, string>): Record<string, string> {
+  const { required: _required, ...rest } = attributes;
+  return rest;
 }
 
 function serializeNode(node: BtNodeAst, depth: number): string[] {

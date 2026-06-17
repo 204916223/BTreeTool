@@ -47,6 +47,24 @@ test("loadNodeLibraryPresets reads .btt node definitions", async () => {
   }
 });
 
+test("loadNodeLibraryPresets treats omitted required flags as optional", async () => {
+  const root = await mkdtemp(join(tmpdir(), "btt-node-library-optional-"));
+  try {
+    await mkdir(join(root, "Action"), { recursive: true });
+    await writeFile(
+      join(root, "Action", "CustomAction.btt"),
+      `<?xml version="1.0" encoding="UTF-8"?>\n<node name="CustomAction" category="Action" modelKind="Action" allowCustomAttributes="true">\n  <input_port name="target" default="" />\n</node>\n`,
+      "utf8"
+    );
+
+    const presets = await loadNodeLibraryPresets(root);
+
+    assert.equal(presets[0]?.fields[0]?.required, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("bundled node library includes BT.CPP builtin ports", async () => {
   const presets = await loadNodeLibraryPresets(join(__dirname, "../../node-library"));
   const byKey = new Map(presets.map((preset) => [preset.key, preset]));

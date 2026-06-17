@@ -22,7 +22,7 @@ export interface BtPreviewNodeField {
   editableValue: boolean;
   removable: boolean;
   required: boolean;
-  source: "builtin" | "model" | "subtree" | "extra";
+  source: "builtin" | "model" | "preset" | "subtree" | "extra";
 }
 
 export interface BtPreviewNode {

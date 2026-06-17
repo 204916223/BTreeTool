@@ -141,6 +141,61 @@ test("buildPreviewDocument keeps model ports visible even when node attributes a
   );
 });
 
+test("buildPreviewDocument treats custom preset fields as optional for editing", () => {
+  const document = createDocument();
+  document.behaviorTrees = [
+    {
+      id: "MainTree",
+      node: {
+        tagName: "CarrierCtrl",
+        attributes: {},
+        children: []
+      }
+    }
+  ];
+
+  const preview = buildPreviewDocument(document, {
+    language: "en-US",
+    themePreset: "midnight",
+    customTheme: {
+      primaryColor: "#5e8de6",
+      secondaryColor: "#df78cf"
+    },
+    showMainTreeLocator: false,
+    showBehaviorTreeRoot: true,
+    requireNodeDeleteConfirmation: true,
+    copyNodeWithDescendants: false,
+    playbackAutoNavigateToTree: true,
+    allowUnclosedPlaybackLog: false,
+    traceLearningEnabled: true,
+    traceLearningEnhancementEnabled: true,
+    nodeAttributeLayout: "inline",
+    nodeSectionTitleMode: "regular",
+    editTreeRenderMode: "paged",
+    playbackTreeRenderMode: "paged",
+    playbackPanelLayout: "classic",
+    playbackPanelOpacity: 0.6,
+    simplifyHiddenSections: [],
+    editAssistantWarningWhitelist: [],
+    presetNodes: [
+      {
+        key: "CarrierCtrl",
+        title: "CarrierCtrl",
+        category: "Action",
+        modelKind: "Action",
+        allowCustomAttributes: true,
+        fields: [
+          { key: "target", role: "input", required: true, editableKey: false, editableValue: true, removable: false }
+        ]
+      }
+    ]
+  });
+
+  const field = preview.behaviorTrees[0].node.attributeFields.find((entry) => entry.key === "target");
+  assert.equal(field?.source, "preset");
+  assert.equal(field?.required, false);
+});
+
 test("buildPreviewDocument classifies builtin decorators without relying on children", () => {
   const document = createDocument();
   document.behaviorTrees = [

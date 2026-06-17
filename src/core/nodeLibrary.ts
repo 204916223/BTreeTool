@@ -102,7 +102,7 @@ function parseFields(body: string): BtPresetFieldSettings[] {
     fields.push({
       key,
       role: toFieldRole(tagName),
-      required: attrs.required !== "false",
+      required: attrs.required === "true",
       editableKey: attrs.editableKey === "true",
       editableValue: attrs.editableValue !== "false",
       removable: attrs.removable === "true",
