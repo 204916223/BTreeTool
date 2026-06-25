@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { readFileSync } from "node:fs";
 import { BtUserSettings } from "../userSettings";
 
 export type GetWebviewHtmlOptions = {
@@ -36,6 +37,7 @@ export function getWebviewHtml(options: GetWebviewHtmlOptions): string {
       "node-picker.js",
       "settings-dialog.js",
       "assistant-whitelist-dialog.js",
+      "node-atlas-dialog.js",
       "behavior-tree-dialog.js",
       "tree-model-dialog.js",
       "node-editor-dialog.js"
@@ -139,6 +141,18 @@ export function getWebviewHtml(options: GetWebviewHtmlOptions): string {
         language: initialLanguage
       }
     );
+    const atlasNodesJson = readExtensionTextFile(
+      vscode.Uri.joinPath(extensionUri, "node-library", "atlas", "nodes.json").fsPath,
+      "{}\n"
+    );
+    const atlasManifestJson = readExtensionTextFile(
+      vscode.Uri.joinPath(extensionUri, "node-library", "atlas", "manifest.json").fsPath,
+      "{}\n"
+    );
+    const atlasVariablesJson = readExtensionTextFile(
+      vscode.Uri.joinPath(extensionUri, "node-library", "atlas", "variables.json").fsPath,
+      "{}\n"
+    );
 
     return `<!DOCTYPE html>
 <html lang="${initialLanguage}" data-btree-theme="${initialTheme}">
@@ -156,6 +170,9 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
     <script nonce="${nonce}">
       window.BTreeToolInitialMode = ${JSON.stringify(hasDocument ? "edit" : "playback")};
       window.BTreeToolInitialSettings = ${initialSettingsScript};
+      window.BTreeToolAtlasManifestJson = ${stringifyScriptJson(atlasManifestJson)};
+      window.BTreeToolAtlasNodesJson = ${stringifyScriptJson(atlasNodesJson)};
+      window.BTreeToolAtlasVariablesJson = ${stringifyScriptJson(atlasVariablesJson)};
     </script>
     <main class="app-shell">
       <section class="card tree-card">
@@ -218,7 +235,18 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
           ></button>
           <aside id="catalog-panel" class="catalog-card" hidden>
             <div class="catalog-header">
-              <span id="catalog-eyebrow" class="eyebrow">Node Palette</span>
+              <div class="catalog-title-row">
+                <strong id="catalog-eyebrow" class="catalog-title">Node Palette</strong>
+                <button
+                  id="open-node-atlas"
+                  class="canvas-btn icon-btn subtle catalog-atlas-button"
+                  type="button"
+                  title="Open node atlas"
+                  aria-label="Open node atlas"
+                >
+                  ${iconHtml("atlas")}
+                </button>
+              </div>
               <p id="catalog-summary" class="catalog-summary">
                 Built-in nodes, model-backed actions, and SubTree entries available in this XML.
               </p>
@@ -355,6 +383,14 @@ function stringifyScriptJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
+function readExtensionTextFile(filePath: string, fallback: string): string {
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch (_error) {
+    return fallback;
+  }
+}
+
 function getNonce(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let nonce = "";
@@ -370,6 +406,10 @@ function iconHtml(name: string): string {
   const paths: Record<string, string[]> = {
     add: [
       "M896 469.333333h-341.333333V128a42.666667 42.666667 0 0 0-85.333334 0v341.333333H128a42.666667 42.666667 0 0 0 0 85.333334h341.333333v341.333333a42.666667 42.666667 0 0 0 85.333334 0v-341.333333h341.333333a42.666667 42.666667 0 0 0 0-85.333334z"
+    ],
+    atlas: [
+      "M148.09 981.053c-57.154 0-103.648-46.494-103.648-103.644V658.775c0-57.15 46.494-103.644 103.649-103.644h218.64c57.149 0 103.643 46.495 103.643 103.644v218.634c0 57.15-46.494 103.644-103.644 103.644H148.09z m0-364.39c-23.218 0-42.111 18.888-42.111 42.112v218.634c0 23.22 18.893 42.112 42.112 42.112h218.64c23.218 0 42.111-18.887 42.111-42.112V658.775c0-23.22-18.887-42.112-42.112-42.112H148.09z m510.158 364.39c-57.155 0-103.65-46.494-103.65-103.644V658.775c0-57.15 46.495-103.644 103.65-103.644h218.629c57.154 0 103.65 46.495 103.65 103.644v218.634c0 57.15-46.496 103.644-103.65 103.644h-218.63z m0-364.39c-23.22 0-42.117 18.888-42.117 42.112v218.634c0 23.22 18.892 42.112 42.117 42.112h218.629c23.219 0 42.117-18.887 42.117-42.112V658.775c0-23.22-18.893-42.112-42.117-42.112h-218.63zM149.053 470.907c-57.149 0-103.644-46.5-103.644-103.65V148.619c0-57.154 46.495-103.649 103.644-103.649h218.64c57.15 0 103.65 46.495 103.65 103.65v218.633c0 57.155-46.5 103.65-103.65 103.65h-218.64z m0-364.396c-23.219 0-42.112 18.893-42.112 42.112v218.635c0 23.219 18.888 42.112 42.112 42.112h218.635c23.219 0 42.112-18.888 42.112-42.112v-218.64c0-23.219-18.893-42.112-42.112-42.112H149.053z m523.853 155.382a26.977 26.977 0 0 1-26.946-26.936c0-50.811 41.339-92.155 92.15-92.155a26.972 26.972 0 0 1 26.946 26.936c0 7.199-2.806 13.962-7.89 19.052s-11.848 7.89-19.046 7.89c-21.11 0-38.293 17.172-38.293 38.277a26.957 26.957 0 0 1-26.92 26.936z",
+      "M963.026 488.028a28.006 28.006 0 0 1-19.948-8.217l-79.022-79.028-3.906 2.786a196.116 196.116 0 0 1-114.427 36.592c-108.949 0-197.591-88.642-197.591-197.596s88.642-197.59 197.59-197.596c108.954 0.005 197.602 88.648 197.602 197.596 0 41.278-12.662 80.845-36.598 114.422l-2.785 3.906 79.032 79.028a28.237 28.237 0 0 1 0 39.89 28.006 28.006 0 0 1-19.947 8.217zM745.718 101.386c-77.85 0-141.18 63.335-141.18 141.184s63.335 141.184 141.185 141.184c77.844 0 141.179-63.34 141.179-141.184 0-37.652-14.7-73.093-41.395-99.789-26.686-26.695-62.127-41.395-99.79-41.395z"
     ],
     close: [
       "M853.333333 896c-10.666667 0-21.333333-4.266667-29.866666-12.8l-682.666667-682.666667c-17.066667-17.066667-17.066667-42.666667 0-59.733333 17.066667-17.066667 42.666667-17.066667 59.733333 0l682.666667 682.666667c17.066667 17.066667 17.066667 42.666667 0 59.733333-8.533333 8.533333-19.2 12.8-29.866667 12.8z",

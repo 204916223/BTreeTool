@@ -429,6 +429,9 @@
       }
       runtime.overlays.showTreeNodesModelDialog({ createNew: true });
     });
+    refs.openNodeAtlasButton?.addEventListener("click", () => {
+      runtime.overlays.showNodeAtlasDialog();
+    });
     enableCatalogDeleteTarget();
     syncDeleteTargetIndicator();
   }

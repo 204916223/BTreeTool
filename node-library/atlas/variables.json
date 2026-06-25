@@ -1,0 +1,27 @@
+{
+  "walking_height": {
+    "title": "行走高度",
+    "type": "double",
+    "unit": "m",
+    "description": "机器人移动过程中载具或叉齿应保持的安全高度。",
+    "source": "global_param_or_blackboard",
+    "commonNodes": [
+      "CarrierCtrl",
+      "Precondition"
+    ],
+    "examples": [
+      "CarrierCtrl target_position={walking_height}",
+      "Precondition if=lift_height < walking_height + max_walking"
+    ]
+  },
+  "lift_height": {
+    "title": "当前举升高度",
+    "type": "double",
+    "unit": "m",
+    "description": "当前叉齿或载具的实际高度。",
+    "source": "blackboard",
+    "commonNodes": [
+      "Precondition"
+    ]
+  }
+}

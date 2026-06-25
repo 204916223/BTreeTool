@@ -10,6 +10,7 @@ from __future__ import annotations
 import pathlib
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
@@ -50,7 +51,6 @@ def find_async_service_root() -> pathlib.Path:
 
 
 root = pathlib.Path(os.environ["ASYNC_SERVICE_ROOT"]).resolve() if os.environ.get("ASYNC_SERVICE_ROOT") else find_async_service_root()
-output_path = pathlib.Path(output_arg).expanduser().resolve() if output_arg else script_dir / "TNM.btt"
 include_dir = root / "include"
 node_types_path = include_dir / "task" / "node_types.hpp"
 
@@ -217,6 +217,57 @@ def escape_xml(text: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+def read_first_line(path: pathlib.Path) -> Optional[str]:
+    try:
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            value = line.strip()
+            if value:
+                return value
+    except Exception:
+        return None
+    return None
+
+
+def run_git(args: List[str]) -> Optional[str]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except Exception:
+        return None
+    if result.returncode != 0:
+        return None
+    value = result.stdout.strip()
+    return value or None
+
+
+def infer_project_from_tag(tag: str) -> Optional[str]:
+    match = re.search(r"\+([A-Za-z0-9_-]+)(?:[-_.][A-Za-z0-9_-]+)?$", tag)
+    return match.group(1) if match else None
+
+
+def sanitize_output_tag(tag: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._+-]+", "_", tag).strip("._") or "unknown"
+
+
+def resolve_version_metadata() -> Dict[str, str]:
+    tag = (
+        os.environ.get("SBT_ATLAS_TAG")
+        or os.environ.get("ATLAS_TAG")
+        or os.environ.get("SBT_TAG")
+        or run_git(["describe", "--tags", "--always", "--dirty"])
+        or read_first_line(root / "version")
+    )
+    metadata: Dict[str, str] = {}
+    if tag:
+        metadata["atlas_tag"] = tag
+    return metadata
 
 
 SPECIAL_OUTPUT_DEFAULTS = {
@@ -445,7 +496,19 @@ if not registrations:
     raise SystemExit("No registered nodes were found in include/task/node_types.hpp")
 
 lines: List[str] = []
-lines.append('<TreeNodesModel>')
+version_metadata = resolve_version_metadata()
+atlas_tag = version_metadata.get("atlas_tag") or "unknown"
+output_path = (
+    pathlib.Path(output_arg).expanduser().resolve()
+    if output_arg
+    else script_dir / f"tnm_{sanitize_output_tag(atlas_tag)}.btt"
+)
+metadata_attrs = " ".join(
+    f'{key}="{escape_xml(value)}"'
+    for key, value in sorted(version_metadata.items())
+    if value
+)
+lines.append(f'<TreeNodesModel{f" {metadata_attrs}" if metadata_attrs else ""}>')
 for class_name, node_id in registrations:
     info = resolve_class(class_name)
     lines.append(f'  <{info.category} ID="{escape_xml(node_id)}">')
@@ -470,4 +533,8 @@ output_path.parent.mkdir(parents=True, exist_ok=True)
 output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 sys.stdout.write(f'Wrote {len(registrations)} node models to {output_path}\n')
+subprocess.run(
+    [sys.executable, str(script_dir / "update_atlas_from_btt.py"), str(output_path)],
+    check=True,
+)
 PY

@@ -30,6 +30,8 @@
     runtime.refs.catalogEyebrow.textContent = catalogCopy.eyebrow;
     runtime.refs.catalogSummary.textContent = catalogCopy.summary;
     runtime.refs.catalogSearchInput.placeholder = catalogCopy.searchPlaceholder;
+    runtime.refs.openNodeAtlasButton.title = catalogCopy.openAtlasTitle;
+    runtime.refs.openNodeAtlasButton.setAttribute("aria-label", catalogCopy.openAtlasTitle);
     runtime.refs.addNodeModelButton.title = catalogCopy.addModelTitle;
     runtime.refs.addNodeModelButton.setAttribute("aria-label", catalogCopy.addModelTitle);
     const searchCopy = runtime.i18n.getSearchCopy();

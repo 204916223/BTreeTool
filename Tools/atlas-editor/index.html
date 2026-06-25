@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BTreeTool Atlas Editor</title>
+    <link rel="stylesheet" href="./atlas-editor.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <strong>图鉴编辑工具</strong>
+          <span id="status-line">未导入文件</span>
+        </div>
+        <div class="file-actions">
+          <label class="btn file-btn">
+            导入 nodes.json
+            <input id="nodes-file" type="file" accept="application/json,.json" />
+          </label>
+          <label class="btn file-btn">
+            导入 variables.json
+            <input id="variables-file" type="file" accept="application/json,.json" />
+          </label>
+          <label class="btn file-btn">
+            导入 manifest.json
+            <input id="manifest-file" type="file" accept="application/json,.json" />
+          </label>
+          <button id="export-nodes" class="btn primary" type="button">导出 nodes</button>
+          <button id="export-variables" class="btn" type="button">导出 variables</button>
+          <button id="export-manifest" class="btn" type="button">导出 manifest</button>
+          <button id="export-all" class="btn" type="button">导出全部</button>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="sidebar">
+          <div class="tabs" role="tablist" aria-label="Atlas editor sections">
+            <button class="tab is-active" type="button" data-view="nodes">节点</button>
+            <button class="tab" type="button" data-view="variables">变量</button>
+            <button class="tab" type="button" data-view="manifest">版本</button>
+          </div>
+          <div id="node-tools" class="sidebar-tools">
+            <input id="node-search" class="search" type="search" placeholder="搜索节点 / 部门 / 负责人" />
+            <select id="node-filter" class="select" aria-label="节点筛选">
+              <option value="all">全部节点</option>
+              <option value="missing">缺少人工字段</option>
+              <option value="unknownType">含 unknown 类型</option>
+              <option value="hasVariables">引用变量</option>
+            </select>
+            <button id="add-node" class="btn full" type="button">新增节点</button>
+          </div>
+          <div id="variable-tools" class="sidebar-tools hidden">
+            <input id="variable-search" class="search" type="search" placeholder="搜索变量" />
+            <button id="add-variable" class="btn full" type="button">新增变量</button>
+          </div>
+          <div id="manifest-tools" class="sidebar-tools hidden">
+            <div class="summary-card">
+              <span>manifest.json</span>
+              <strong id="manifest-summary">未导入</strong>
+            </div>
+          </div>
+          <div id="item-list" class="item-list"></div>
+        </aside>
+
+        <section class="editor-panel">
+          <div id="empty-state" class="empty-state">
+            <strong>导入图鉴 JSON 后开始编辑</strong>
+            <span>nodes / variables / manifest 可以分别导入和导出。</span>
+          </div>
+
+          <form id="node-form" class="editor-form hidden">
+            <div class="form-header">
+              <div>
+                <label class="field-label" for="node-key">节点 ID</label>
+                <input id="node-key" class="input mono" type="text" spellcheck="false" />
+              </div>
+              <div class="header-actions">
+                <button id="rename-node" class="btn" type="button">重命名 ID</button>
+                <button id="delete-node" class="btn danger" type="button">删除节点</button>
+              </div>
+            </div>
+
+            <div class="grid two">
+              <label class="field">
+                <span class="field-label">中文名</span>
+                <input id="node-title" class="input" type="text" />
+              </label>
+              <label class="field">
+                <span class="field-label">分类</span>
+                <select id="node-category" class="input">
+                  <option>Action</option>
+                  <option>Condition</option>
+                  <option>Control</option>
+                  <option>Decorator</option>
+                  <option>SubTree</option>
+                  <option>Info</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="field-label">部门</span>
+                <input id="node-department" class="input" type="text" />
+              </label>
+              <label class="field">
+                <span class="field-label">负责人</span>
+                <input id="node-maintainer" class="input" type="text" />
+              </label>
+            </div>
+
+            <label class="field">
+              <span class="field-label">描述</span>
+              <textarea id="node-description" class="textarea" rows="4"></textarea>
+            </label>
+
+            <div class="grid three">
+              <label class="field">
+                <span class="field-label">状态</span>
+                <select id="node-status" class="input">
+                  <option value="draft">draft</option>
+                  <option value="stable">stable</option>
+                  <option value="deprecated">deprecated</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="field-label">规则</span>
+                <textarea id="node-rules" class="textarea compact" rows="5"></textarea>
+              </label>
+              <label class="field">
+                <span class="field-label">示例</span>
+                <textarea id="node-examples" class="textarea compact" rows="5"></textarea>
+              </label>
+            </div>
+
+            <label class="field">
+              <span class="field-label">来源备注</span>
+              <textarea id="node-source-notes" class="textarea compact" rows="3"></textarea>
+            </label>
+
+            <section class="section-block">
+              <div class="section-title-row">
+                <strong>参数</strong>
+                <button id="add-param" class="btn small" type="button">新增参数</button>
+              </div>
+              <div id="param-editor" class="param-list"></div>
+            </section>
+          </form>
+
+          <form id="variable-form" class="editor-form hidden">
+            <div class="form-header">
+              <div>
+                <label class="field-label" for="variable-key">变量 key</label>
+                <input id="variable-key" class="input mono" type="text" spellcheck="false" />
+              </div>
+              <div class="header-actions">
+                <button id="rename-variable" class="btn" type="button">重命名 key</button>
+                <button id="delete-variable" class="btn danger" type="button">删除变量</button>
+              </div>
+            </div>
+
+            <div class="grid two">
+              <label class="field">
+                <span class="field-label">标题</span>
+                <input id="variable-title" class="input" type="text" />
+              </label>
+              <label class="field">
+                <span class="field-label">类型</span>
+                <input id="variable-type" class="input" type="text" />
+              </label>
+              <label class="field">
+                <span class="field-label">单位</span>
+                <input id="variable-unit" class="input" type="text" />
+              </label>
+              <label class="field">
+                <span class="field-label">来源</span>
+                <input id="variable-source" class="input" type="text" />
+              </label>
+            </div>
+
+            <label class="field">
+              <span class="field-label">说明</span>
+              <textarea id="variable-description" class="textarea" rows="5"></textarea>
+            </label>
+            <div class="grid two">
+              <label class="field">
+                <span class="field-label">常见节点</span>
+                <textarea id="variable-common-nodes" class="textarea compact" rows="6"></textarea>
+              </label>
+              <label class="field">
+                <span class="field-label">示例</span>
+                <textarea id="variable-examples" class="textarea compact" rows="6"></textarea>
+              </label>
+            </div>
+          </form>
+
+          <form id="manifest-form" class="editor-form hidden">
+            <div class="grid three">
+              <label class="field">
+                <span class="field-label">schemaVersion</span>
+                <input id="manifest-schema-version" class="input" type="number" min="1" />
+              </label>
+              <label class="field">
+                <span class="field-label">atlasVersion</span>
+                <input id="manifest-atlas-version" class="input" type="text" />
+              </label>
+              <label class="field">
+                <span class="field-label">defaultTag</span>
+                <input id="manifest-default-tag" class="input" type="text" />
+              </label>
+            </div>
+
+            <label class="field">
+              <span class="field-label">tagFormat.description</span>
+              <textarea id="manifest-tag-description" class="textarea" rows="4"></textarea>
+            </label>
+
+            <div class="grid two">
+              <label class="field">
+                <span class="field-label">tagFormat.examples</span>
+                <textarea id="manifest-tag-examples" class="textarea compact" rows="6"></textarea>
+              </label>
+              <label class="field">
+                <span class="field-label">knownProjects</span>
+                <textarea id="manifest-known-projects" class="textarea compact" rows="6"></textarea>
+              </label>
+            </div>
+
+            <section class="section-block">
+              <strong>resolutionPolicy</strong>
+              <div class="grid three policy-grid">
+                <label class="field">
+                  <span class="field-label">unknownTag</span>
+                  <input id="policy-unknown-tag" class="input" type="text" />
+                </label>
+                <label class="field">
+                  <span class="field-label">unknownProject</span>
+                  <input id="policy-unknown-project" class="input" type="text" />
+                </label>
+                <label class="field">
+                  <span class="field-label">customExtendsDefault</span>
+                  <input id="policy-custom-extends-default" class="input" type="text" />
+                </label>
+              </div>
+            </section>
+          </form>
+        </section>
+
+        <aside class="inspector">
+          <section class="summary-card">
+            <span>节点</span>
+            <strong id="node-count">0</strong>
+          </section>
+          <section class="summary-card">
+            <span>变量</span>
+            <strong id="variable-count">0</strong>
+          </section>
+          <section class="summary-card">
+            <span>检查</span>
+            <strong id="issue-count">0</strong>
+          </section>
+          <section class="issue-panel">
+            <strong>问题列表</strong>
+            <div id="issue-list" class="issue-list"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <template id="param-template">
+      <article class="param-card">
+        <div class="param-header">
+          <input class="input mono param-name" type="text" placeholder="name" spellcheck="false" />
+          <select class="input param-role">
+            <option value="input">input</option>
+            <option value="output">output</option>
+            <option value="inout">inout</option>
+            <option value="param">param</option>
+          </select>
+          <input class="input param-type" type="text" placeholder="type" />
+          <label class="check">
+            <input class="param-required" type="checkbox" />
+            required
+          </label>
+          <button class="btn small danger param-remove" type="button">删除</button>
+        </div>
+        <div class="grid two">
+          <label class="field">
+            <span class="field-label">default</span>
+            <input class="input param-default" type="text" />
+          </label>
+          <label class="field">
+            <span class="field-label">availability JSON</span>
+            <input class="input mono param-availability" type="text" />
+          </label>
+        </div>
+        <label class="field">
+          <span class="field-label">description</span>
+          <textarea class="textarea compact param-description" rows="3"></textarea>
+        </label>
+      </article>
+    </template>
+
+    <script src="./atlas-editor.js"></script>
+  </body>
+</html>

@@ -15,6 +15,7 @@
       overlayState.nodePicker?.element,
       overlayState.settingsDialog?.element,
       overlayState.assistantWhitelistDialog?.element,
+      overlayState.nodeAtlasDialog?.element,
       overlayState.behaviorTreeDialog?.element,
       overlayState.treeNodesModelDialog?.element,
       overlayState.nodeEditorDialog?.element
