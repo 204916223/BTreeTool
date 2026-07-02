@@ -3,6 +3,23 @@
   const overlayRuntime = (runtime.overlayRuntime = runtime.overlayRuntime || {});
   const overlayState = (overlayRuntime.state = overlayRuntime.state || {});
   const shared = overlayRuntime.shared;
+  const THEME_GROUPS = [
+    { key: "dark", values: ["default", "midnight", "graphite", "ocean", "forest"] },
+    { key: "light", values: ["paper", "sand", "mist", "rose"] },
+    { key: "custom", values: ["custom"] }
+  ];
+  const THEME_SWATCHES = {
+    default: ["#070807", "#8f7846"],
+    midnight: ["#070b10", "#4f8bd8"],
+    graphite: ["#15181d", "#8db2ff"],
+    ocean: ["#0b1824", "#62b0ff"],
+    forest: ["#122015", "#88d498"],
+    paper: ["#f6f8fb", "#2d6cdf"],
+    sand: ["#f7f1e7", "#c06a2c"],
+    mist: ["#eef3f7", "#3f7ac8"],
+    rose: ["#fbf5f7", "#b85c7b"],
+    custom: ["var(--custom-theme-color-a)", "var(--custom-theme-color-b)"]
+  };
 
   function createSettingsDialog() {
     const element = document.createElement("div");
@@ -39,16 +56,15 @@
     languageSelect.className = "attribute-input";
     languageRow.control.appendChild(languageSelect);
     const themeRow = createInlineField("Theme");
-    const themeSelect = document.createElement("select");
-    themeSelect.className = "attribute-input";
+    const themePicker = createThemePicker();
     const customThemePicker = createCustomThemePicker();
     themeRow.control.classList.add("settings-theme-control");
-    themeRow.control.appendChild(themeSelect);
+    themeRow.control.appendChild(themePicker.element);
     themeRow.control.appendChild(customThemePicker.element);
     commonSection.body.appendChild(languageRow.element);
     commonSection.body.appendChild(themeRow.element);
-    themeSelect.addEventListener("change", () => {
-      customThemePicker.element.hidden = themeSelect.value !== "custom";
+    themePicker.element.addEventListener("themechange", () => {
+      customThemePicker.element.hidden = themePicker.getValue() !== "custom";
     });
 
     const nodeLayoutRow = createInlineField("Node Layout");
@@ -231,7 +247,7 @@
       const nextSettings = {
         ...currentSettings,
         language: languageSelect.value,
-        themePreset: themeSelect.value,
+        themePreset: themePicker.getValue(),
         customTheme: {
           primaryColor: normalizeColorInputValue(customThemePicker.primaryInput.value, "#5e8de6"),
           secondaryColor: normalizeColorInputValue(customThemePicker.secondaryInput.value, "#df78cf")
@@ -298,7 +314,7 @@
       languageRow,
       languageSelect,
       themeRow,
-      themeSelect,
+      themePicker,
       customThemePicker,
       nodeLayoutRow,
       nodeLayoutControl,
@@ -390,6 +406,78 @@
     element.appendChild(primaryInput);
     element.appendChild(secondaryInput);
     return { element, primaryInput, secondaryInput };
+  }
+
+  function createThemePicker() {
+    const element = document.createElement("div");
+    element.className = "settings-theme-picker";
+    element.setAttribute("role", "radiogroup");
+    const buttons = new Map();
+    let currentValue = "default";
+
+    function setValue(value, notify = false) {
+      currentValue = buttons.has(value) ? value : "default";
+      buttons.forEach((button, buttonValue) => {
+        const selected = buttonValue === currentValue;
+        button.classList.toggle("is-selected", selected);
+        button.setAttribute("aria-checked", selected ? "true" : "false");
+      });
+      if (notify) {
+        element.dispatchEvent(new CustomEvent("themechange", { detail: { value: currentValue } }));
+      }
+    }
+
+    function render(themeOptions, groupLabels = {}) {
+      const optionByValue = new Map(themeOptions.map((option) => [option.value, option]));
+      buttons.clear();
+      element.replaceChildren();
+      THEME_GROUPS.forEach((group) => {
+        const options = group.values.map((value) => optionByValue.get(value)).filter(Boolean);
+        if (!options.length) {
+          return;
+        }
+        const groupElement = document.createElement("section");
+        groupElement.className = `settings-theme-group settings-theme-group-${group.key}`;
+        const title = document.createElement("div");
+        title.className = "settings-theme-group-title";
+        title.textContent = groupLabels[group.key] || group.key;
+        const list = document.createElement("div");
+        list.className = "settings-theme-options";
+        options.forEach((option) => {
+          const button = document.createElement("button");
+          const swatchColors = THEME_SWATCHES[option.value] || THEME_SWATCHES.default;
+          button.type = "button";
+          button.className = `settings-theme-option settings-theme-option-${group.key}`;
+          button.setAttribute("role", "radio");
+          button.dataset.themeValue = option.value;
+          button.style.setProperty("--theme-option-bg", swatchColors[0]);
+          button.style.setProperty("--theme-option-accent", swatchColors[1]);
+          button.addEventListener("click", () => setValue(option.value, true));
+          const swatch = document.createElement("span");
+          swatch.className = "settings-theme-swatch";
+          const label = document.createElement("span");
+          label.className = "settings-theme-label";
+          label.textContent = option.label;
+          button.appendChild(swatch);
+          button.appendChild(label);
+          buttons.set(option.value, button);
+          list.appendChild(button);
+        });
+        groupElement.appendChild(title);
+        groupElement.appendChild(list);
+        element.appendChild(groupElement);
+      });
+      setValue(currentValue);
+    }
+
+    return {
+      element,
+      render,
+      getValue() {
+        return currentValue;
+      },
+      setValue
+    };
   }
 
   function createColorInput(value) {
@@ -587,8 +675,14 @@
       overlayState.settingsDialog.languageSelect.appendChild(option);
     });
     overlayState.settingsDialog.languageSelect.value = runtime.state.currentSettings?.language || "en-US";
-    overlayState.settingsDialog.themeSelect.replaceChildren(...runtime.i18n.getThemeOptions());
-    overlayState.settingsDialog.themeSelect.value = runtime.state.currentSettings?.themePreset || "midnight";
+    overlayState.settingsDialog.themePicker.render(
+      runtime.i18n.getThemeOptions().map((option) => ({
+        value: option.value,
+        label: option.textContent || option.value
+      })),
+      copy.themeGroups
+    );
+    overlayState.settingsDialog.themePicker.setValue(runtime.state.currentSettings?.themePreset || "default");
     overlayState.settingsDialog.customThemePicker.primaryInput.value = normalizeColorInputValue(
       runtime.state.currentSettings?.customTheme?.primaryColor,
       "#5e8de6"
@@ -598,7 +692,7 @@
       "#df78cf"
     );
     overlayState.settingsDialog.customThemePicker.element.hidden =
-      overlayState.settingsDialog.themeSelect.value !== "custom";
+      overlayState.settingsDialog.themePicker.getValue() !== "custom";
     overlayState.settingsDialog.nodeLayoutRow.text.textContent = copy.nodeAttributeLayout;
     overlayState.settingsDialog.nodeLayoutControl.setLabels({
       inline: copy.nodeAttributeLayoutOptions.inline,

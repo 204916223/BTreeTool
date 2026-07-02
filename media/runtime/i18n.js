@@ -26,6 +26,11 @@
       language: "Language",
       theme: "Theme",
       customTheme: "Custom Theme",
+      themeGroups: {
+        dark: "Dark backgrounds",
+        light: "Light backgrounds",
+        custom: "Custom"
+      },
       nodeAttributeLayout: "Node Layout",
       nodeAttributeLayoutOptions: {
         inline: "Left-right layout",
@@ -89,6 +94,11 @@
         language: "语言",
         theme: "主题",
         customTheme: "自定义主题",
+        themeGroups: {
+          dark: "深色背景",
+          light: "浅色背景",
+          custom: "自定义"
+        },
         nodeAttributeLayout: "节点布局类型",
         nodeAttributeLayoutOptions: {
           inline: "左右布局",
@@ -155,6 +165,7 @@
             { value: "sand", label: "暖沙" },
             { value: "mist", label: "雾灰" },
             { value: "rose", label: "浅玫" },
+            { value: "default", label: "暖金" },
             { value: "custom", label: "自定义" }
           ]
         : [
@@ -166,6 +177,7 @@
             { value: "sand", label: "Sand" },
             { value: "mist", label: "Mist" },
             { value: "rose", label: "Rose" },
+            { value: "default", label: "Warm Gold" },
             { value: "custom", label: "Custom" }
           ];
 
@@ -310,11 +322,16 @@
       atlasDialogTitle: "Node Atlas",
       atlasDialogSummary: "Node atlas generated from the current TreeNodesModel export.",
       atlasEmpty: "No atlas JSON is available.",
-      atlasTagsTitle: "Tags",
-      atlasVariablesTitle: "Related custom variables",
+      atlasParamsTitle: "Parameters",
+      atlasFunctionTitle: "Function",
+      atlasFunctionDescriptionTitle: "Description",
+      atlasFunctionRulesTitle: "Rules",
+      atlasFunctionExamplesTitle: "Examples",
+      atlasFunctionParamsTitle: "Key parameters",
+      atlasFunctionNotesTitle: "Notes",
       atlasNoDescription: "No semantic description is available yet.",
-      atlasNoTags: "No tag information is available.",
-      atlasNoVariables: "No related custom variables were found.",
+      atlasNoParams: "No parameters are available.",
+      atlasNoFunctionIntro: "No function introduction is available yet.",
       atlasInvalidJson: "Invalid atlas JSON",
       atlasSearchPlaceholder: "Search name / author / department",
       atlasSearchTitle: "Search",
@@ -338,11 +355,16 @@
         atlasDialogTitle: "节点图鉴",
         atlasDialogSummary: "按当前 TreeNodesModel 导出生成的节点图鉴。",
         atlasEmpty: "暂无可用的图鉴 JSON。",
-        atlasTagsTitle: "Tag",
-        atlasVariablesTitle: "关联自定义变量",
+        atlasParamsTitle: "参数",
+        atlasFunctionTitle: "功能介绍",
+        atlasFunctionDescriptionTitle: "功能说明",
+        atlasFunctionRulesTitle: "规则",
+        atlasFunctionExamplesTitle: "示例",
+        atlasFunctionParamsTitle: "关键参数",
+        atlasFunctionNotesTitle: "备注",
         atlasNoDescription: "暂未补充语义说明。",
-        atlasNoTags: "暂无 tag 信息。",
-        atlasNoVariables: "暂未发现关联自定义变量。",
+        atlasNoParams: "暂无参数。",
+        atlasNoFunctionIntro: "暂未补充功能介绍。",
         atlasInvalidJson: "图鉴 JSON 格式无效",
         atlasSearchPlaceholder: "按名称 / 作者 / 部门搜索",
         atlasSearchTitle: "搜索",
@@ -787,6 +809,13 @@
       scanGroupTitle: (scope, trees, count) => `${scope}: ${trees} (${count})`,
       scanGroupNoIssues: "No issues in this scope.",
       jumpToIssue: "Jump to this node",
+      explainSelectedNodePrompt: (node) => {
+        if (!node || typeof node === "string") {
+          return `Explain selected node: ${node || ""}`;
+        }
+        const uid = node.uid ? ` (${node.uid})` : "";
+        return `Explain selected ${node.type || "node"}: ${node.title || "node"}${uid}`;
+      },
       whitelistTitle: "Warning whitelist",
       whitelistSummary: "Select custom nodes whose empty parameters should not produce warnings.",
       whitelistSearchPlaceholder: "Search custom nodes...",
@@ -833,6 +862,13 @@
         scanGroupTitle: (scope, trees, count) => `${scope}：${trees}（${count}）`,
         scanGroupNoIssues: "这个范围内未发现问题。",
         jumpToIssue: "跳转到该节点",
+        explainSelectedNodePrompt: (node) => {
+          if (!node || typeof node === "string") {
+            return `解释选中节点：${node || ""}`;
+          }
+          const uid = node.uid ? `（${node.uid}）` : "";
+          return `解释选中${node.type || "节点"}：${node.title || "节点"}${uid}`;
+        },
         whitelistTitle: "警告白名单",
         whitelistSummary: "选择允许空参数不产生警告的自定义节点。",
         whitelistSearchPlaceholder: "搜索自定义节点...",

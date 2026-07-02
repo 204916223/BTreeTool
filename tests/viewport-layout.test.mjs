@@ -9,14 +9,24 @@ function loadViewportRuntime(options = {}) {
     state: {
       currentZoom: 1,
       MIN_ZOOM: 0.2,
-      MAX_ZOOM: 2
+      MAX_ZOOM: 2,
+      currentSettings: {}
     },
     refs: {
       treeSwitcher: null,
       warningList: null,
       zoomLevelLabel: null
-    }
+    },
+    modeRules: {
+      isPlaybackMode() {
+        return false;
+      }
+    },
+    app: options.app,
+    canvas: options.canvas,
+    editAssistant: options.editAssistant
   };
+  const ElementClass = options.Element || class {};
   const context = {
     window: {
       BTreeToolRuntime: runtime,
@@ -24,15 +34,91 @@ function loadViewportRuntime(options = {}) {
       setTimeout() {}
     },
     document: {
+      body: createElementStub("body"),
+      createElement(tagName) {
+        return createElementStub(tagName);
+      },
       querySelectorAll() {
         return [];
       }
     },
+    Element: ElementClass,
+    HTMLElement: ElementClass,
     requestAnimationFrame: options.requestAnimationFrame || ((callback) => callback())
   };
   const scriptPath = path.resolve("media/runtime/viewport/viewport-layout.js");
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
   return runtime;
+}
+
+function createElementStub(tagName = "div") {
+  return {
+    tagName: tagName.toUpperCase(),
+    children: [],
+    style: {},
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+    replaceChildren(...children) {
+      this.children = children;
+    }
+  };
+}
+
+class InteractiveElementStub {
+  constructor(tagName = "div") {
+    this.tagName = tagName.toUpperCase();
+    this.children = [];
+    this.dataset = {};
+    this.listeners = {};
+    this.style = {};
+    this.clientWidth = 800;
+    this.clientHeight = 600;
+    this.className = "";
+    this.classList = {
+      add: (...names) => this.updateClasses(names, true),
+      remove: (...names) => this.updateClasses(names, false),
+      toggle: (name, force) => this.updateClasses([name], force === undefined ? !this.hasClass(name) : Boolean(force)),
+      contains: (name) => this.hasClass(name)
+    };
+  }
+
+  updateClasses(names, shouldAdd) {
+    const classes = new Set(this.className.split(/\s+/).filter(Boolean));
+    names.forEach((name) => {
+      if (shouldAdd) {
+        classes.add(name);
+      } else {
+        classes.delete(name);
+      }
+    });
+    this.className = Array.from(classes).join(" ");
+  }
+
+  hasClass(name) {
+    return this.className.split(/\s+/).includes(name);
+  }
+
+  addEventListener(type, handler) {
+    this.listeners[type] = handler;
+  }
+
+  querySelector() {
+    return null;
+  }
+
+  closest() {
+    return null;
+  }
+
+  getBoundingClientRect() {
+    return { left: 0, top: 0, right: this.clientWidth, bottom: this.clientHeight };
+  }
+
+  setPointerCapture() {}
+
+  releasePointerCapture() {}
 }
 
 function createCanvasState(node, overrides = {}) {
@@ -59,6 +145,79 @@ function createCanvasState(node, overrides = {}) {
     ...overrides
   };
 }
+
+test("blank canvas pointerdown clears generated selected-node assistant prompt", () => {
+  let clearedPromptCount = 0;
+  let persistCount = 0;
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    app: {
+      persistUiState() {
+        persistCount += 1;
+      }
+    },
+    editAssistant: {
+      clearSelectedNodePrompt() {
+        clearedPromptCount += 1;
+      }
+    }
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  const layout = {
+    width: 2000,
+    height: 1400,
+    nodes: []
+  };
+  runtime.state.selectedNodePath = "0.1";
+
+  runtime.viewport.setupCanvas(shell, stage, layout, null, { active: false });
+  shell.listeners.pointerdown({
+    target: shell,
+    button: 0,
+    clientX: 10,
+    clientY: 20,
+    pointerId: 1,
+    preventDefault() {}
+  });
+
+  assert.equal(runtime.state.selectedNodePath, null);
+  assert.equal(clearedPromptCount, 1);
+  assert.equal(persistCount, 1);
+});
+
+test("tree layout reuses base measurements for expanded drop target sizing", () => {
+  let buildNodeCardCalls = 0;
+  const runtime = loadViewportRuntime({
+    canvas: {
+      buildNodeCard(node) {
+        buildNodeCardCalls += 1;
+        return {
+          getBoundingClientRect() {
+            return {
+              width: node.nodePath === "0" ? 260 : 180,
+              height: node.nodePath === "0" ? 120 : 80
+            };
+          }
+        };
+      }
+    }
+  });
+  const root = {
+    nodePath: "0",
+    children: [
+      { nodePath: "0.0", children: [] },
+      { nodePath: "0.1", children: [] }
+    ]
+  };
+
+  const layout = runtime.viewport.buildTreeLayout(root, { behaviorTrees: [{ id: "MainTree", node: root }] });
+
+  assert.equal(layout.nodes.length, 3);
+  assert.equal(buildNodeCardCalls, 6);
+  assert.equal(layout.nodes[1].dropTargetWidth, 230);
+  assert.equal(layout.nodes[1].dropTargetHeight, 250);
+});
 
 test("node position viewport anchor keeps the edited node at its current position", () => {
   const runtime = loadViewportRuntime();

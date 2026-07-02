@@ -21,6 +21,7 @@
     } else {
       runtime.state.selectedTreeId = targetTreeId;
       runtime.state.selectedNodePath = "0";
+      runtime.editAssistant?.syncSelectedNodePrompt?.();
     }
     runtime.app.persistUiState();
     if (runtime.modeRules?.isPlaybackMode?.() && runtime.app.renderPlaybackLog) {
@@ -41,6 +42,7 @@
     } else {
       runtime.state.selectedTreeId = parentReference.treeId;
       runtime.state.selectedNodePath = parentReference.nodePath || "0";
+      runtime.editAssistant?.syncSelectedNodePrompt?.();
     }
     runtime.app.persistUiState();
     if (runtime.modeRules?.isPlaybackMode?.() && runtime.app.renderPlaybackLog) {

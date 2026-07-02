@@ -242,6 +242,7 @@
         } else {
           runtime.state.selectedTreeId = tree.id;
           runtime.state.selectedNodePath = entry.node.nodePath;
+          runtime.editAssistant?.syncSelectedNodePrompt?.();
           runtime.app.persistUiState();
           runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true });
         }

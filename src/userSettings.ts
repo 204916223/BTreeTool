@@ -11,6 +11,7 @@ export type BtThemePreset =
   | "sand"
   | "mist"
   | "rose"
+  | "default"
   | "custom";
 export type BtSettingsNodeCategory = "Action" | "Condition" | "Control" | "Decorator" | "SubTree";
 export type BtSettingsFieldRole = "input" | "output" | "inout" | "param";
@@ -71,7 +72,7 @@ const SETTINGS_FILE_NAME = "user-settings.json";
 
 export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   language: "en-US",
-  themePreset: "midnight",
+  themePreset: "default",
   customTheme: {
     primaryColor: "#5e8de6",
     secondaryColor: "#df78cf"
@@ -104,6 +105,7 @@ export const THEME_PRESETS: Array<{ id: BtThemePreset; labelZh: string; labelEn:
   { id: "sand", labelZh: "暖沙", labelEn: "Sand" },
   { id: "mist", labelZh: "雾灰", labelEn: "Mist" },
   { id: "rose", labelZh: "浅玫", labelEn: "Rose" },
+  { id: "default", labelZh: "暖金", labelEn: "Warm Gold" },
   { id: "custom", labelZh: "自定义", labelEn: "Custom" }
 ];
 
@@ -434,6 +436,7 @@ function toThemePreset(themePreset: unknown, legacyTreeBackgroundColor: unknown)
     themePreset === "sand" ||
     themePreset === "mist" ||
     themePreset === "rose" ||
+    themePreset === "default" ||
     themePreset === "custom"
   ) {
     return themePreset;

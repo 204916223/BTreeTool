@@ -4,7 +4,7 @@
   function applyUserSettings() {
     const chromeCopy = runtime.i18n.getChromeCopy();
     const catalogCopy = runtime.i18n.getCatalogCopy();
-    const themePreset = runtime.state.currentSettings?.themePreset || "midnight";
+    const themePreset = runtime.state.currentSettings?.themePreset || "default";
     document.documentElement.dataset.btreeTheme = themePreset;
     applyCustomThemeColors(runtime.state.currentSettings?.customTheme);
     document.documentElement.lang = runtime.state.currentSettings?.language || "en-US";

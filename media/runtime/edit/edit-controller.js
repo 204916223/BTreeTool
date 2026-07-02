@@ -197,7 +197,7 @@
         return;
       }
 
-      const hadViewport = Boolean(runtime.state.currentCanvasState);
+      const hadViewport = hasAnyCanvasViewport();
       const useLightAttributeRefresh = canUseLightAttributeRefresh(payload, result);
       runtime.state.currentFileName = toBaseName(payload.fileName);
       runtime.state.currentPreview = result;
@@ -396,6 +396,12 @@
         const [treeId, nodePath] = parseAttributeSnapshotKey(key);
         const node = getNodeFromResult(result, treeId, nodePath);
         if (!node) {
+          runtime.canvas.deleteOptimisticNodeAttributes?.(key);
+          return;
+        }
+        const snapshotKind = runtime.state.pendingAttributeSnapshotKinds?.[key];
+        if (snapshotKind && snapshotKind !== node.kind) {
+          runtime.canvas.deleteOptimisticNodeAttributes?.(key);
           return;
         }
         runtime.canvas.clearOptimisticNodeAttributes?.(treeId, nodePath, node.attributes || {});
@@ -469,14 +475,14 @@
     }
 
     function renderCurrentTree(result, options = {}) {
-      const preserveViewport = Boolean(options.preserveViewport && runtime.state.currentCanvasState);
+      const shouldPreserveViewport = options.preserveViewport === true;
       const renderContext = getTreeRenderContext(result, "edit");
       ensureRenderSelection(renderContext);
       const useSplitView = runtime.state.splitViewEnabled && !renderContext.expanded;
-      const viewportState = !useSplitView && preserveViewport
+      const viewportState = !useSplitView && shouldPreserveViewport && runtime.state.currentCanvasState
         ? getCanvasViewportState(runtime.state.currentCanvasState)
         : null;
-      const splitViewportStates = useSplitView && preserveViewport
+      const splitViewportStates = useSplitView && shouldPreserveViewport
         ? getSplitViewportStates()
         : {};
 
@@ -515,6 +521,13 @@
       runtime.mainTreeLocator.render(result, selectedTree);
       runtime.canvas.clearDragState();
       runtime.editAssistant?.refreshLocalScan?.();
+    }
+
+    function hasAnyCanvasViewport() {
+      if (runtime.state.currentCanvasState) {
+        return true;
+      }
+      return Object.keys(runtime.state.canvasStatesByPane || {}).length > 0;
     }
 
     function selectTreeInActivePane(treeId, result) {
@@ -564,6 +577,7 @@
         }
         if (nodePath) {
           runtime.state.selectedNodePath = nodePath;
+          runtime.editAssistant?.syncSelectedNodePrompt?.();
         }
         return;
       }
@@ -583,6 +597,7 @@
           [normalizedPaneId]: nodePath
         };
         runtime.state.selectedNodePath = nodePath;
+        runtime.editAssistant?.syncSelectedNodePrompt?.();
       } else {
         const paneNodePath = runtime.state.splitPaneNodePaths?.[normalizedPaneId];
         runtime.state.selectedNodePath = paneNodePath === null ? null : paneNodePath ?? runtime.state.selectedNodePath ?? "0";
@@ -603,6 +618,7 @@
         }
         if (nodePath) {
           runtime.state.selectedNodePath = nodePath;
+          runtime.editAssistant?.syncSelectedNodePrompt?.();
         }
         return;
       }
@@ -639,7 +655,7 @@
     function persistUiState() {
       vscode.setState({
         uiPreferences: {
-          themePreset: runtime.state.currentSettings?.themePreset || "midnight",
+          themePreset: runtime.state.currentSettings?.themePreset || "default",
           customTheme: runtime.state.currentSettings?.customTheme || null,
           language: runtime.state.currentSettings?.language || "en-US"
         },

@@ -181,6 +181,14 @@
         return;
       }
 
+      if ((event.metaKey || event.ctrlKey) && String(event.key || "").toLowerCase() === "s") {
+        event.preventDefault();
+        if (!event.repeat) {
+          requestCurrentDocumentSave();
+        }
+        return;
+      }
+
       if (event.code === "Escape") {
         if (runtime.state.searchVisible) {
           runtime.search.closePanel();
@@ -257,13 +265,7 @@
       }
       runtime.overlays.showBehaviorTreeDialog();
     });
-    runtime.refs.saveDocumentButton?.addEventListener("click", () => {
-      if (!runtime.state.currentHasDocument) {
-        return;
-      }
-
-      runtime.vscode.postMessage({ type: "saveCurrentDocument" });
-    });
+    runtime.refs.saveDocumentButton?.addEventListener("click", requestCurrentDocumentSave);
     runtime.refs.treeSearchCloseButton?.addEventListener("click", () => {
       runtime.search.closePanel();
     });
@@ -381,6 +383,14 @@
       runtime.app.renderPlaybackState?.();
     }
     runtime.vscode.postMessage({ type: "choosePlaybackLogFile" });
+  }
+
+  function requestCurrentDocumentSave() {
+    if (!runtime.state.currentHasDocument) {
+      return;
+    }
+
+    runtime.vscode.postMessage({ type: "saveCurrentDocument" });
   }
 
   runtime.mainEvents = {

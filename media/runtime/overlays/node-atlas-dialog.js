@@ -88,16 +88,16 @@
     const preview = document.createElement("div");
     preview.className = "node-atlas-preview";
 
-    const tags = document.createElement("div");
-    tags.className = "node-atlas-tags";
+    const params = document.createElement("div");
+    params.className = "node-atlas-params";
 
-    const variables = document.createElement("div");
-    variables.className = "node-atlas-variables";
+    const functionIntro = document.createElement("div");
+    functionIntro.className = "node-atlas-function";
 
     layout.appendChild(list);
     layout.appendChild(preview);
-    layout.appendChild(tags);
-    layout.appendChild(variables);
+    layout.appendChild(params);
+    layout.appendChild(functionIntro);
     header.appendChild(title);
     header.appendChild(closeButton);
     dialog.appendChild(header);
@@ -116,8 +116,8 @@
       searchInput,
       searchButton,
       preview,
-      tags,
-      variables
+      params,
+      functionIntro
     };
   }
 
@@ -153,8 +153,8 @@
 
     renderNodeList(dialog);
     renderPreview(dialog);
-    renderTags(dialog);
-    renderVariables(dialog);
+    renderParams(dialog);
+    renderFunctionIntro(dialog);
   }
 
   function renderNodeList(dialog) {
@@ -361,58 +361,98 @@
     });
   }
 
-  function renderTags(dialog) {
+  function renderParams(dialog) {
     const copy = runtime.i18n.getCatalogCopy();
     const entry = getSelectedEntry();
-    dialog.tags.replaceChildren();
+    dialog.params.replaceChildren();
     if (!entry) {
-      dialog.tags.appendChild(createEmpty(copy.atlasEmpty));
+      dialog.params.appendChild(createEmpty(copy.atlasEmpty));
       return;
     }
 
     const title = document.createElement("div");
     title.className = "node-atlas-region-title";
-    title.textContent = copy.atlasTagsTitle;
-    dialog.tags.appendChild(title);
+    title.textContent = copy.atlasParamsTitle;
+    dialog.params.appendChild(title);
 
-    const tags = collectTags(entry);
-    if (tags.length === 0) {
-      dialog.tags.appendChild(createEmpty(copy.atlasNoTags));
+    const params = getSelectedParams();
+    if (params.length === 0) {
+      dialog.params.appendChild(createEmpty(copy.atlasNoParams));
       return;
     }
 
-    for (const tag of tags) {
-      const item = document.createElement("div");
-      item.className = "node-atlas-tag";
-      item.textContent = tag;
-      dialog.tags.appendChild(item);
+    for (const [name, param] of params) {
+      dialog.params.appendChild(createParamSummary(name, param));
     }
   }
 
-  function renderVariables(dialog) {
+  function createParamSummary(name, param) {
+    const item = document.createElement("section");
+    item.className = "node-atlas-param";
+
+    const heading = document.createElement("div");
+    heading.className = "node-atlas-param-name";
+    heading.textContent = name;
+    item.appendChild(heading);
+
+    const meta = [param?.role, param?.type, param?.required ? "required" : ""].filter(Boolean);
+    if (meta.length > 0) {
+      const detail = document.createElement("div");
+      detail.className = "node-atlas-param-meta";
+      detail.textContent = meta.join(" / ");
+      item.appendChild(detail);
+    }
+
+    if (param?.default !== undefined && param.default !== "") {
+      const defaultValue = document.createElement("div");
+      defaultValue.className = "node-atlas-param-line";
+      defaultValue.textContent = `default: ${param.default}`;
+      item.appendChild(defaultValue);
+    }
+
+    if (param?.description) {
+      const description = document.createElement("div");
+      description.className = "node-atlas-param-line";
+      description.textContent = param.description;
+      item.appendChild(description);
+    }
+
+    return item;
+  }
+
+  function renderFunctionIntro(dialog) {
     const copy = runtime.i18n.getCatalogCopy();
-    dialog.variables.replaceChildren();
+    const entry = getSelectedEntry();
+    dialog.functionIntro.replaceChildren();
 
     const title = document.createElement("div");
     title.className = "node-atlas-region-title";
-    title.textContent = copy.atlasVariablesTitle;
-    dialog.variables.appendChild(title);
+    title.textContent = copy.atlasFunctionTitle;
+    dialog.functionIntro.appendChild(title);
 
-    const variables = collectVariables(getSelectedParams());
-    if (variables.length === 0) {
-      dialog.variables.appendChild(createEmpty(copy.atlasNoVariables));
+    const sections = collectFunctionIntroSections(entry);
+    if (sections.length === 0) {
+      dialog.functionIntro.appendChild(createEmpty(copy.atlasNoFunctionIntro));
       return;
     }
 
-    const list = document.createElement("div");
-    list.className = "node-atlas-variable-list";
-    for (const variable of variables) {
-      const item = document.createElement("span");
-      item.className = "node-atlas-variable";
-      item.textContent = variable;
-      list.appendChild(item);
+    for (const section of sections) {
+      const block = document.createElement("section");
+      block.className = "node-atlas-function-section";
+      if (section.title) {
+        const heading = document.createElement("div");
+        heading.className = "node-atlas-function-title";
+        heading.textContent = section.title;
+        block.appendChild(heading);
+      }
+      for (const line of section.lines) {
+        const item = document.createElement("div");
+        item.className = "node-atlas-function-line";
+        item.textContent = line;
+        block.appendChild(item);
+      }
+      dialog.functionIntro.appendChild(block);
     }
-    dialog.variables.appendChild(list);
   }
 
   function parseAtlasNodes() {
@@ -491,32 +531,58 @@
     return param.required ? "required" : "";
   }
 
-  function collectTags(entry) {
-    const tags = new Set();
-    for (const param of Object.values(entry?.mainline?.params || {})) {
-      for (const item of param.availability || []) {
-        if (item.since) {
-          tags.add(item.since);
-        }
-        if (item.until) {
-          tags.add(`< ${item.until}`);
-        }
-      }
+  function collectFunctionIntroSections(entry) {
+    if (!entry) {
+      return [];
     }
-    return Array.from(tags).sort((left, right) => String(left).localeCompare(String(right)));
+    const copy = runtime.i18n.getCatalogCopy();
+    const sections = [];
+    const description = normalizeIntroText(entry.description);
+    if (description) {
+      sections.push({ title: copy.atlasFunctionDescriptionTitle, lines: [description] });
+    }
+    const rules = normalizeIntroList(entry.mainline?.rules);
+    if (rules.length > 0) {
+      sections.push({ title: copy.atlasFunctionRulesTitle, lines: rules });
+    }
+    const examples = normalizeIntroList(entry.mainline?.examples);
+    if (examples.length > 0) {
+      sections.push({ title: copy.atlasFunctionExamplesTitle, lines: examples });
+    }
+    const paramLines = collectParamIntroLines(entry);
+    if (paramLines.length > 0) {
+      sections.push({ title: copy.atlasFunctionParamsTitle, lines: paramLines });
+    }
+    const notes = normalizeIntroList(entry.source_notes);
+    if (notes.length > 0) {
+      sections.push({ title: copy.atlasFunctionNotesTitle, lines: notes });
+    }
+    return sections;
   }
 
-  function collectVariables(params) {
-    const variables = new Set();
-    for (const [name, param] of params) {
-      const fields = [name, param.default, param.description].filter(Boolean);
-      for (const value of fields) {
-        for (const match of String(value).matchAll(/\{([^{}\s]+)\}/g)) {
-          variables.add(match[1]);
-        }
-      }
+  function collectParamIntroLines(entry) {
+    return Object.entries(entry?.mainline?.params || {})
+      .map(([name, param]) => {
+        const parts = [
+          param?.role || "",
+          param?.type || "",
+          param?.required ? "required" : "",
+          param?.description || ""
+        ].filter(Boolean);
+        return parts.length > 0 ? `${name}: ${parts.join(" / ")}` : "";
+      })
+      .filter(Boolean);
+  }
+
+  function normalizeIntroText(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+
+  function normalizeIntroList(value) {
+    if (!Array.isArray(value)) {
+      return [];
     }
-    return Array.from(variables).sort((left, right) => left.localeCompare(right));
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
 
   function createEmpty(text) {

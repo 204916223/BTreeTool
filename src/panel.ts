@@ -1,21 +1,13 @@
 import * as vscode from "vscode";
-import { Buffer } from "node:buffer";
 import { BtPlaybackLog } from "./core/btlog";
-import { scanEditAssistantRules } from "./core/editAssistantScan";
-import { parseBehaviorTreeDocument } from "./core/parse";
-import { serializeBehaviorTreeDocument } from "./core/serialize";
-import { BtPreviewDocument, buildPreviewDocument } from "./core/viewModel";
 import {
   BtUserSettings,
   cloneUserSettings,
-  DEFAULT_USER_SETTINGS,
-  loadUserSettings,
-  mergeRecommendedPresets,
-  saveUserSettings
+  loadUserSettings
 } from "./userSettings";
-import { addTraceProvider, getTraceConfigState, loadTraceConfig, setActiveTraceProvider } from "./traceConfig";
 import { createTraceFeedbackRecord, TraceFeedbackPayload, storeTraceFeedback } from "./traceLearning";
 import { getWebviewHtml } from "./panel/webviewHtml";
+import { handleEditAssistantAskAction, loadAtlasNodeIndex } from "./panel/editAssistantActions";
 import {
   NodeCopyTemplateMessage,
   PreviewPayload,
@@ -24,22 +16,36 @@ import {
 } from "./panel/messages";
 import { routeWebviewMessage } from "./panel/messageRouter";
 import { getPanelCopy } from "./panel/panelCopy";
-import { mergePresetNodeSets, normalizeNodeCopyChildren } from "./panel/panelUtils";
-import { choosePlaybackLogFile } from "./panel/playbackLogActions";
-import { cancelTraceRequest, createTraceRequestControllers, handleTraceAskAction } from "./panel/traceActions";
+import { mergePresetNodeSets, normalizeNodeCopyChildren, toBaseName } from "./panel/panelUtils";
+import { handleChoosePlaybackLogFileAction } from "./panel/playbackLogActions";
 import {
-  createNewBehaviorTreeDocumentXml,
-  isDocumentSaveBlocked,
-  normalizeBehaviorTreeXml,
-  normalizeDocumentBeforeSave,
-  replaceDocumentText,
-  writeUtf8File
+  cancelTraceRequest,
+  chooseTraceContextFile,
+  createTraceContextFileFromPayload,
+  createTraceRequestControllers,
+  handleAddTraceProviderAction,
+  handleSetTraceProviderAction,
+  handleTraceAskAction,
+  loadTraceConfigStateMessage,
+  openTraceConfigFileAction,
+  TraceContextFile
+} from "./panel/traceActions";
+import {
+  DocumentWorkflowContext,
+  handleCreateNewBehaviorTreeDocumentAction,
+  handleOpenExistingBehaviorTreeDocumentAction,
+  handleSaveCurrentDocumentAction,
+  isXmlWithoutBehaviorTrees,
+  revealTreeNodesModelAction
 } from "./panel/documentActions";
 import {
-  clearImportedNodeLibrary,
-  clearNodeLibraryPresetsCache,
-  importCustomNodesToNodeLibrary,
-  loadNodeLibraryPresetsForExtension
+  handleClearImportedNodesAction,
+  handleImportCustomNodesAction,
+  handleImportRecommendedPresetsAction,
+  handleSaveUserSettingsAction,
+  loadNodeLibraryPresetsForExtension,
+  openUserSettingsFileAction,
+  SettingsWorkflowContext
 } from "./panel/settingsActions";
 import {
   EditActionContext,
@@ -51,22 +57,15 @@ import {
   handleMoveNodeAction,
   handleRenameBehaviorTreeAction,
   handleSaveTreeNodeModelsAction,
-  handleUpdateNodeAttributesAction,
-  XmlMutation
+  handleUpdateNodeAttributesAction
 } from "./panel/editActions";
+import { XmlMutationController } from "./panel/xmlMutationController";
+import { buildPreviewPayload, EMPTY_PREVIEW_PAYLOAD } from "./panel/previewPayload";
 
 type InitialPanelState = {
   settings: BtUserSettings;
   settingsFileUri: vscode.Uri;
   nodeLibraryPresets: BtUserSettings["presetNodes"];
-};
-
-type TraceContextFileState = {
-  fileName: string;
-  filePath: string;
-  lineCount: number;
-  charCount: number;
-  truncated: boolean;
 };
 
 export class BehaviorTreePreviewPanel {
@@ -76,23 +75,12 @@ export class BehaviorTreePreviewPanel {
   private static copiedNodeTemplate: NodeCopyTemplateMessage | null = null;
   private static readonly invalidDocumentMessage = "当前文件不符合规则";
   private static readonly invalidDocumentConfirm = "确定";
-  private static readonly emptyPayload: PreviewPayload = {
-    fileName: "No active document",
-    languageId: "unknown",
-    hasDocument: false,
-    isDirty: false,
-    preview: null,
-    parseError: null,
-    settings: cloneUserSettings(DEFAULT_USER_SETTINGS),
-    settingsFilePath: ""
-  };
-
   static async createOrShow(
     extensionUri: vscode.Uri,
     globalStorageUri: vscode.Uri,
     document?: vscode.TextDocument
   ): Promise<void> {
-    if (document && BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(document)) {
+    if (document && isXmlWithoutBehaviorTrees(document)) {
       await BehaviorTreePreviewPanel.showInvalidDocumentMessage();
       await BehaviorTreePreviewPanel.createOrShow(extensionUri, globalStorageUri, undefined);
       return;
@@ -124,7 +112,7 @@ export class BehaviorTreePreviewPanel {
       return;
     }
 
-    const title = `BTreeTool: ${BehaviorTreePreviewPanel.toBaseName(document.fileName)}`;
+    const title = `BTreeTool: ${toBaseName(document.fileName)}`;
     const panel = vscode.window.createWebviewPanel(
       "btreeTool.preview",
       title,
@@ -199,20 +187,6 @@ export class BehaviorTreePreviewPanel {
     }
   }
 
-  private static toBaseName(fileName: string): string {
-    const normalized = fileName.replace(/\\/g, "/");
-    const segments = normalized.split("/");
-    return segments[segments.length - 1] || fileName;
-  }
-
-  private static isXmlWithoutBehaviorTrees(document: vscode.TextDocument): boolean {
-    try {
-      return parseBehaviorTreeDocument(document.getText()).behaviorTrees.length === 0;
-    } catch (_error) {
-      return false;
-    }
-  }
-
   private static async showInvalidDocumentMessage(): Promise<void> {
     await vscode.window.showWarningMessage(
       BehaviorTreePreviewPanel.invalidDocumentMessage,
@@ -240,26 +214,56 @@ export class BehaviorTreePreviewPanel {
   private readonly extensionUri: vscode.Uri;
   private readonly globalStorageUri: vscode.Uri;
   private readonly disposables: vscode.Disposable[] = [];
-  private latestPayload: PreviewPayload = BehaviorTreePreviewPanel.emptyPayload;
+  private latestPayload: PreviewPayload = EMPTY_PREVIEW_PAYLOAD;
   private latestDocumentUri: vscode.Uri | null = null;
   private latestPlaybackLog: BtPlaybackLog | null = null;
-  private traceContextFile: { state: TraceContextFileState; text: string } | null = null;
+  private traceContextFile: TraceContextFile | null = null;
   private settingsFileUri: vscode.Uri | null = null;
   private traceConfigFileUri: vscode.Uri | null = null;
   private readonly traceRequestControllers = createTraceRequestControllers();
-  private currentSettings: BtUserSettings = cloneUserSettings(BehaviorTreePreviewPanel.emptyPayload.settings);
+  private readonly atlasNodes: ReturnType<typeof loadAtlasNodeIndex>;
+  private readonly xmlMutations: XmlMutationController;
+  private effectiveSettingsCache:
+    | {
+        currentSettings: BtUserSettings;
+        nodeLibraryPresets: BtUserSettings["presetNodes"];
+        effectiveSettings: BtUserSettings;
+      }
+    | null = null;
+  private previewPayloadCache:
+    | {
+        documentUri: string;
+        documentVersion: number;
+        documentIsDirty: boolean;
+        currentSettings: BtUserSettings;
+        effectiveSettings: BtUserSettings;
+        settingsFilePath: string;
+        payload: PreviewPayload;
+      }
+    | null = null;
+  private currentSettings: BtUserSettings = cloneUserSettings(EMPTY_PREVIEW_PAYLOAD.settings);
   private nodeLibraryPresets: BtUserSettings["presetNodes"] = [];
   private webviewReady = false;
-  private readonly xmlUndoStack: string[] = [];
-  private xmlMutationQueue: Promise<void> = Promise.resolve();
-  private suppressedDocumentRefresh: { uri: string; version: number | null } | null = null;
   private invalidDocumentPrompt: Promise<void> | null = null;
   private getCopy() {
     return getPanelCopy(this.currentSettings.language);
   }
 
   private getEffectiveSettings(): BtUserSettings {
-    return mergePresetNodeSets(this.currentSettings, this.nodeLibraryPresets);
+    if (
+      this.effectiveSettingsCache?.currentSettings === this.currentSettings &&
+      this.effectiveSettingsCache.nodeLibraryPresets === this.nodeLibraryPresets
+    ) {
+      return this.effectiveSettingsCache.effectiveSettings;
+    }
+
+    const effectiveSettings = mergePresetNodeSets(this.currentSettings, this.nodeLibraryPresets);
+    this.effectiveSettingsCache = {
+      currentSettings: this.currentSettings,
+      nodeLibraryPresets: this.nodeLibraryPresets,
+      effectiveSettings
+    };
+    return effectiveSettings;
   }
 
   private getEditActionContext(): EditActionContext {
@@ -268,8 +272,47 @@ export class BehaviorTreePreviewPanel {
       hasAttachedDocument: Boolean(this.latestDocumentUri),
       preview: this.latestPayload.preview,
       effectiveSettings: this.getEffectiveSettings(),
-      applyXmlMutation: (mutation) => this.applyXmlMutation(mutation),
+      applyXmlMutation: (mutation) => this.xmlMutations.apply(mutation),
       postEditResult: (ok, message, dirtyState) => this.postEditResult(ok, message, dirtyState)
+    };
+  }
+
+  private getDocumentWorkflowContext(): DocumentWorkflowContext {
+    return {
+      copy: this.getCopy(),
+      latestDocumentUri: this.latestDocumentUri,
+      attachDocument: (document) => this.attachDocument(document),
+      detachDocument: () => this.detachDocument(),
+      refreshPreviewFromUri: () => this.refreshPreviewFromUri(),
+      revealPanel: () => this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One),
+      isXmlWithoutBehaviorTrees: (document) => isXmlWithoutBehaviorTrees(document),
+      showInvalidDocumentMessage: () => BehaviorTreePreviewPanel.showInvalidDocumentMessage(),
+      postEditResult: (ok, message, dirtyState) => this.postEditResult(ok, message, dirtyState)
+    };
+  }
+
+  private getSettingsWorkflowContext(): SettingsWorkflowContext {
+    return {
+      extensionUri: this.extensionUri,
+      globalStorageUri: this.globalStorageUri,
+      getCopy: () => this.getCopy(),
+      getDocumentUri: () => this.latestDocumentUri,
+      getSettingsFileUri: () => this.settingsFileUri,
+      getCurrentSettings: () => this.currentSettings,
+      setCurrentSettings: (settings) => {
+        this.currentSettings = settings;
+      },
+      getNodeLibraryPresets: () => this.nodeLibraryPresets,
+      setNodeLibraryPresets: (presetNodes) => {
+        this.nodeLibraryPresets = presetNodes;
+      },
+      initializeSettings: () => this.initializeSettings(),
+      refreshPreviewFromUri: () => this.refreshPreviewFromUri(),
+      postSettingsUpdated: () => this.postSettingsUpdated(),
+      postEditResult: (ok, message, dirtyState) => this.postEditResult(ok, message, dirtyState),
+      replaceDocumentTextWithUndo: async (document, currentText, nextText, rejectedMessage) => {
+        await this.xmlMutations.replaceDocumentTextWithUndo(document, currentText, nextText, rejectedMessage);
+      }
     };
   }
 
@@ -283,6 +326,15 @@ export class BehaviorTreePreviewPanel {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.globalStorageUri = globalStorageUri;
+    this.atlasNodes = loadAtlasNodeIndex(
+      vscode.Uri.joinPath(this.extensionUri, "node-library", "atlas", "nodes.json").fsPath
+    );
+    this.xmlMutations = new XmlMutationController({
+      getDocumentUri: () => this.latestDocumentUri,
+      getCopy: () => this.getCopy(),
+      refreshPreviewFromUri: () => this.refreshPreviewFromUri(),
+      postEditResult: (ok, message, dirtyState) => this.postEditResult(ok, message, dirtyState)
+    });
     if (initialState) {
       this.currentSettings = initialState.settings;
       this.settingsFileUri = initialState.settingsFileUri;
@@ -536,16 +588,17 @@ export class BehaviorTreePreviewPanel {
       return;
     }
 
-    if (this.consumeSuppressedDocumentRefresh(document)) {
+    if (this.xmlMutations.consumeSuppressedDocumentRefresh(document)) {
       return;
     }
 
-    if (BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(document)) {
+    const nextPayload = this.toPayload(document);
+    if (this.isPayloadWithoutBehaviorTrees(nextPayload)) {
       void this.detachInvalidDocumentAfterPrompt();
       return;
     }
 
-    this.latestPayload = this.toPayload(document);
+    this.latestPayload = nextPayload;
 
     if (this.webviewReady) {
       this.postLatestPayload();
@@ -568,34 +621,15 @@ export class BehaviorTreePreviewPanel {
   }
 
   private async postTraceConfigState(): Promise<void> {
-    try {
-      const { config, configUri } = await loadTraceConfig(this.globalStorageUri);
-      this.traceConfigFileUri = configUri;
-      this.panel.webview.postMessage({
-        type: "traceConfigState",
-        payload: getTraceConfigState(config, configUri.fsPath)
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.panel.webview.postMessage({
-        type: "traceConfigState",
-        payload: {
-          ready: false,
-          configFilePath: "",
-          configDirectoryPath: "",
-          activeProvider: "",
-          activeProviderLabel: "",
-          activeModel: "",
-          missing: [message],
-          notice: message,
-          providers: []
-        }
-      });
+    const result = await loadTraceConfigStateMessage(this.globalStorageUri);
+    if (result.configUri) {
+      this.traceConfigFileUri = result.configUri;
     }
+    this.panel.webview.postMessage(result.message);
   }
 
   private updatePanelTitle(fileName: string): void {
-    this.panel.title = `BTreeTool: ${BehaviorTreePreviewPanel.toBaseName(fileName)}`;
+    this.panel.title = `BTreeTool: ${toBaseName(fileName)}`;
   }
 
   private postEditResult(ok: boolean, message: string, dirtyState?: "dirty" | "saved"): void {
@@ -638,12 +672,13 @@ export class BehaviorTreePreviewPanel {
     }
 
     const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-    if (BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(document)) {
+    const nextPayload = this.toPayload(document);
+    if (this.isPayloadWithoutBehaviorTrees(nextPayload)) {
       await this.detachInvalidDocumentAfterPrompt();
       return;
     }
 
-    this.latestPayload = this.toPayload(document);
+    this.latestPayload = nextPayload;
 
     if (this.webviewReady) {
       this.postLatestPayload();
@@ -658,7 +693,7 @@ export class BehaviorTreePreviewPanel {
     }
 
     this.latestDocumentUri = document.uri;
-    this.xmlUndoStack.length = 0;
+    this.xmlMutations.clearUndoStack();
     this.latestPayload = this.toPayload(document);
     this.updatePanelTitle(document.fileName);
     BehaviorTreePreviewPanel.addPanelForDocument(document.uri, this);
@@ -675,7 +710,7 @@ export class BehaviorTreePreviewPanel {
 
     BehaviorTreePreviewPanel.noDocumentPanels.add(this);
     this.latestDocumentUri = null;
-    this.xmlUndoStack.length = 0;
+    this.xmlMutations.clearUndoStack();
     this.latestPayload = this.toPayload(undefined);
     this.panel.title = "BTreeTool";
     BehaviorTreePreviewPanel.activePanel = this;
@@ -700,38 +735,41 @@ export class BehaviorTreePreviewPanel {
   }
 
   private toPayload(document: vscode.TextDocument | undefined): PreviewPayload {
+    const effectiveSettings = this.getEffectiveSettings();
+    const settingsFilePath = this.settingsFileUri?.fsPath || "";
+
     if (!document) {
-      return {
-        ...BehaviorTreePreviewPanel.emptyPayload,
-        settings: cloneUserSettings(this.currentSettings),
-        settingsFilePath: this.settingsFileUri?.fsPath || ""
-      };
+      return buildPreviewPayload(undefined, this.currentSettings, effectiveSettings, settingsFilePath);
     }
 
-    return {
-      fileName: document.fileName,
-      languageId: document.languageId,
-      hasDocument: true,
-      isDirty: document.isDirty,
-      settings: cloneUserSettings(this.currentSettings),
-      settingsFilePath: this.settingsFileUri?.fsPath || "",
-      ...this.buildPayloadState(document.getText())
+    const documentUri = document.uri.toString();
+    const cached = this.previewPayloadCache;
+    if (
+      cached?.documentUri === documentUri &&
+      cached.documentVersion === document.version &&
+      cached.documentIsDirty === document.isDirty &&
+      cached.currentSettings === this.currentSettings &&
+      cached.effectiveSettings === effectiveSettings &&
+      cached.settingsFilePath === settingsFilePath
+    ) {
+      return cached.payload;
+    }
+
+    const payload = buildPreviewPayload(document, this.currentSettings, effectiveSettings, settingsFilePath);
+    this.previewPayloadCache = {
+      documentUri,
+      documentVersion: document.version,
+      documentIsDirty: document.isDirty,
+      currentSettings: this.currentSettings,
+      effectiveSettings,
+      settingsFilePath,
+      payload
     };
+    return payload;
   }
 
-  private buildPayloadState(source: string): Pick<PreviewPayload, "preview" | "parseError"> {
-    try {
-      const ast = parseBehaviorTreeDocument(source, this.getEffectiveSettings());
-      return {
-        preview: buildPreviewDocument(ast, this.getEffectiveSettings()),
-        parseError: null
-      };
-    } catch (error) {
-      return {
-        preview: null,
-        parseError: error instanceof Error ? error.message : String(error)
-      };
-    }
+  private isPayloadWithoutBehaviorTrees(payload: PreviewPayload): boolean {
+    return Boolean(payload.preview && payload.preview.behaviorTrees.length === 0);
   }
 
   private async handleUpdateNodeAttributes(
@@ -753,67 +791,17 @@ export class BehaviorTreePreviewPanel {
         }
       | undefined
   ): void {
-    const copy = this.getCopy();
-    const prompt = payload?.prompt?.trim() || "";
-    const treeId = payload?.treeId?.trim() || this.latestPayload.preview?.defaultTreeId || "";
-    const nodePath = payload?.nodePath?.trim() || "0";
-    if (payload?.action === "scan") {
-      const scan = scanEditAssistantRules(this.latestPayload.preview, {
-        queueTreeIds: payload.queueTreeIds,
-        currentTreeId: treeId,
-        warningWhitelist: this.currentSettings.editAssistantWarningWhitelist,
-        language: this.currentSettings.language
-      });
-      this.panel.webview.postMessage({
-        type: "editAssistantAnswer",
-        payload: {
-          requestId: payload?.requestId || "",
-          ok: true,
-          action: "scan",
-          silent: payload?.silent === true,
-          scan
-        }
-      });
-      return;
-    }
-
-    const warnings = this.latestPayload.preview?.warnings.length ?? 0;
-    const target = treeId ? `树 "${treeId}" / 节点 ${nodePath}` : "当前行为树";
-    const answer = prompt
-      ? `已收到针对 ${target} 的请求：${prompt}\n\n当前框架已接入编辑模式右侧面板和消息通道。本阶段还没有执行规则扫描或生成编辑操作；下一步可以把本地规则检查、模板化编辑计划和 AI 规划分别接到这个入口。当前文档告警数量：${warnings}。`
-      : "编辑助手请求为空。";
-
-    this.panel.webview.postMessage({
-      type: "editAssistantAnswer",
-      payload: {
-        requestId: payload?.requestId || "",
-        ok: true,
-        answer,
-        notice: copy.nodeCreateUnchanged
-      }
+    handleEditAssistantAskAction(payload, {
+      preview: this.latestPayload.preview,
+      settings: this.currentSettings,
+      copy: this.getCopy(),
+      atlasNodes: this.atlasNodes,
+      postMessage: (message) => this.panel.webview.postMessage(message)
     });
   }
 
   private async revealTreeNodesModel(): Promise<void> {
-    if (!this.latestDocumentUri) {
-      void vscode.window.showWarningMessage(this.getCopy().noAttachedDocumentWarning);
-      return;
-    }
-
-    const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-    const source = document.getText();
-    const modelOffset = source.indexOf("<TreeNodesModel");
-    const rootOffset = source.indexOf("<root");
-    const targetOffset = modelOffset >= 0 ? modelOffset : rootOffset >= 0 ? rootOffset : 0;
-    const targetPosition = document.positionAt(targetOffset);
-
-    const editor = await vscode.window.showTextDocument(document, {
-      preview: false,
-      preserveFocus: false
-    });
-
-    editor.selection = new vscode.Selection(targetPosition, targetPosition);
-    editor.revealRange(new vscode.Range(targetPosition, targetPosition), vscode.TextEditorRevealType.InCenter);
+    await revealTreeNodesModelAction(this.latestDocumentUri, this.getCopy());
   }
 
   private async handleSaveTreeNodeModels(payload: Parameters<typeof handleSaveTreeNodeModelsAction>[0]): Promise<void> {
@@ -908,366 +896,48 @@ export class BehaviorTreePreviewPanel {
     await handleDeleteNodeAction(payload, this.getEditActionContext());
   }
 
-  private async applyXmlMutation(mutation: XmlMutation): Promise<void> {
-    const queuedMutation = this.xmlMutationQueue.then(() => this.applyXmlMutationNow(mutation));
-    this.xmlMutationQueue = queuedMutation.catch(() => undefined);
-    await queuedMutation;
-  }
-
-  private async applyXmlMutationNow(mutation: XmlMutation): Promise<void> {
-    if (!this.latestDocumentUri) {
-      this.postEditResult(false, this.getCopy().noAttachedDocument);
-      return;
-    }
-
-    try {
-      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-      const currentText = document.getText();
-      const nextXml = mutation.mutate(currentText);
-
-      if (nextXml === currentText) {
-        this.postEditResult(true, mutation.unchangedMessage);
-        return;
-      }
-
-      this.suppressNextDocumentRefresh(document.uri);
-      const applied = await replaceDocumentText(document, nextXml, currentText);
-
-      if (!applied) {
-        this.clearSuppressedDocumentRefresh(document.uri);
-        throw new Error(this.getCopy().xmlUpdateRejected);
-      }
-
-      this.pinSuppressedDocumentRefreshVersion(document);
-      this.pushXmlUndoSnapshot(currentText);
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, mutation.successMessage, "dirty");
-    } catch (error) {
-      if (this.latestDocumentUri) {
-        this.clearSuppressedDocumentRefresh(this.latestDocumentUri);
-      }
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, `${mutation.failurePrefix} ${message}`);
-    }
-  }
-
-  private pushXmlUndoSnapshot(source: string): void {
-    this.xmlUndoStack.push(source);
-    if (this.xmlUndoStack.length > 50) {
-      this.xmlUndoStack.splice(0, this.xmlUndoStack.length - 50);
-    }
-  }
-
-  private suppressNextDocumentRefresh(uri: vscode.Uri): void {
-    this.suppressedDocumentRefresh = {
-      uri: uri.toString(),
-      version: null
-    };
-  }
-
-  private consumeSuppressedDocumentRefresh(document: vscode.TextDocument): boolean {
-    const suppressed = this.suppressedDocumentRefresh;
-    if (!suppressed || suppressed.uri !== document.uri.toString()) {
-      return false;
-    }
-
-    if (suppressed.version !== null && suppressed.version !== document.version) {
-      this.suppressedDocumentRefresh = null;
-      return false;
-    }
-
-    this.suppressedDocumentRefresh = null;
-    return true;
-  }
-
-  private clearSuppressedDocumentRefresh(uri: vscode.Uri): void {
-    if (this.suppressedDocumentRefresh?.uri === uri.toString()) {
-      this.suppressedDocumentRefresh = null;
-    }
-  }
-
-  private pinSuppressedDocumentRefreshVersion(document: vscode.TextDocument): void {
-    if (this.suppressedDocumentRefresh?.uri === document.uri.toString()) {
-      this.suppressedDocumentRefresh.version = document.version;
-    }
-  }
-
   private async handleUndoCurrentDocument(): Promise<void> {
-    const copy = this.getCopy();
-    if (!this.latestDocumentUri) {
-      this.postEditResult(false, copy.noAttachedDocument);
-      return;
-    }
-
-    const previousText = this.xmlUndoStack.pop();
-    if (previousText === undefined) {
-      this.postEditResult(false, copy.undoUnavailable);
-      return;
-    }
-
-    try {
-      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-      const currentText = document.getText();
-      if (previousText === currentText) {
-        this.postEditResult(true, copy.undoApplied);
-        return;
-      }
-
-      this.suppressNextDocumentRefresh(document.uri);
-      const applied = await replaceDocumentText(document, previousText, currentText);
-
-      if (!applied) {
-        this.clearSuppressedDocumentRefresh(document.uri);
-        throw new Error(copy.xmlUpdateRejected);
-      }
-
-      this.pinSuppressedDocumentRefreshVersion(document);
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, copy.undoApplied, "dirty");
-    } catch (error) {
-      if (this.latestDocumentUri) {
-        this.clearSuppressedDocumentRefresh(this.latestDocumentUri);
-      }
-      this.xmlUndoStack.push(previousText);
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, `${copy.undoFailed} ${message}`);
-    }
+    await this.xmlMutations.undo();
   }
 
   private async handleSaveCurrentDocument(): Promise<void> {
-    const copy = this.getCopy();
-    if (!this.latestDocumentUri) {
-      this.postEditResult(false, copy.noAttachedDocument);
-      return;
-    }
-
-    const overwriteAction = copy.saveAction;
-    const saveAsAction = copy.saveAsAction;
-    const choice = await vscode.window.showWarningMessage(
-      copy.saveDocumentConfirm,
-      { modal: true },
-      overwriteAction,
-      saveAsAction
-    );
-
-    if (choice === saveAsAction) {
-      await this.handleSaveCurrentDocumentAs();
-      return;
-    }
-
-    if (choice !== overwriteAction) {
-      return;
-    }
-
-    try {
-      let document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-      if (isDocumentSaveBlocked(document.getText())) {
-        this.postEditResult(false, copy.documentSaveBlocked);
-        return;
-      }
-
-      document = await normalizeDocumentBeforeSave(document, copy.xmlUpdateRejected);
-      const saved = await document.save();
-
-      if (!saved) {
-        this.postEditResult(false, copy.documentSaveFailed);
-        return;
-      }
-
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, copy.documentSaved, "saved");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, `${copy.documentSaveFailed} ${message}`);
-    }
-  }
-
-  private async handleSaveCurrentDocumentAs(): Promise<void> {
-    const copy = this.getCopy();
-    if (!this.latestDocumentUri) {
-      this.postEditResult(false, copy.noAttachedDocument);
-      return;
-    }
-
-    try {
-      const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-      const currentText = document.getText();
-      if (isDocumentSaveBlocked(currentText)) {
-        this.postEditResult(false, copy.documentSaveBlocked);
-        return;
-      }
-
-      const targetUri = await vscode.window.showSaveDialog({
-        title: copy.saveAsXmlTitle,
-        defaultUri: this.latestDocumentUri,
-        filters: {
-          "BehaviorTree XML": ["xml"],
-          "All Files": ["*"]
-        }
-      });
-
-      if (!targetUri) {
-        return;
-      }
-
-      if (targetUri.toString() === this.latestDocumentUri.toString()) {
-        this.postEditResult(false, copy.saveAsSameFileBlocked);
-        return;
-      }
-
-      await writeUtf8File(targetUri, normalizeBehaviorTreeXml(currentText));
-      const savedDocument = await vscode.workspace.openTextDocument(targetUri);
-      await vscode.window.showTextDocument(savedDocument, {
-        preview: false,
-        preserveFocus: false
-      });
-      this.attachDocument(savedDocument);
-      this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One);
-      this.postEditResult(true, copy.documentSaved, "saved");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, `${copy.documentSaveFailed} ${message}`);
-    }
+    await handleSaveCurrentDocumentAction(this.getDocumentWorkflowContext());
   }
 
   private async handleCreateNewBehaviorTreeDocument(): Promise<void> {
-    const copy = this.getCopy();
-    const template = createNewBehaviorTreeDocumentXml();
-
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
-    const defaultUri = workspaceFolder ? vscode.Uri.joinPath(workspaceFolder, "MainTree.xml") : undefined;
-    const targetUri = await vscode.window.showSaveDialog({
-      title: copy.newXmlNameTitle,
-      defaultUri,
-      filters: {
-        "BehaviorTree XML": ["xml"],
-        "All Files": ["*"]
-      }
-    });
-
-    if (!targetUri) {
-      return;
-    }
-
-    await writeUtf8File(targetUri, template);
-    const document = await vscode.workspace.openTextDocument(targetUri);
-
-    await vscode.window.showTextDocument(document, {
-      preview: false,
-      preserveFocus: false
-    });
-    this.attachDocument(document);
-    this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One);
+    await handleCreateNewBehaviorTreeDocumentAction(this.getDocumentWorkflowContext());
   }
 
   private async handleOpenExistingBehaviorTreeDocument(): Promise<void> {
-    const copy = this.getCopy();
-    const files = await vscode.window.showOpenDialog({
-      title: copy.openExistingXmlTitle,
-      canSelectFiles: true,
-      canSelectFolders: false,
-      canSelectMany: false,
-      filters: {
-        "BehaviorTree XML": ["xml"],
-        "All Files": ["*"]
-      }
-    });
-
-    const file = files?.[0];
-    if (!file) {
-      return;
-    }
-
-    const document = await vscode.workspace.openTextDocument(file);
-    if (BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(document)) {
-      await BehaviorTreePreviewPanel.showInvalidDocumentMessage();
-      this.detachDocument();
-      this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One);
-      return;
-    }
-
-    await vscode.window.showTextDocument(document, {
-      preview: false,
-      preserveFocus: false
-    });
-    this.attachDocument(document);
-    this.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One);
+    await handleOpenExistingBehaviorTreeDocumentAction(this.getDocumentWorkflowContext());
   }
 
   private async handleChoosePlaybackLogFile(): Promise<void> {
-    try {
-      const copy = this.getCopy();
-      const result = await choosePlaybackLogFile(copy.importPlaybackLogTitle, this.currentSettings);
-      if (result.canceled) {
-        this.panel.webview.postMessage({
-          type: "playbackLogImportFinished"
-        });
-        return;
-      }
-
-      if ("playbackLog" in result) {
-        this.latestPlaybackLog = result.playbackLog;
-        this.traceContextFile = null;
-        this.panel.title = `BTreeTool: ${result.playbackLog.fileName}`;
-        this.panel.webview.postMessage({
-          type: "playbackLog",
-          payload: result.playbackLog
-        });
-        this.postTraceContextFileState();
-        return;
-      }
-
+    const result = await handleChoosePlaybackLogFileAction(this.getCopy().importPlaybackLogTitle, this.currentSettings);
+    if (result.kind === "loaded") {
+      this.latestPlaybackLog = result.playbackLog;
+      this.panel.title = result.panelTitle;
+    }
+    if (result.kind === "error") {
       this.latestPlaybackLog = null;
+    }
+    if (result.clearTraceContext) {
       this.traceContextFile = null;
-      this.panel.webview.postMessage({
-        type: "playbackLogError",
-        payload: { message: result.error }
-      });
       this.postTraceContextFileState();
-      void vscode.window.showErrorMessage(`BTreeTool: ${result.error}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.latestPlaybackLog = null;
-      this.traceContextFile = null;
-      this.panel.webview.postMessage({
-        type: "playbackLogError",
-        payload: { message }
-      });
-      this.postTraceContextFileState();
-      void vscode.window.showErrorMessage(`BTreeTool: ${message}`);
+    }
+    this.panel.webview.postMessage(result.message);
+    if (result.kind === "error") {
+      void vscode.window.showErrorMessage(`BTreeTool: ${result.errorMessage}`);
     }
   }
 
   private async handleChooseTraceContextFile(): Promise<void> {
-    const files = await vscode.window.showOpenDialog({
-      canSelectFiles: true,
-      canSelectFolders: false,
-      canSelectMany: false,
-      openLabel: "Attach async log",
-      filters: {
-        "Log files": ["log", "txt", "1"],
-        "All files": ["*"]
-      }
-    });
-    const file = files?.[0];
-    if (!file) {
-      return;
-    }
-
     try {
-      const bytes = await vscode.workspace.fs.readFile(file);
-      const raw = Buffer.from(bytes).toString("utf8");
-      const text = raw;
-      this.traceContextFile = {
-        text,
-        state: {
-          fileName: BehaviorTreePreviewPanel.toBaseName(file.fsPath),
-          filePath: file.fsPath,
-          lineCount: text.split(/\r?\n/).length,
-          charCount: text.length,
-          truncated: false
-        }
-      };
+      const traceContextFile = await chooseTraceContextFile();
+      if (!traceContextFile) {
+        return;
+      }
+      this.traceContextFile = traceContextFile;
       this.postTraceContextFileState();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1276,23 +946,13 @@ export class BehaviorTreePreviewPanel {
   }
 
   private handleSetTraceContextFile(payload: { fileName?: string; text?: string } | undefined): void {
-    const text = typeof payload?.text === "string" ? payload.text : "";
-    if (!text) {
+    const traceContextFile = createTraceContextFileFromPayload(payload);
+    if (!traceContextFile) {
       void vscode.window.showWarningMessage("BTreeTool: async log file is empty or could not be read.");
       return;
     }
 
-    const fileName = payload?.fileName?.trim() || "async.log";
-    this.traceContextFile = {
-      text,
-      state: {
-        fileName,
-        filePath: fileName,
-        lineCount: text.split(/\r?\n/).length,
-        charCount: text.length,
-        truncated: false
-      }
-    };
+    this.traceContextFile = traceContextFile;
     this.postTraceContextFileState();
   }
 
@@ -1304,47 +964,27 @@ export class BehaviorTreePreviewPanel {
   }
 
   private async openTraceConfigFile(): Promise<void> {
-    if (!this.traceConfigFileUri) {
-      const { configUri } = await loadTraceConfig(this.globalStorageUri);
-      this.traceConfigFileUri = configUri;
-    }
-
-    const document = await vscode.workspace.openTextDocument(this.traceConfigFileUri);
-    await vscode.window.showTextDocument(document, {
-      preview: false,
-      preserveFocus: false
-    });
+    this.traceConfigFileUri = await openTraceConfigFileAction(this.globalStorageUri, this.traceConfigFileUri);
   }
 
   private async handleAddTraceProvider(): Promise<void> {
-    const { config, configUri } = await loadTraceConfig(this.globalStorageUri);
-    const updated = await addTraceProvider(configUri, config);
-    this.traceConfigFileUri = configUri;
-    this.panel.webview.postMessage({
-      type: "traceConfigState",
-      payload: getTraceConfigState(updated.config, configUri.fsPath)
-    });
-    const document = await vscode.workspace.openTextDocument(configUri);
-    await vscode.window.showTextDocument(document, {
-      preview: false,
-      preserveFocus: false
-    });
+    const result = await handleAddTraceProviderAction(this.globalStorageUri);
+    if (result.configUri) {
+      this.traceConfigFileUri = result.configUri;
+    }
+    this.panel.webview.postMessage(result.message);
   }
 
   private async handleSetTraceProvider(payload: { providerId?: string } | undefined): Promise<void> {
-    const providerId = payload?.providerId || "";
-    if (!providerId) {
-      return;
-    }
-
     try {
-      const { config, configUri } = await loadTraceConfig(this.globalStorageUri);
-      const updated = await setActiveTraceProvider(configUri, config, providerId);
-      this.traceConfigFileUri = configUri;
-      this.panel.webview.postMessage({
-        type: "traceConfigState",
-        payload: getTraceConfigState(updated, configUri.fsPath)
-      });
+      const result = await handleSetTraceProviderAction(this.globalStorageUri, payload);
+      if (!result) {
+        return;
+      }
+      if (result.configUri) {
+        this.traceConfigFileUri = result.configUri;
+      }
+      this.panel.webview.postMessage(result.message);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       void vscode.window.showErrorMessage(`BTreeTool: ${message}`);
@@ -1403,12 +1043,13 @@ export class BehaviorTreePreviewPanel {
       const attachedDocument = this.latestDocumentUri
         ? await vscode.workspace.openTextDocument(this.latestDocumentUri)
         : undefined;
-      if (attachedDocument && BehaviorTreePreviewPanel.isXmlWithoutBehaviorTrees(attachedDocument)) {
+      const nextPayload = this.toPayload(attachedDocument);
+      if (this.isPayloadWithoutBehaviorTrees(nextPayload)) {
         await this.detachInvalidDocumentAfterPrompt();
         return;
       }
 
-      this.latestPayload = this.toPayload(attachedDocument);
+      this.latestPayload = nextPayload;
       if (this.webviewReady) {
         this.postLatestPayload();
       }
@@ -1419,140 +1060,23 @@ export class BehaviorTreePreviewPanel {
   }
 
   private async handleSaveUserSettings(payload: BtUserSettings | undefined): Promise<void> {
-    const copy = this.getCopy();
-    if (!this.settingsFileUri || !payload) {
-      this.postEditResult(false, copy.settingsNotReady);
-      return;
-    }
-
-    try {
-      this.currentSettings = await saveUserSettings(this.settingsFileUri, payload);
-      this.postSettingsUpdated();
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, this.getCopy().settingsSaved);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, this.getCopy().settingsSaveFailed(message));
-    }
+    await handleSaveUserSettingsAction(payload, this.getSettingsWorkflowContext());
   }
 
   private async openUserSettingsFile(): Promise<void> {
-    if (!this.settingsFileUri) {
-      await this.initializeSettings();
-    }
-
-    if (!this.settingsFileUri) {
-      void vscode.window.showWarningMessage(this.getCopy().settingsFileNotReadyWarning);
-      return;
-    }
-
-    const document = await vscode.workspace.openTextDocument(this.settingsFileUri);
-    await vscode.window.showTextDocument(document, {
-      preview: false,
-      preserveFocus: false
-    });
+    await openUserSettingsFileAction(this.getSettingsWorkflowContext());
   }
 
   private async handleImportRecommendedPresets(): Promise<void> {
-    if (!this.settingsFileUri) {
-      await this.initializeSettings();
-    }
-
-    if (!this.settingsFileUri) {
-      this.postEditResult(false, this.getCopy().settingsFileNotReady);
-      return;
-    }
-
-    try {
-      this.currentSettings = await saveUserSettings(this.settingsFileUri, mergeRecommendedPresets(this.currentSettings));
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, this.getCopy().presetsImported);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, this.getCopy().presetsImportFailed(message));
-    }
+    await handleImportRecommendedPresetsAction(this.getSettingsWorkflowContext());
   }
 
   private async handleImportCustomNodes(): Promise<void> {
-    const copy = this.getCopy();
-    const action = await importCustomNodesToNodeLibrary(this.extensionUri, this.globalStorageUri, copy);
-    if (action.canceled) {
-      return;
-    }
-    if (!action.ok) {
-      this.postEditResult(false, copy.customNodesImportFailed(action.message));
-      return;
-    }
-
-    try {
-      clearNodeLibraryPresetsCache(this.extensionUri, this.globalStorageUri);
-      this.nodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri, this.globalStorageUri);
-      await this.refreshPreviewFromUri();
-      const { result } = action;
-      this.postEditResult(
-        result.importedCount > 0,
-        result.importedCount > 0
-          ? copy.customNodesImported(result.importedCount)
-          : result.conflicts.length > 0
-            ? copy.customNodesImportSkipped
-            : copy.customNodesImportEmpty
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, copy.customNodesImportFailed(message));
-    }
+    await handleImportCustomNodesAction(this.getSettingsWorkflowContext());
   }
 
   private async handleClearImportedNodes(): Promise<void> {
-    const copy = this.getCopy();
-    const choice = await vscode.window.showWarningMessage(
-      copy.clearImportedNodesConfirm,
-      { modal: true },
-      copy.clearImportedNodesAction
-    );
-    if (choice !== copy.clearImportedNodesAction) {
-      return;
-    }
-
-    try {
-      const previousNodeLibraryPresets = this.nodeLibraryPresets;
-      await clearImportedNodeLibrary(this.globalStorageUri);
-      clearNodeLibraryPresetsCache(this.extensionUri, this.globalStorageUri);
-      const restoredNodeLibraryPresets = await loadNodeLibraryPresetsForExtension(this.extensionUri, this.globalStorageUri);
-      await this.preserveAttachedDocumentModelsFromPresets(
-        findRemovedOrChangedNodePresets(previousNodeLibraryPresets, restoredNodeLibraryPresets)
-      );
-      this.nodeLibraryPresets = restoredNodeLibraryPresets;
-      await this.refreshPreviewFromUri();
-      this.postEditResult(true, copy.importedNodesCleared);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.postEditResult(false, copy.importedNodesClearFailed(message));
-    }
-  }
-
-  private async preserveAttachedDocumentModelsFromPresets(presetNodes: BtUserSettings["presetNodes"]): Promise<void> {
-    if (!this.latestDocumentUri || presetNodes.length === 0) {
-      return;
-    }
-
-    const document = await vscode.workspace.openTextDocument(this.latestDocumentUri);
-    const currentText = document.getText();
-    const parsed = parseBehaviorTreeDocument(currentText, mergePresetNodeSets(this.currentSettings, presetNodes));
-    const nextXml = serializeBehaviorTreeDocument(parsed);
-    if (nextXml === currentText) {
-      return;
-    }
-
-    this.suppressNextDocumentRefresh(document.uri);
-    const applied = await replaceDocumentText(document, nextXml, currentText);
-    if (!applied) {
-      this.clearSuppressedDocumentRefresh(document.uri);
-      throw new Error(this.getCopy().xmlUpdateRejected);
-    }
-
-    this.pinSuppressedDocumentRefreshVersion(document);
-    this.pushXmlUndoSnapshot(currentText);
+    await handleClearImportedNodesAction(this.getSettingsWorkflowContext());
   }
 
   private dispose(): void {
@@ -1575,15 +1099,4 @@ export class BehaviorTreePreviewPanel {
       disposable?.dispose();
     }
   }
-}
-
-function findRemovedOrChangedNodePresets(
-  previousPresets: BtUserSettings["presetNodes"],
-  restoredPresets: BtUserSettings["presetNodes"]
-): BtUserSettings["presetNodes"] {
-  const restoredByKey = new Map(restoredPresets.map((preset) => [preset.key, preset]));
-  return previousPresets.filter((preset) => {
-    const restored = restoredByKey.get(preset.key);
-    return !restored || JSON.stringify(restored) !== JSON.stringify(preset);
-  });
 }

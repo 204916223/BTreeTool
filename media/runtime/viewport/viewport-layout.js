@@ -323,17 +323,26 @@
         ? "all"
         : (runtime.state.currentSettings?.simplifyHiddenSections || []).join(",");
       const sectionTitleMode = normalizeNodeSectionTitleMode(runtime.state.currentSettings?.nodeSectionTitleMode);
-      const cacheKey = `${hiddenSections}::${sectionTitleMode}::${expanded ? "expanded" : "base"}::${getLayoutNodeKey(node)}`;
+      const baseCacheKey = `${hiddenSections}::${sectionTitleMode}::base::${getLayoutNodeKey(node)}`;
+      const cacheKey = expanded
+        ? `${hiddenSections}::${sectionTitleMode}::expanded::${getLayoutNodeKey(node)}`
+        : baseCacheKey;
       if (measuredNodes.has(cacheKey)) {
         return measuredNodes.get(cacheKey);
       }
 
-      const host = ensureMeasureHost();
-      const measured = measureCardSize(node, host);
+      let measured = measuredNodes.get(baseCacheKey);
+      if (!measured) {
+        const host = ensureMeasureHost();
+        measured = measureCardSize(node, host);
+        measuredNodes.set(baseCacheKey, measured);
+      }
 
       if (expanded && !node.isVirtualRoot) {
-        measured.width = Math.max(measured.width, dropTargetReferenceSize.width);
-        measured.height = Math.max(measured.height, dropTargetReferenceSize.height);
+        measured = {
+          width: Math.max(measured.width, dropTargetReferenceSize.width),
+          height: Math.max(measured.height, dropTargetReferenceSize.height)
+        };
       }
 
       measuredNodes.set(cacheKey, measured);
@@ -757,6 +766,7 @@
     const render = options.render !== false;
     runtime.viewport.updateCanvasSelection(null);
     runtime.state.selectedNodePath = null;
+    runtime.editAssistant?.clearSelectedNodePrompt?.();
     if (runtime.state.splitViewEnabled && runtime.state.activeTreePane) {
       runtime.state.splitPaneNodePaths = {
         ...(runtime.state.splitPaneNodePaths || {}),

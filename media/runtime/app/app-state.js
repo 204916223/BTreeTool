@@ -3,7 +3,7 @@
 
   const DEFAULT_USER_SETTINGS = {
     language: "en-US",
-    themePreset: "midnight",
+    themePreset: "default",
     customTheme: {
       primaryColor: "#5e8de6",
       secondaryColor: "#df78cf"
@@ -161,6 +161,7 @@
       "sand",
       "mist",
       "rose",
+      "default",
       "custom"
     ].includes(value)
       ? value

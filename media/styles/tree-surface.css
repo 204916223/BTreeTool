@@ -883,11 +883,7 @@ body.is-panning-playback-duration .playback-duration-viewport {
   padding-right: var(--playback-transition-scrollbar-width);
   min-height: 25px;
   border-bottom: 1px solid var(--line-strong);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-text-primary) 14%, transparent),
-    color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent)
-  );
+  background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
   color: var(--text);
   font-size: 12px;
   font-weight: 800;
@@ -1100,11 +1096,7 @@ body.is-panning-playback-duration .playback-duration-viewport {
   padding-right: var(--playback-blackboard-scrollbar-width);
   min-height: 25px;
   border-bottom: 1px solid var(--line-strong);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-text-primary) 14%, transparent),
-    color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent)
-  );
+  background: color-mix(in srgb, var(--color-bg-panel) var(--playback-panel-opacity, 60%), transparent);
   color: var(--text);
   font-size: 12px;
   font-weight: 800;
@@ -1908,9 +1900,7 @@ body.is-panning-playback-duration .playback-duration-viewport {
   padding: 12px;
   border-radius: 12px;
   border: 1px solid var(--line-strong);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 1.5%, transparent), transparent),
-    var(--color-dialog-bg);
+  background: var(--color-dialog-bg);
   box-shadow: var(--shadow);
 }
 
@@ -2061,9 +2051,7 @@ body.is-panning-playback-duration .playback-duration-viewport {
   padding: 8px;
   border-radius: 8px;
   border: 1px solid var(--line-strong);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 2%, transparent), transparent),
-    color-mix(in srgb, var(--color-bg-card-strong) 82%, transparent);
+  background: color-mix(in srgb, var(--color-bg-card-strong) 82%, transparent);
   box-shadow: var(--color-card-shadow-strong);
   backdrop-filter: blur(8px);
 }

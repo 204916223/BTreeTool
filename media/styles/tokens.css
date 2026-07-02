@@ -1,23 +1,23 @@
 :root {
   color-scheme: dark;
-  --color-bg-page: #0c1117;
-  --color-bg-canvas: #0c1117;
-  --color-bg-panel: rgba(18, 24, 33, 0.94);
-  --color-bg-card: rgba(17, 23, 32, 0.9);
-  --color-bg-card-strong: rgba(23, 31, 43, 0.96);
-  --color-border: rgba(144, 171, 203, 0.16);
-  --color-border-strong: rgba(144, 171, 203, 0.26);
-  --color-text-primary: #e6edf6;
-  --color-text-secondary: #93a4b8;
-  --color-accent: #5ea1ff;
-  --color-accent-soft: rgba(94, 161, 255, 0.16);
-  --color-accent-soft-strong: rgba(94, 161, 255, 0.24);
-  --color-tab-bg: rgba(255, 255, 255, 0.04);
-  --color-tab-bg-hover: rgba(255, 255, 255, 0.07);
+  --color-bg-page: #070b10;
+  --color-bg-canvas: #060a0f;
+  --color-bg-panel: rgba(12, 17, 24, 0.95);
+  --color-bg-card: rgba(13, 18, 26, 0.91);
+  --color-bg-card-strong: rgba(17, 23, 33, 0.97);
+  --color-border: rgba(121, 148, 178, 0.13);
+  --color-border-strong: rgba(121, 148, 178, 0.21);
+  --color-text-primary: #e1e8f0;
+  --color-text-secondary: #8494a6;
+  --color-accent: #4f8bd8;
+  --color-accent-soft: rgba(79, 139, 216, 0.11);
+  --color-accent-soft-strong: rgba(79, 139, 216, 0.17);
+  --color-tab-bg: rgba(225, 232, 240, 0.03);
+  --color-tab-bg-hover: rgba(225, 232, 240, 0.055);
   --color-tab-text: var(--color-text-primary);
   --color-tab-active-bg: var(--color-accent-soft-strong);
   --color-tab-active-text: var(--color-accent);
-  --shadow-elevated: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --shadow-elevated: 0 18px 42px rgba(0, 0, 0, 0.38);
   --color-status-warning: #ffb454;
   --color-status-danger: #ff7b72;
   --color-status-success: #7ee787;
@@ -99,10 +99,10 @@
   --color-panel-tint-info: color-mix(in srgb, var(--color-bg-card-strong) 98%, var(--color-bg-page) 2%);
   --color-panel-tint-accent: color-mix(in srgb, var(--color-bg-card-strong) 97%, var(--color-accent) 3%);
   --color-panel-tint-danger: color-mix(in srgb, var(--color-bg-card-strong) 92%, var(--color-status-danger) 8%);
-  --color-node-action-bg: color-mix(in srgb, var(--color-bg-card-strong) 93%, #24415f 7%);
-  --color-node-control-bg: color-mix(in srgb, var(--color-bg-card-strong) 88%, #23384f 12%);
-  --color-node-decorator-bg: color-mix(in srgb, var(--color-bg-card-strong) 90%, #4b3f25 10%);
-  --color-node-subtree-bg: color-mix(in srgb, var(--color-bg-card-strong) 89%, #3d3258 11%);
+  --color-node-action-bg: color-mix(in srgb, var(--color-bg-card-strong) 95%, #1d344d 5%);
+  --color-node-control-bg: color-mix(in srgb, var(--color-bg-card-strong) 93%, #1b2d40 7%);
+  --color-node-decorator-bg: color-mix(in srgb, var(--color-bg-card-strong) 94%, #342d1b 6%);
+  --color-node-subtree-bg: color-mix(in srgb, var(--color-bg-card-strong) 94%, #302747 6%);
   --color-slot-active-overlay: color-mix(in srgb, var(--slot-bg) 140%, var(--color-surface-subtle-hover));
   --color-node-context-danger-text: color-mix(in srgb, var(--color-status-danger) 68%, white 32%);
 }
@@ -316,6 +316,42 @@
   --color-role-param-border: color-mix(in srgb, var(--color-role-param-accent) 34%, white 66%);
 }
 
+:root[data-btree-theme="default"] {
+  color-scheme: dark;
+  --color-bg-page: #070807;
+  --color-bg-canvas: #050606;
+  --color-bg-panel: rgba(13, 14, 13, 0.97);
+  --color-bg-card: rgba(18, 18, 17, 0.93);
+  --color-bg-card-strong: rgba(22, 22, 20, 0.98);
+  --color-border: rgba(130, 125, 113, 0.12);
+  --color-border-strong: rgba(143, 133, 105, 0.2);
+  --color-text-primary: #f5f5f4;
+  --color-text-secondary: #a8a8a3;
+  --color-accent: #8f7846;
+  --color-accent-soft: rgba(143, 120, 70, 0.08);
+  --color-accent-soft-strong: rgba(143, 120, 70, 0.13);
+  --color-tab-bg: rgba(205, 198, 180, 0.03);
+  --color-tab-bg-hover: rgba(205, 198, 180, 0.055);
+  --color-tab-active-bg: rgba(143, 120, 70, 0.12);
+  --color-tab-active-text: #b69b61;
+  --shadow-elevated: 0 18px 44px rgba(0, 0, 0, 0.46);
+  --color-status-warning: #b69b61;
+  --color-status-danger: #ff6b6b;
+  --color-status-success: #7bd88f;
+  --color-role-input-accent: #7fb8e8;
+  --color-role-output-accent: #7bd88f;
+  --color-role-inout-accent: #d19cff;
+  --color-role-param-accent: #a39067;
+  --color-node-action-accent: #9f8550;
+  --color-node-control-accent: #8f8879;
+  --color-node-decorator-accent: #9fb0d8;
+  --color-node-subtree-accent: #d19cff;
+  --color-node-action-bg: color-mix(in srgb, var(--color-bg-card-strong) 94%, #2b2518 6%);
+  --color-node-control-bg: color-mix(in srgb, var(--color-bg-card-strong) 95%, #292724 5%);
+  --color-node-decorator-bg: color-mix(in srgb, var(--color-bg-card-strong) 94%, #202837 6%);
+  --color-node-subtree-bg: color-mix(in srgb, var(--color-bg-card-strong) 94%, #2b2233 6%);
+}
+
 :root[data-btree-theme="custom"] {
   color-scheme: var(--custom-theme-color-scheme, light);
   --custom-theme-color-a: #5e8de6;
@@ -359,6 +395,12 @@
   --color-node-control-bg: color-mix(in srgb, var(--color-node-control-accent) 30%, var(--custom-theme-mix-color) 70%);
   --color-node-decorator-bg: color-mix(in srgb, var(--custom-theme-color-a) 28%, var(--custom-theme-mix-color) 72%);
   --color-node-subtree-bg: color-mix(in srgb, var(--color-node-subtree-accent) 32%, var(--custom-theme-mix-color) 68%);
+}
+
+:root,
+:root[data-btree-theme] {
+  --color-role-input-text: #7fb8e8;
+  --color-role-output-text: #7bd88f;
 }
 
 @font-face {
@@ -428,8 +470,5 @@ body {
   font-family: "JetBrains Mono", "Noto Sans SC", "SF Pro Text", "Segoe UI", monospace;
   color: var(--color-text-primary);
   overflow: hidden;
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 26%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--color-border-strong) 72%, transparent), transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-panel) 90%, var(--color-bg-page) 10%), var(--color-bg-page));
+  background: var(--color-bg-page);
 }

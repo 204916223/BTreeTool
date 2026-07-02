@@ -133,7 +133,7 @@ export function getWebviewHtml(options: GetWebviewHtmlOptions): string {
     );
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "main.js"));
     const nonce = getNonce();
-    const initialTheme = initialSettings?.themePreset || "midnight";
+    const initialTheme = initialSettings?.themePreset || "default";
     const initialLanguage = initialSettings?.language || "en-US";
     const initialSettingsScript = stringifyScriptJson(
       initialSettings || {

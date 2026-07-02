@@ -57,6 +57,7 @@ test("app state gives each instance independent default settings collections", (
   const secondState = appState.createInitialState();
 
   assert.equal(firstState.currentSettings.showMainTreeLocator, false);
+  assert.equal(firstState.currentSettings.themePreset, "default");
   assert.equal(firstState.currentSettings.copyNodeWithDescendants, false);
   assert.equal(firstState.currentSettings.playbackAutoNavigateToTree, false);
   assert.equal(firstState.currentSettings.playbackPanelOpacity, 0.6);
@@ -103,6 +104,15 @@ test("app state seeds current settings from initial theme settings", () => {
     secondaryColor: "#123456"
   }));
   assert.equal(state.currentSettings.language, "en-US");
+});
+
+test("app state accepts the default theme preset", () => {
+  const appState = loadAppStateRuntime();
+  const state = appState.createInitialState({}, "edit", {
+    themePreset: "default"
+  });
+
+  assert.equal(state.currentSettings.themePreset, "default");
 });
 
 test("app state seeds full current settings from initial settings", () => {

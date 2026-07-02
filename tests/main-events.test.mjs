@@ -165,6 +165,40 @@ test("ctrl f opens tree search in edit mode", () => {
   assert.equal(runtime.search.openCount, 1);
 });
 
+test("ctrl s saves the current XML document", () => {
+  const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("edit");
+  runtime.state.currentHasDocument = true;
+
+  runtime.mainEvents.bindGlobalKeys();
+
+  const event = createKeyEvent(HTMLElementStub, {
+    code: "KeyS",
+    key: "s",
+    ctrlKey: true
+  });
+  listeners.keydown(event);
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(JSON.stringify(runtime.vscode.messages), JSON.stringify([{ type: "saveCurrentDocument" }]));
+});
+
+test("ctrl s is ignored when no XML document is attached", () => {
+  const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("edit");
+  runtime.state.currentHasDocument = false;
+
+  runtime.mainEvents.bindGlobalKeys();
+
+  const event = createKeyEvent(HTMLElementStub, {
+    code: "KeyS",
+    key: "s",
+    ctrlKey: true
+  });
+  listeners.keydown(event);
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(JSON.stringify(runtime.vscode.messages), JSON.stringify([]));
+});
+
 test("space keeps canvas pan behavior in edit mode", () => {
   const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("edit");
 

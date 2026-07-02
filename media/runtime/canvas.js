@@ -1,6 +1,45 @@
 (function () {
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
   const VIRTUAL_ROOT_PATH = "__btree_root__";
+  const CONTROL_NODE_KINDS = new Set([
+    "AsyncFallback",
+    "AsyncSequence",
+    "Sequence",
+    "SequenceWithMemory",
+    "ReactiveSequence",
+    "Fallback",
+    "ReactiveFallback",
+    "Parallel",
+    "ParallelAll",
+    "IfThenElse",
+    "WhileDoElse",
+    "Switch",
+    "Switch2",
+    "Switch3",
+    "Switch4",
+    "Switch5",
+    "Switch6",
+    "TryCatch"
+  ]);
+  const DECORATOR_NODE_KINDS = new Set([
+    "RetryUntilSuccessful",
+    "RetryUntilFailure",
+    "Repeat",
+    "Inverter",
+    "Precondition",
+    "ForceSuccess",
+    "ForceFailure",
+    "Timeout",
+    "Delay",
+    "KeepRunningUntilFailure",
+    "LoopBool",
+    "LoopDouble",
+    "LoopInt",
+    "LoopString",
+    "RunOnce",
+    "SkipUnlessUpdated",
+    "WaitValueUpdate"
+  ]);
 
   function getNodeRole(nodeOrKind, childCount = 0) {
     const node = typeof nodeOrKind === "object" && nodeOrKind !== null ? nodeOrKind : null;
@@ -28,52 +67,11 @@
       return "action";
     }
 
-    const controlKinds = new Set([
-      "AsyncFallback",
-      "AsyncSequence",
-      "Sequence",
-      "SequenceWithMemory",
-      "ReactiveSequence",
-      "Fallback",
-      "ReactiveFallback",
-      "Parallel",
-      "ParallelAll",
-      "IfThenElse",
-      "WhileDoElse",
-      "Switch",
-      "Switch2",
-      "Switch3",
-      "Switch4",
-      "Switch5",
-      "Switch6",
-      "TryCatch"
-    ]);
-
-    const decoratorKinds = new Set([
-      "RetryUntilSuccessful",
-      "RetryUntilFailure",
-      "Repeat",
-      "Inverter",
-      "Precondition",
-      "ForceSuccess",
-      "ForceFailure",
-      "Timeout",
-      "Delay",
-      "KeepRunningUntilFailure",
-      "LoopBool",
-      "LoopDouble",
-      "LoopInt",
-      "LoopString",
-      "RunOnce",
-      "SkipUnlessUpdated",
-      "WaitValueUpdate"
-    ]);
-
-    if (controlKinds.has(kind) || resolvedChildCount > 1) {
+    if (CONTROL_NODE_KINDS.has(kind) || resolvedChildCount > 1) {
       return "control";
     }
 
-    if (decoratorKinds.has(kind) || resolvedChildCount === 1) {
+    if (DECORATOR_NODE_KINDS.has(kind) || resolvedChildCount === 1) {
       return "decorator";
     }
 
@@ -431,6 +429,11 @@
         runtime.overlays.hideNodeContextMenu();
         runtime.app.activateTreePane(options.paneId, options.currentTreeId, node.nodePath);
         runtime.state.selectedNodePath = node.nodePath;
+        if (runtime.editAssistant?.syncSelectedNodePrompt?.()) {
+          runtime.app.persistUiState();
+          runtime.viewport.updateCanvasSelection(node.nodePath, options.currentTreeId);
+          return;
+        }
         if (runtime.editAssistant?.insertNodeUid?.(node.uid)) {
           runtime.app.persistUiState();
           runtime.viewport.updateCanvasSelection(node.nodePath, options.currentTreeId);
@@ -1333,11 +1336,8 @@
     }
 
     const attributes = getOptimisticNodeAttributes(node, treeId);
-    if (!nextValue && !field.required) {
-      delete attributes[field.key];
-    } else {
-      attributes[field.key] = nextValue;
-    }
+    preserveModeledEmptyAttributes(attributes, node);
+    attributes[field.key] = nextValue;
 
     input.classList.remove("is-invalid");
     input.classList.add("is-saving");
@@ -1370,16 +1370,38 @@
     });
   }
 
+  function preserveModeledEmptyAttributes(attributes, node) {
+    (node?.attributeFields || []).forEach((field) => {
+      if (!field?.key || (field.source !== "model" && field.source !== "preset")) {
+        return;
+      }
+      if (!Object.prototype.hasOwnProperty.call(attributes, field.key)) {
+        attributes[field.key] = "";
+      }
+    });
+  }
+
   function getOptimisticNodeAttributes(node, treeId) {
     const key = getAttributeSnapshotKey(treeId, node.nodePath);
     const snapshot = runtime.state.pendingAttributeSnapshots?.[key];
-    return { ...(snapshot || node.attributes || {}) };
+    if (snapshot && isAttributeSnapshotCompatible(key, snapshot, node)) {
+      return { ...snapshot };
+    }
+    if (snapshot) {
+      deleteOptimisticNodeAttributes(key);
+    }
+    return { ...(node.attributes || {}) };
   }
 
   function setOptimisticNodeAttributes(treeId, nodePath, attributes) {
+    const key = getAttributeSnapshotKey(treeId, nodePath);
     runtime.state.pendingAttributeSnapshots = {
       ...(runtime.state.pendingAttributeSnapshots || {}),
-      [getAttributeSnapshotKey(treeId, nodePath)]: { ...(attributes || {}) }
+      [key]: { ...(attributes || {}) }
+    };
+    runtime.state.pendingAttributeSnapshotKinds = {
+      ...(runtime.state.pendingAttributeSnapshotKinds || {}),
+      [key]: getCurrentPreviewNodeKind(treeId, nodePath) || ""
     };
   }
 
@@ -1394,6 +1416,69 @@
     const nextSnapshots = { ...snapshots };
     delete nextSnapshots[key];
     runtime.state.pendingAttributeSnapshots = nextSnapshots;
+    deleteOptimisticNodeKind(key);
+  }
+
+  function deleteOptimisticNodeAttributes(key) {
+    const snapshots = runtime.state.pendingAttributeSnapshots || {};
+    if (Object.prototype.hasOwnProperty.call(snapshots, key)) {
+      const nextSnapshots = { ...snapshots };
+      delete nextSnapshots[key];
+      runtime.state.pendingAttributeSnapshots = nextSnapshots;
+    }
+    deleteOptimisticNodeKind(key);
+  }
+
+  function deleteOptimisticNodeKind(key) {
+    const kinds = runtime.state.pendingAttributeSnapshotKinds || {};
+    if (!Object.prototype.hasOwnProperty.call(kinds, key)) {
+      return;
+    }
+    const nextKinds = { ...kinds };
+    delete nextKinds[key];
+    runtime.state.pendingAttributeSnapshotKinds = nextKinds;
+  }
+
+  function isAttributeSnapshotCompatible(key, snapshot, node) {
+    const snapshotKind = runtime.state.pendingAttributeSnapshotKinds?.[key];
+    if (snapshotKind && snapshotKind !== node.kind) {
+      return false;
+    }
+    if (!snapshotKind && !snapshotKeysMatchNodeFields(snapshot, node)) {
+      return false;
+    }
+    return true;
+  }
+
+  function snapshotKeysMatchNodeFields(snapshot, node) {
+    const allowedKeys = new Set((node.attributeFields || []).map((field) => field.key));
+    Object.keys(node.attributes || {}).forEach((key) => allowedKeys.add(key));
+    return Object.keys(snapshot || {}).every((key) => allowedKeys.has(key));
+  }
+
+  function getCurrentPreviewNodeKind(treeId, nodePath) {
+    const tree = (runtime.state.currentPreview?.behaviorTrees || []).find((entry) => entry.id === treeId);
+    const node = tree?.node ? findPreviewNodeByPath(tree.node, nodePath) : null;
+    return node?.kind || "";
+  }
+
+  function findPreviewNodeByPath(rootNode, nodePath) {
+    const parts = String(nodePath || "").split(".");
+    if (!rootNode || parts[0] !== "0") {
+      return null;
+    }
+    let cursor = rootNode;
+    for (const part of parts.slice(1)) {
+      const index = Number(part);
+      if (!Number.isInteger(index) || index < 0 || !Array.isArray(cursor.children)) {
+        return null;
+      }
+      cursor = cursor.children[index];
+      if (!cursor) {
+        return null;
+      }
+    }
+    return cursor;
   }
 
   function getAttributeSnapshotKey(treeId, nodePath) {
@@ -1572,6 +1657,7 @@
     renderCanvasNode,
     buildNodeCard,
     clearOptimisticNodeAttributes,
+    deleteOptimisticNodeAttributes,
     getCanvasRootNode,
     getParentNodePath,
     getNodeIndex,

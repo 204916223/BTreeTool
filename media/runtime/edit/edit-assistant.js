@@ -122,6 +122,13 @@
     input.rows = 2;
     input.placeholder = copy.placeholder;
     input.spellcheck = false;
+    input.addEventListener("input", () => {
+      if (input.dataset.generatedNodePrompt === "true" && input.value !== input.dataset.generatedPromptText) {
+        input.dataset.generatedNodePrompt = "false";
+        input.dataset.generatedPromptText = "";
+        input.dataset.generatedPromptNode = "";
+      }
+    });
 
     const footer = document.createElement("div");
     footer.className = "edit-assistant-composer-footer";
@@ -150,8 +157,12 @@
       if (!prompt) {
         return;
       }
+      const action = input.dataset.generatedNodePrompt === "true" ? "explainNode" : "ask";
       input.value = "";
-      postAsk(prompt);
+      input.dataset.generatedNodePrompt = "false";
+      input.dataset.generatedPromptText = "";
+      input.dataset.generatedPromptNode = "";
+      postAsk(prompt, action);
     });
 
     input.addEventListener("keydown", (event) => {
@@ -165,9 +176,11 @@
     });
     input.addEventListener("blur", () => {
       window.setTimeout(() => {
+        clearGeneratedNodePrompt(input);
         runtime.state.editAssistantInputActive = false;
       }, 120);
     });
+    window.requestAnimationFrame(() => syncSelectedNodePrompt());
 
     return form;
   }
@@ -480,6 +493,106 @@
     return true;
   }
 
+  function clearGeneratedNodePrompt(input) {
+    if (!input || input.dataset.generatedNodePrompt !== "true") {
+      return false;
+    }
+    if (input.value !== input.dataset.generatedPromptText) {
+      return false;
+    }
+    input.value = "";
+    input.dataset.generatedNodePrompt = "false";
+    input.dataset.generatedPromptText = "";
+    input.dataset.generatedPromptNode = "";
+    return true;
+  }
+
+  function clearSelectedNodePrompt() {
+    return clearGeneratedNodePrompt(document.querySelector("[data-edit-assistant-input]"));
+  }
+
+  function syncSelectedNodePrompt(options = {}) {
+    const input = document.querySelector("[data-edit-assistant-input]");
+    if (!input || runtime.modeRules?.isPlaybackMode?.()) {
+      return false;
+    }
+
+    const selected = getSelectedNodeContext();
+    if (!selected?.node || !selected.treeId) {
+      clearGeneratedNodePrompt(input);
+      return false;
+    }
+
+    const nodeKey = `${selected.treeId}::${selected.node.nodePath}`;
+    const shouldReplace =
+      options.force === true ||
+      !input.value.trim() ||
+      input.dataset.generatedNodePrompt === "true" ||
+      input.dataset.generatedPromptNode === nodeKey;
+    if (!shouldReplace) {
+      return false;
+    }
+
+    const prompt = getCopy().explainSelectedNodePrompt(formatSelectedNodePromptParts(selected.node));
+    input.value = prompt;
+    input.dataset.generatedNodePrompt = "true";
+    input.dataset.generatedPromptText = prompt;
+    input.dataset.generatedPromptNode = nodeKey;
+    return true;
+  }
+
+  function getSelectedNodeContext() {
+    const preview = runtime.state?.currentPreview;
+    const treeId = runtime.state?.selectedTreeId || preview?.defaultTreeId || "";
+    const selectedNodePath = runtime.state?.selectedNodePath;
+    const nodePath = selectedNodePath === null ? null : selectedNodePath || "0";
+    const tree = Array.isArray(preview?.behaviorTrees)
+      ? preview.behaviorTrees.find((entry) => entry.id === treeId)
+      : null;
+    const node = tree?.node && nodePath ? findNodeByPath(tree.node, nodePath) : null;
+    return { treeId, node };
+  }
+
+  function findNodeByPath(rootNode, nodePath) {
+    if (!rootNode || !nodePath) {
+      return null;
+    }
+    const parts = String(nodePath).split(".");
+    let cursor = rootNode;
+    for (let index = 1; index < parts.length; index += 1) {
+      const childIndex = Number(parts[index]);
+      if (!Number.isInteger(childIndex) || childIndex < 0 || !Array.isArray(cursor.children)) {
+        return null;
+      }
+      cursor = cursor.children[childIndex];
+      if (!cursor) {
+        return null;
+      }
+    }
+    return cursor;
+  }
+
+  function formatSelectedNodePromptParts(node) {
+    return {
+      type: getSelectedNodeType(node),
+      title: node?.title || node?.kind || "node",
+      uid: node?.uid ? String(node.uid) : ""
+    };
+  }
+
+  function getSelectedNodeType(node) {
+    if (node?.category) {
+      return node.category;
+    }
+    if (node?.modelKind) {
+      return node.modelKind;
+    }
+    if (node?.kind) {
+      return node.kind;
+    }
+    return "node";
+  }
+
   function addCurrentTreeToQueue() {
     const treeId = runtime.state?.selectedTreeId || "";
     if (!treeId) {
@@ -634,6 +747,13 @@
       scanGroupTitle: (scope, trees, count) => `${scope}: ${trees} (${count})`,
       scanGroupNoIssues: "No issues in this scope.",
       jumpToIssue: "Jump to this node",
+      explainSelectedNodePrompt: (node) => {
+        if (!node || typeof node === "string") {
+          return `Explain selected node: ${node || ""}`;
+        }
+        const uid = node.uid ? ` (${node.uid})` : "";
+        return `Explain selected ${node.type || "node"}: ${node.title || "node"}${uid}`;
+      },
       treeAttached: (treeId) => `Added "${treeId}" to the assistant tree queue.`,
       treeDetached: (treeId) => `Removed "${treeId}" from the assistant tree queue.`
     };
@@ -645,6 +765,8 @@
     setVisible,
     handleAnswer,
     insertNodeUid,
+    syncSelectedNodePrompt,
+    clearSelectedNodePrompt,
     refreshLocalScan
   };
 })();

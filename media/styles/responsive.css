@@ -4,6 +4,33 @@
   }
 }
 
+@media (max-width: 1180px) {
+  .node-atlas-layout {
+    grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.9fr);
+    grid-template-rows: minmax(0, 1fr) minmax(128px, 0.36fr) minmax(128px, 0.36fr);
+  }
+
+  .node-atlas-node-list {
+    grid-column: 1;
+    grid-row: 1 / 4;
+  }
+
+  .node-atlas-preview {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .node-atlas-params {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .node-atlas-function {
+    grid-column: 2;
+    grid-row: 3;
+  }
+}
+
 .node-picker-header {
   display: flex;
   align-items: center;
@@ -86,12 +113,17 @@
     grid-template-rows: minmax(0, 1fr) minmax(96px, auto) minmax(96px, auto);
   }
 
-  .node-atlas-tags {
+  .node-atlas-node-list {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .node-atlas-params {
     grid-column: 2;
     grid-row: 2;
   }
 
-  .node-atlas-variables {
+  .node-atlas-function {
     grid-column: 1 / 3;
     grid-row: 3;
   }
@@ -145,5 +177,65 @@
       "role"
       "key"
       "value";
+  }
+}
+
+@media (max-width: 520px) {
+  .node-picker-dialog.node-atlas-dialog-panel {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .node-atlas-summary {
+    font-size: 11px;
+  }
+
+  .node-atlas-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows:
+      minmax(92px, 0.72fr)
+      minmax(180px, 1fr)
+      minmax(96px, 0.58fr)
+      minmax(96px, 0.58fr);
+    gap: 8px;
+  }
+
+  .node-atlas-node-list {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .node-atlas-preview {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .node-atlas-params {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .node-atlas-function {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .node-atlas-filters,
+  .node-atlas-list-results,
+  .node-atlas-params,
+  .node-atlas-function {
+    padding: 8px;
+  }
+
+  .node-atlas-search-row {
+    grid-template-columns: minmax(0, 1fr) 30px;
+    gap: 6px;
+  }
+
+  .node-atlas-search-button {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
   }
 }

@@ -40,10 +40,11 @@ Module._load = function loadWithVscodeStub(request, parent, isMain) {
   return originalLoad.call(this, request, parent, isMain);
 };
 
-const { DEFAULT_USER_SETTINGS, cloneUserSettings, loadUserSettings } = await import("../dist/userSettings.js");
+const { DEFAULT_USER_SETTINGS, THEME_PRESETS, cloneUserSettings, loadUserSettings } = await import("../dist/userSettings.js");
 Module._load = originalLoad;
 
 test("default user settings match the product defaults", () => {
+  assert.equal(DEFAULT_USER_SETTINGS.themePreset, "default");
   assert.equal(DEFAULT_USER_SETTINGS.showMainTreeLocator, false);
   assert.equal(DEFAULT_USER_SETTINGS.copyNodeWithDescendants, false);
   assert.equal(DEFAULT_USER_SETTINGS.playbackAutoNavigateToTree, false);
@@ -91,6 +92,22 @@ test("custom theme settings are normalized when loading user settings", async ()
     primaryColor: "#aabbcc",
     secondaryColor: "#123456"
   });
+});
+
+test("default theme preset is available and normalized when loading user settings", async () => {
+  fsState.files.clear();
+  fsState.writes = [];
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    themePreset: "default"
+  }));
+
+  const { settings } = await loadUserSettings({ fsPath: "/storage" });
+
+  assert.equal(settings.themePreset, "default");
+  assert.deepEqual(
+    THEME_PRESETS.find((theme) => theme.id === "default"),
+    { id: "default", labelZh: "暖金", labelEn: "Warm Gold" }
+  );
 });
 
 test("learning enhancement implies learning when loading user settings", async () => {
@@ -173,7 +190,7 @@ test("load user settings creates defaults only when the file is missing", async 
 
   const { settings } = await loadUserSettings({ fsPath: "/storage" });
 
-  assert.equal(settings.themePreset, "midnight");
+  assert.equal(settings.themePreset, "default");
   assert.equal(fsState.writes.length, 1);
   assert.equal(fsState.writes[0].path, "/storage/user-settings.json");
 });
@@ -191,7 +208,7 @@ test("load user settings does not overwrite unreadable existing settings", async
   try {
     const { settings } = await loadUserSettings({ fsPath: "/storage" });
 
-    assert.equal(settings.themePreset, "midnight");
+    assert.equal(settings.themePreset, "default");
     assert.equal(fsState.files.get("/storage/user-settings.json"), "{not-json");
     assert.equal(fsState.writes.length, 0);
     assert.equal(warnings.length, 1);
