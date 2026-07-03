@@ -1168,8 +1168,8 @@
       input.addEventListener("input", () => {
         syncAttributeInputPreview(input);
       });
-      input.addEventListener("blur", () => {
-        hideAttributeValuePreview(input);
+      input.addEventListener("blur", (event) => {
+        hideAttributeValuePreview(input, { relatedTarget: event.relatedTarget });
       });
       input.addEventListener("compositionstart", () => {
         input.dataset.isComposing = "true";
@@ -1185,6 +1185,12 @@
       input.addEventListener("change", () => {
         commitNodeAttributeValue(node, field, input, options.currentTreeId);
       });
+      input.__attributePreviewCommit = () => {
+        commitNodeAttributeValue(node, field, input, options.currentTreeId);
+      };
+      input.__attributePreviewCancel = () => {
+        input.value = input.dataset.originalValue || "";
+      };
       input.addEventListener("keydown", (event) => {
         if (isTextEditingShortcut(event)) {
           return;
@@ -1251,8 +1257,20 @@
       return;
     }
 
+    const editable = isEditableAttributePreviewSource(source);
+    preview.source = source || null;
     preview.host.dataset.sourceAttributeKey = attributeKey || "";
-    preview.content.textContent = value;
+    preview.host.dataset.editable = editable ? "true" : "false";
+    preview.host.setAttribute("aria-hidden", editable ? "false" : "true");
+    if (editable && preview.editor) {
+      preview.editor.hidden = false;
+      preview.editor.value = normalizePreviewEditorValue(value);
+      preview.editor.dataset.attributeKey = attributeKey || "";
+      preview.editor.placeholder = source?.placeholder || "";
+      resizeAttributePreviewEditor(preview.editor);
+    }
+    preview.content.hidden = editable;
+    preview.content.textContent = editable ? "" : value;
     preview.host.hidden = false;
   }
 
@@ -1262,13 +1280,27 @@
       return;
     }
 
+    const nextFocus = options.relatedTarget || document.activeElement;
+    if (!options.force && isAttributePreviewElement(nextFocus, preview)) {
+      return;
+    }
+
     if (!options.force && source && document.activeElement === source) {
       return;
     }
 
     preview.host.hidden = true;
+    preview.host.dataset.editable = "false";
+    preview.host.setAttribute("aria-hidden", "true");
+    preview.source = null;
     if (preview.content) {
+      preview.content.hidden = false;
       preview.content.textContent = "";
+    }
+    if (preview.editor) {
+      preview.editor.hidden = true;
+      preview.editor.value = "";
+      delete preview.editor.dataset.attributeKey;
     }
     delete preview.host.dataset.sourceAttributeKey;
   }
@@ -1291,10 +1323,116 @@
     const content = document.createElement("div");
     content.className = "attribute-input-preview-content";
     host.appendChild(content);
+
+    const editor = document.createElement("textarea");
+    editor.className = "attribute-input-preview-editor";
+    editor.rows = 1;
+    editor.spellcheck = false;
+    editor.hidden = true;
+    bindAttributePreviewEditor(host, editor);
+    host.appendChild(editor);
     workspace.appendChild(host);
 
-    runtime.state.attributeInputPreview = { host, content };
+    runtime.state.attributeInputPreview = { host, content, editor, source: null };
     return runtime.state.attributeInputPreview;
+  }
+
+  function bindAttributePreviewEditor(host, editor) {
+    editor.addEventListener("pointerdown", stopInputEvent);
+    editor.addEventListener("click", stopInputEvent);
+    editor.addEventListener("dblclick", stopInputEvent);
+    editor.addEventListener("contextmenu", stopInputEvent);
+    editor.addEventListener("copy", stopInputEvent);
+    editor.addEventListener("cut", stopInputEvent);
+    editor.addEventListener("paste", stopInputEvent);
+    editor.addEventListener("input", () => {
+      const preview = runtime.state.attributeInputPreview;
+      const source = preview?.source;
+      const nextValue = normalizePreviewEditorValue(editor.value);
+      if (editor.value !== nextValue) {
+        editor.value = nextValue;
+      }
+      if (source) {
+        source.value = nextValue;
+      }
+      resizeAttributePreviewEditor(editor);
+    });
+    editor.addEventListener("compositionstart", () => {
+      editor.dataset.isComposing = "true";
+      editor.dataset.justComposed = "false";
+    });
+    editor.addEventListener("compositionend", () => {
+      editor.dataset.isComposing = "false";
+      editor.dataset.justComposed = "true";
+      window.setTimeout(() => {
+        editor.dataset.justComposed = "false";
+      }, 80);
+    });
+    editor.addEventListener("keydown", (event) => {
+      if (isTextEditingShortcut(event)) {
+        return;
+      }
+
+      event.stopPropagation();
+      if (event.key === "Enter") {
+        if (isInputCompositionEnter(event, editor)) {
+          return;
+        }
+        event.preventDefault();
+        runtime.state.attributeInputPreview?.source?.__attributePreviewCommit?.();
+        editor.blur();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        const source = runtime.state.attributeInputPreview?.source;
+        source?.__attributePreviewCancel?.();
+        editor.value = source?.value || "";
+        resizeAttributePreviewEditor(editor);
+        editor.blur();
+      }
+    });
+    editor.addEventListener("blur", (event) => {
+      const preview = runtime.state.attributeInputPreview;
+      const source = preview?.source;
+      if (source && event.relatedTarget !== source) {
+        source.__attributePreviewCommit?.();
+      }
+      hideAttributeValuePreview(source, { force: true });
+    });
+    host.addEventListener("pointerdown", stopInputEvent);
+  }
+
+  function isEditableAttributePreviewSource(source) {
+    return Boolean(source?.classList?.contains("flow-attribute-input") && source.readOnly !== true);
+  }
+
+  function isAttributePreviewElement(element, preview) {
+    let cursor = element || null;
+    while (cursor) {
+      if (cursor === preview.host) {
+        return true;
+      }
+      cursor = cursor.parentElement || null;
+    }
+    return false;
+  }
+
+  function resizeAttributePreviewEditor(editor) {
+    if (!editor) {
+      return;
+    }
+
+    const valueLength = normalizePreviewEditorValue(editor.value).length;
+    const widthCh = Math.min(Math.max(valueLength + 2, 14), 96);
+    editor.style.width = `min(calc(${widthCh}ch + 24px), 100%)`;
+    editor.style.height = "auto";
+    const scrollHeight = Number(editor.scrollHeight) || 0;
+    if (scrollHeight > 0) {
+      editor.style.height = `${Math.min(Math.max(scrollHeight, 34), 112)}px`;
+    }
+  }
+
+  function normalizePreviewEditorValue(value) {
+    return String(value || "").replace(/\s*[\r\n]+\s*/g, " ");
   }
 
   function isTextEditingShortcut(event) {

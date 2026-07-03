@@ -18,6 +18,8 @@ class ElementStub {
     this.spellcheck = false;
     this.readOnly = false;
     this.tabIndex = 0;
+    this.rows = 0;
+    this.hidden = false;
     this.parentElement = null;
     this.style = {
       setProperty() {}
@@ -74,6 +76,10 @@ class ElementStub {
     this[name] = value;
   }
 
+  focus() {}
+
+  blur() {}
+
   closest() {
     return null;
   }
@@ -87,8 +93,18 @@ function findInputs(element, result = []) {
   return result;
 }
 
+function findFormControls(element, result = []) {
+  if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
+    result.push(element);
+  }
+  element.children.forEach((child) => findFormControls(child, result));
+  return result;
+}
+
 function loadCanvasRuntime() {
   const messages = [];
+  const workspace = new ElementStub();
+  workspace.className = "tree-workspace";
   const runtime = {
     state: {
       selectedTreeId: "MainTree",
@@ -133,6 +149,7 @@ function loadCanvasRuntime() {
     }
   };
   const document = {
+    activeElement: null,
     body: {
       classList: {
         add() {},
@@ -148,7 +165,10 @@ function loadCanvasRuntime() {
     querySelectorAll() {
       return [];
     },
-    querySelector() {
+    querySelector(selector) {
+      if (selector === ".tree-workspace") {
+        return workspace;
+      }
       return null;
     }
   };
@@ -169,7 +189,7 @@ function loadCanvasRuntime() {
   };
   const scriptPath = path.resolve("media/runtime/canvas.js");
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
-  return { runtime, messages };
+  return { runtime, messages, document, workspace };
 }
 
 test("copying two output values across split panes keeps the first pending target value", () => {
@@ -452,6 +472,62 @@ test("stale optimistic attributes are ignored when a new node reuses the same pa
   assert.equal(messages.length, 2);
   assert.deepEqual(JSON.parse(JSON.stringify(messages[1].payload.attributes)), {
     if: "v == \"2\"",
+    else: "FAILURE"
+  });
+});
+
+test("long attribute values can be edited from the preview editor without multiline attributes", () => {
+  const { runtime, messages, document, workspace } = loadCanvasRuntime();
+  const node = {
+    nodePath: "0.1",
+    title: "Precondition",
+    kind: "Precondition",
+    category: "Decorator",
+    attributes: {
+      if: "current_dist > 0 && current_dist < (prepare_dist + 0.1)",
+      else: "FAILURE"
+    },
+    attributeFields: [
+      {
+        key: "if",
+        value: "current_dist > 0 && current_dist < (prepare_dist + 0.1)",
+        role: "param",
+        editableValue: true,
+        required: true
+      },
+      { key: "else", value: "FAILURE", role: "param", editableValue: true, required: false }
+    ],
+    children: [],
+    warnings: [],
+    warningCount: 0,
+    hasError: false
+  };
+
+  const card = runtime.canvas.buildNodeCard(node, { behaviorTrees: [] }, {
+    interactive: true,
+    currentTreeId: "MainTree"
+  });
+  const conditionControl = findFormControls(card).find((entry) => entry.dataset.attributeKey === "if");
+  assert.equal(conditionControl.tagName, "INPUT");
+
+  document.activeElement = conditionControl;
+  conditionControl.dispatch("focus");
+
+  const previewHost = workspace.children.find((entry) => entry.className === "attribute-input-preview");
+  const previewEditor = previewHost.children.find((entry) => entry.className === "attribute-input-preview-editor");
+  assert.equal(previewEditor.hidden, false);
+  assert.equal(previewEditor.value, "current_dist > 0 && current_dist < (prepare_dist + 0.1)");
+
+  previewEditor.value = "current_dist > 0 &&\ncurrent_dist < (prepare_dist + 0.2)";
+  previewEditor.dispatch("input");
+  assert.equal(conditionControl.value, "current_dist > 0 && current_dist < (prepare_dist + 0.2)");
+  assert.equal(previewEditor.value, "current_dist > 0 && current_dist < (prepare_dist + 0.2)");
+
+  previewEditor.dispatch("blur");
+
+  assert.equal(messages.length, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(messages[0].payload.attributes)), {
+    if: "current_dist > 0 && current_dist < (prepare_dist + 0.2)",
     else: "FAILURE"
   });
 });
