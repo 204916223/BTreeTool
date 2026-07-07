@@ -190,7 +190,6 @@
   function getTreeNodesModelCopy(language = getCurrentLanguage()) {
     const base = {
       title: "TreeNodesModel",
-      openXml: "Open XML",
       close: "Close",
       addModel: "Add Model",
       save: "Save",
@@ -226,7 +225,6 @@
       base,
       {
         title: "节点模型",
-        openXml: "打开 XML",
         close: "关闭",
         addModel: "新增模型",
         save: "保存",

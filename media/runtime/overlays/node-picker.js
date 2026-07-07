@@ -106,7 +106,7 @@
 
       const arrow = document.createElement("span");
       arrow.className = isCollapsed ? "catalog-group-arrow is-collapsed" : "catalog-group-arrow";
-      arrow.textContent = "▾";
+      arrow.innerHTML = runtime.icons.iconHtml("chevronDown");
 
       const title = document.createElement("span");
       title.className = "catalog-group-title";

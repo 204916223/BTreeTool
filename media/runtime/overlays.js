@@ -126,6 +126,7 @@
     showAssistantWhitelistDialog: (...args) => getPart("assistantWhitelistDialog").showAssistantWhitelistDialog(...args),
     hideAssistantWhitelistDialog: (...args) => getPart("assistantWhitelistDialog").hideAssistantWhitelistDialog(...args),
     showNodeAtlasDialog: (...args) => getPart("nodeAtlasDialog").showNodeAtlasDialog(...args),
+    createNodeAtlasPreviewForKey: (...args) => getPart("nodeAtlasDialog").createNodeAtlasPreviewForKey(...args),
     hideNodeAtlasDialog: (...args) => getPart("nodeAtlasDialog").hideNodeAtlasDialog(...args),
     showBehaviorTreeDialog: (...args) => getPart("behaviorTreeDialog").showBehaviorTreeDialog(...args),
     showBehaviorTreeDeleteDialog: (...args) => getPart("behaviorTreeDialog").showBehaviorTreeDeleteDialog(...args),

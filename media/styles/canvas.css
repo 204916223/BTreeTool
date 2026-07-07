@@ -591,6 +591,34 @@ body.is-reordering-nodes .drop-slot-overlay {
   display: none;
 }
 
+.flow-card.is-section-title-hidden .flow-node-kind {
+  display: none;
+}
+
+.flow-card.is-section-title-hidden .flow-card-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-card.is-section-title-hidden .flow-node-uid {
+  grid-column: 1;
+  justify-self: end;
+}
+
+.flow-card.is-section-title-hidden .flow-node-name {
+  grid-column: 2;
+  justify-self: center;
+  text-align: center;
+}
+
+.flow-card.is-section-title-hidden .flow-warning-badge {
+  grid-column: 3;
+  justify-self: start;
+  margin-left: 0;
+}
+
 .flow-card.is-section-title-emphasis .flow-io-label {
   justify-self: start;
   padding: 3px 10px;

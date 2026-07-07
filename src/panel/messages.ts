@@ -45,9 +45,6 @@ export type WebviewMessage =
       };
     }
   | {
-      type: "revealTreeNodesModel";
-    }
-  | {
       type: "saveTreeNodeModels";
       payload?: BtNodeModel[];
     }

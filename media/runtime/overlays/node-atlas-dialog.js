@@ -636,7 +636,7 @@
     });
     const attributes = Object.fromEntries(fields.map((field) => [field.key, field.value || ""]));
     const category = entry.category || "Action";
-    const kind = state.selectedKey || entry.title || "";
+    const kind = options.kind || state.selectedKey || entry.title || "";
 
     return {
       nodePath: options.nodePath || "0",
@@ -664,6 +664,41 @@
       children: options.children || [],
       sourceTreeId: "__node_atlas__",
       renderPath: `__node_atlas__::${options.nodePath || "0"}::${kind}`
+    };
+  }
+
+  function createNodeAtlasPreviewForKey(key, options = {}) {
+    const atlasKey = String(key || "").trim();
+    if (!atlasKey || !runtime.canvas?.buildNodeCard) {
+      return null;
+    }
+
+    const parsed = state.keys.length > 0 ? { nodes: state.nodes, keys: state.keys } : parseAtlasNodes();
+    const entry = parsed.nodes[atlasKey] || createFallbackAtlasEntry(atlasKey, options);
+    const node = createAtlasPreviewNode(entry, {
+      nodePath: "0",
+      kind: atlasKey,
+      attributes: options.attributes || {}
+    });
+
+    const card = runtime.canvas.buildNodeCard(node, null, {
+      interactive: false,
+      measuring: true,
+      readonlyControls: true,
+      currentTreeId: options.treeId || "__node_atlas_catalog__"
+    });
+    card.classList.add("node-atlas-catalog-card");
+    return card;
+  }
+
+  function createFallbackAtlasEntry(key, options = {}) {
+    return {
+      title: options.title || key,
+      category: options.category || "Action",
+      description: options.description || "",
+      mainline: {
+        params: {}
+      }
     };
   }
 
@@ -943,6 +978,7 @@
   overlayRuntime.parts.nodeAtlasDialog = {
     createNodeAtlasDialog,
     showNodeAtlasDialog,
-    hideNodeAtlasDialog
+    hideNodeAtlasDialog,
+    createNodeAtlasPreviewForKey
   };
 })();

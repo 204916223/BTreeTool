@@ -35,8 +35,7 @@ import {
   handleCreateNewBehaviorTreeDocumentAction,
   handleOpenExistingBehaviorTreeDocumentAction,
   handleSaveCurrentDocumentAction,
-  isXmlWithoutBehaviorTrees,
-  revealTreeNodesModelAction
+  isXmlWithoutBehaviorTrees
 } from "./panel/documentActions";
 import {
   handleClearImportedNodesAction,
@@ -418,11 +417,6 @@ export class BehaviorTreePreviewPanel {
 
     if (message.type === "updateNodeAttributes" && "payload" in message) {
       void this.handleUpdateNodeAttributes(message.payload);
-      return true;
-    }
-
-    if (message.type === "revealTreeNodesModel") {
-      void this.revealTreeNodesModel();
       return true;
     }
 
@@ -814,10 +808,6 @@ export class BehaviorTreePreviewPanel {
       atlasNodes: this.atlasNodes,
       postMessage: (message) => this.panel.webview.postMessage(message)
     });
-  }
-
-  private async revealTreeNodesModel(): Promise<void> {
-    await revealTreeNodesModelAction(this.latestDocumentUri, this.getCopy());
   }
 
   private async handleSaveTreeNodeModels(payload: Parameters<typeof handleSaveTreeNodeModelsAction>[0]): Promise<void> {

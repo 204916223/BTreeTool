@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { isBlockingWarning } from "../core/issueRules";
 import { parseBehaviorTreeDocument } from "../core/parse";
 import { serializeBehaviorTreeDocument } from "../core/serialize";
-import { openDocumentInEditor, showDocumentInEditor } from "./panelUtils";
+import { openDocumentInEditor } from "./panelUtils";
 import type { getPanelCopy } from "./panelCopy";
 
 type PanelCopy = ReturnType<typeof getPanelCopy>;
@@ -251,25 +251,4 @@ export async function handleOpenExistingBehaviorTreeDocumentAction(context: Docu
 
   context.attachDocument(document);
   context.revealPanel();
-}
-
-export async function revealTreeNodesModelAction(
-  latestDocumentUri: vscode.Uri | null,
-  copy: PanelCopy
-): Promise<void> {
-  if (!latestDocumentUri) {
-    void vscode.window.showWarningMessage(copy.noAttachedDocumentWarning);
-    return;
-  }
-
-  const document = await vscode.workspace.openTextDocument(latestDocumentUri);
-  const source = document.getText();
-  const modelOffset = source.indexOf("<TreeNodesModel");
-  const rootOffset = source.indexOf("<root");
-  const targetOffset = modelOffset >= 0 ? modelOffset : rootOffset >= 0 ? rootOffset : 0;
-  const targetPosition = document.positionAt(targetOffset);
-
-  const editor = await showDocumentInEditor(document);
-  editor.selection = new vscode.Selection(targetPosition, targetPosition);
-  editor.revealRange(new vscode.Range(targetPosition, targetPosition), vscode.TextEditorRevealType.InCenter);
 }

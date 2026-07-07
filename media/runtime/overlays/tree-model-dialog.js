@@ -16,21 +16,13 @@
     const headerActions = document.createElement("div");
     headerActions.className = "tree-model-header-actions";
 
-    const openXmlButton = document.createElement("button");
-    openXmlButton.type = "button";
-    openXmlButton.className = "canvas-btn subtle";
-    openXmlButton.textContent = "Open XML";
-    openXmlButton.addEventListener("click", () => {
-      runtime.vscode.postMessage({ type: "revealTreeNodesModel" });
-    });
-
     const closeButton = document.createElement("button");
     closeButton.type = "button";
-    closeButton.className = "canvas-btn subtle";
-    closeButton.textContent = "Close";
+    closeButton.className = "settings-close-button";
+    closeButton.setAttribute("aria-label", "Close");
+    closeButton.innerHTML = runtime.icons.iconHtml("close");
     closeButton.addEventListener("click", hideTreeNodesModelDialog);
 
-    headerActions.appendChild(openXmlButton);
     headerActions.appendChild(closeButton);
     header.appendChild(headerActions);
 
@@ -141,7 +133,6 @@
     return {
       element,
       title,
-      openXmlButton,
       closeButton,
       typeField,
       typeSelect,
@@ -180,8 +171,9 @@
 
     const copy = runtime.i18n.getTreeNodesModelCopy();
     overlayState.treeNodesModelDialog.title.textContent = copy.title;
-    overlayState.treeNodesModelDialog.openXmlButton.textContent = copy.openXml;
-    overlayState.treeNodesModelDialog.closeButton.textContent = copy.close;
+    overlayState.treeNodesModelDialog.closeButton.title = copy.close;
+    overlayState.treeNodesModelDialog.closeButton.setAttribute("aria-label", copy.close);
+    overlayState.treeNodesModelDialog.closeButton.innerHTML = runtime.icons.iconHtml("close");
     overlayState.treeNodesModelDialog.typeField.text.textContent = copy.modelKind;
     overlayState.treeNodesModelDialog.nameField.text.textContent = copy.modelId;
     Array.from(overlayState.treeNodesModelDialog.tableHead.querySelectorAll("th")).forEach((th) => {

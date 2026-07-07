@@ -1,5 +1,9 @@
 (function () {
   const runtime = (window.BTreeToolRuntime = window.BTreeToolRuntime || {});
+  const CATALOG_PREVIEW_DELAY_MS = 1000;
+  let catalogPreviewElement = null;
+  let catalogPreviewTimer = 0;
+  let activeCatalogPreview = null;
 
   function filterCatalogGroups(groups, query) {
     if (!groups || groups.length === 0) {
@@ -22,11 +26,165 @@
       .filter((group) => group.items.length > 0);
   }
 
+  function getCatalogItemRole(item) {
+    if (runtime.canvas?.getNodeRole) {
+      return runtime.canvas.getNodeRole({
+        kind: item.key || item.title || "",
+        title: item.title || item.key || "",
+        category: item.category || "",
+        modelKind: item.category || "",
+        children: []
+      });
+    }
+
+    if (item.category === "SubTree") {
+      return "subtree";
+    }
+    if (item.category === "Control") {
+      return "control";
+    }
+    if (item.category === "Decorator") {
+      return "decorator";
+    }
+    return "action";
+  }
+
+  function ensureCatalogItemPreview() {
+    if (catalogPreviewElement) {
+      return catalogPreviewElement;
+    }
+
+    const preview = document.createElement("div");
+    preview.className = "catalog-item-preview";
+    preview.hidden = true;
+    document.body.appendChild(preview);
+    catalogPreviewElement = preview;
+    return preview;
+  }
+
+  function buildCatalogItemPreview(item) {
+    const atlasPreview = runtime.overlays?.createNodeAtlasPreviewForKey?.(item.key, {
+      title: item.title,
+      category: item.category,
+      paneId: "node-atlas-catalog-preview"
+    });
+    if (atlasPreview) {
+      return atlasPreview;
+    }
+
+    const role = getCatalogItemRole(item);
+    const card = document.createElement("div");
+    card.className = `flow-card flow-card-${role} is-details-hidden catalog-item-preview-card`;
+
+    const heading = document.createElement("div");
+    heading.className = "flow-card-heading";
+
+    const kind = document.createElement("span");
+    kind.className = "flow-node-kind";
+    kind.textContent = item.category || role.toUpperCase();
+
+    const name = document.createElement("span");
+    name.className = "flow-node-name";
+    name.textContent = item.title || item.key || "";
+
+    heading.appendChild(kind);
+    heading.appendChild(name);
+    card.appendChild(heading);
+    return card;
+  }
+
+  function positionCatalogItemPreview(row, preview) {
+    const content = preview.firstElementChild;
+    if (content instanceof HTMLElement) {
+      content.style.transform = "scale(1)";
+      content.style.transformOrigin = "top left";
+    }
+
+    const panelRect = runtime.refs.catalogPanel?.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const gap = 12;
+    const margin = 12;
+    const scale = 0.75;
+    const naturalRect = content instanceof HTMLElement ? content.getBoundingClientRect() : preview.getBoundingClientRect();
+    const naturalWidth = Math.ceil(naturalRect.width || content?.scrollWidth || preview.offsetWidth || 240);
+    const naturalHeight = Math.ceil(naturalRect.height || content?.scrollHeight || preview.offsetHeight || 120);
+    const preferredLeft = (panelRect?.right || rowRect.right) + gap;
+    const availableRight = Math.max(0, viewportWidth - preferredLeft - margin);
+    const availableLeft = Math.max(0, rowRect.left - gap - margin);
+    const rowCenterY = rowRect.top + rowRect.height / 2;
+    const previewWidth = Math.ceil(naturalWidth * scale);
+    const previewHeight = Math.ceil(naturalHeight * scale);
+    const placeOnRight = availableRight >= previewWidth || (availableLeft < previewWidth && availableRight >= availableLeft);
+    const left = placeOnRight
+      ? preferredLeft
+      : rowRect.left - gap - previewWidth;
+    const centeredTop = rowCenterY - previewHeight / 2;
+    const top = Math.max(margin, Math.min(centeredTop, viewportHeight - previewHeight - margin));
+
+    if (content instanceof HTMLElement) {
+      content.style.transform = `scale(${scale})`;
+    }
+    preview.style.width = `${previewWidth}px`;
+    preview.style.height = `${previewHeight}px`;
+    preview.style.left = `${Math.max(margin, Math.min(left, viewportWidth - previewWidth - margin))}px`;
+    preview.style.top = `${top}px`;
+  }
+
+  function hideCatalogItemPreview() {
+    window.clearTimeout(catalogPreviewTimer);
+    catalogPreviewTimer = 0;
+    activeCatalogPreview = null;
+    if (!catalogPreviewElement) {
+      return;
+    }
+
+    catalogPreviewElement.classList.remove("is-visible");
+    catalogPreviewElement.hidden = true;
+  }
+
+  function scheduleCatalogItemPreview(row, item) {
+    hideCatalogItemPreview();
+    if (row.classList.contains("is-renaming")) {
+      return;
+    }
+
+    activeCatalogPreview = { row, item };
+    catalogPreviewTimer = window.setTimeout(() => {
+      if (!activeCatalogPreview || activeCatalogPreview.row !== row || !row.isConnected) {
+        return;
+      }
+
+      const preview = ensureCatalogItemPreview();
+      preview.replaceChildren(buildCatalogItemPreview(item));
+      preview.hidden = false;
+      preview.style.visibility = "hidden";
+      positionCatalogItemPreview(row, preview);
+      const nextFrame = window.requestAnimationFrame || ((callback) => window.setTimeout(callback, 0));
+      nextFrame(() => {
+        if (!activeCatalogPreview || activeCatalogPreview.row !== row) {
+          return;
+        }
+        preview.style.visibility = "";
+        preview.classList.add("is-visible");
+      });
+    }, CATALOG_PREVIEW_DELAY_MS);
+  }
+
+  function updateCatalogItemPreviewPosition(row) {
+    if (!catalogPreviewElement || !activeCatalogPreview || activeCatalogPreview.row !== row) {
+      return;
+    }
+    positionCatalogItemPreview(row, catalogPreviewElement);
+  }
+
   function renderCatalog(groups) {
     const { refs, state, app } = runtime;
     const { catalogList, catalogSearchInput } = refs;
     const copy = runtime.i18n.getCatalogCopy();
 
+    hideCatalogItemPreview();
     refs.catalogSearchInput.hidden = false;
     refs.addNodeModelButton.hidden = false;
     const canCreateNodeModel = app.canPerformAction("createNodeModel");
@@ -67,7 +225,7 @@
 
       const arrow = document.createElement("span");
       arrow.className = collapsed ? "catalog-group-arrow is-collapsed" : "catalog-group-arrow";
-      arrow.textContent = "▾";
+      arrow.innerHTML = runtime.icons.iconHtml("chevronDown");
 
       const title = document.createElement("span");
       title.className = "catalog-group-title";
@@ -107,6 +265,9 @@
         label.className = "catalog-item-label";
         label.textContent = item.title;
         row.appendChild(label);
+
+        const actions = document.createElement("span");
+        actions.className = "catalog-item-actions";
         if (canRenameSubTreeItem(item)) {
           row.addEventListener("dblclick", (event) => {
             if (event.target instanceof Element && event.target.closest(".catalog-item-edit, .catalog-item-remove")) {
@@ -124,7 +285,7 @@
           const markerTitle = copy.detachedSubTreeTitle(item.title);
           marker.title = markerTitle;
           marker.setAttribute("aria-label", markerTitle);
-          row.appendChild(marker);
+          actions.appendChild(marker);
         }
 
         if (item.editableModelId) {
@@ -146,7 +307,7 @@
             }
             runtime.overlays.showTreeNodesModelDialog({ focusModelId: item.editableModelId });
           });
-          row.appendChild(editButton);
+          actions.appendChild(editButton);
         }
 
         if (item.removableTreeId) {
@@ -170,10 +331,20 @@
               treeId: item.removableTreeId
             });
           });
-          row.appendChild(removeButton);
+          actions.appendChild(removeButton);
         }
 
+        row.appendChild(actions);
+
+        row.addEventListener("pointerenter", () => {
+          scheduleCatalogItemPreview(row, item);
+        });
+        row.addEventListener("pointermove", () => {
+          updateCatalogItemPreviewPosition(row);
+        });
+        row.addEventListener("pointerleave", hideCatalogItemPreview);
         row.addEventListener("dragstart", (event) => {
+          hideCatalogItemPreview();
           if (row.classList.contains("is-renaming")) {
             event.preventDefault();
             return;
@@ -432,6 +603,8 @@
     refs.openNodeAtlasButton?.addEventListener("click", () => {
       runtime.overlays.showNodeAtlasDialog();
     });
+    refs.catalogList?.addEventListener("scroll", hideCatalogItemPreview, { passive: true });
+    window.addEventListener("resize", hideCatalogItemPreview);
     enableCatalogDeleteTarget();
     syncDeleteTargetIndicator();
   }
@@ -443,6 +616,7 @@
     isCatalogGroupCollapsed,
     enableCatalogDeleteTarget,
     clearCatalogDeleteTarget,
-    syncDeleteTargetIndicator
+    syncDeleteTargetIndicator,
+    hideCatalogItemPreview
   };
 })();
