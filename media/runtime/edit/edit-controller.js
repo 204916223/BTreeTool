@@ -80,7 +80,8 @@
       closeSearchPanel: runtime.search.closePanel,
       refreshSearchResults: runtime.search.refreshResults,
       navigateSearchResults: runtime.search.navigateResults,
-      activateSearchResult: runtime.search.activateResult
+      activateSearchResult: runtime.search.activateResult,
+      renderDocumentOpeningState
     };
 
     runtime.mainEvents.bindWebviewMessages({
@@ -97,7 +98,8 @@
       buildCurrentPlaybackSnapshot,
       updatePlaybackTracePanel,
       handleTraceAnswer,
-      handleTraceAnswerChunk
+      handleTraceAnswerChunk,
+      finishDocumentOpen
     });
     runtime.mainEvents.bindGlobalKeys({
       togglePlayback
@@ -125,6 +127,7 @@
 
     function render(payload) {
       const appCopy = runtime.i18n.getAppCopy();
+      runtime.state.openingXmlDocument = false;
       runtime.state.latestPayload = payload;
       const hadDocumentBefore = runtime.state.currentHasDocument;
       const incomingDocumentPath = payload.hasDocument ? payload.fileName || "" : "";
@@ -452,6 +455,7 @@
     function renderNoDocumentState() {
       const appCopy = runtime.i18n.getAppCopy();
 
+      runtime.state.openingXmlDocument = false;
       runtime.state.currentFileName = appCopy.noActiveDocument;
       runtime.state.currentPreview = null;
       runtime.state.currentCanvasState = null;
@@ -472,6 +476,35 @@
       runtime.mainTreeLocator.clear();
       updateSaveIndicator();
       runtime.search.updateUi();
+    }
+
+    function renderDocumentOpeningState() {
+      if (runtime.modeRules.isPlaybackMode()) {
+        return;
+      }
+
+      const appCopy = runtime.i18n.getAppCopy();
+      runtime.state.openingXmlDocument = true;
+      runtime.refs.fileLabel.textContent = appCopy.openExistingOpening;
+      runtime.refs.treeSwitcher.replaceChildren();
+      runtime.search.clearResults();
+      runtime.refs.treeContent.replaceChildren(runtime.startupState.buildDocumentOpeningState(appCopy));
+      runtime.mainTreeLocator.clear();
+      updateSaveIndicator();
+      runtime.search.updateUi();
+    }
+
+    function finishDocumentOpen() {
+      if (!runtime.state.openingXmlDocument) {
+        return;
+      }
+
+      runtime.state.openingXmlDocument = false;
+      if (runtime.state.latestPayload) {
+        render(runtime.state.latestPayload);
+        return;
+      }
+      renderNoDocumentState();
     }
 
     function renderCurrentTree(result, options = {}) {

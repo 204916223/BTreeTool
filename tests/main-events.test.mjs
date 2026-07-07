@@ -34,6 +34,10 @@ function loadMainEventsRuntime(mode = "playback") {
       },
       applyUserSettings() {
         this.applyUserSettingsCount += 1;
+      },
+      renderDocumentOpeningStateCount: 0,
+      renderDocumentOpeningState() {
+        this.renderDocumentOpeningStateCount += 1;
       }
     },
     modeRules: {
@@ -305,6 +309,24 @@ test("playback log import request is ignored while an import is pending", () => 
   assert.equal(JSON.stringify(runtime.vscode.messages), JSON.stringify([{ type: "choosePlaybackLogFile" }]));
 });
 
+test("file label action opens XML picker in edit mode", () => {
+  const { runtime } = loadMainEventsRuntime("edit");
+
+  runtime.mainEvents.requestFileLabelAction();
+
+  assert.equal(runtime.app.renderDocumentOpeningStateCount, 1);
+  assert.equal(JSON.stringify(runtime.vscode.messages), JSON.stringify([{ type: "openExistingBehaviorTreeDocument" }]));
+});
+
+test("file label action imports playback log in playback mode", () => {
+  const { runtime } = loadMainEventsRuntime("playback");
+
+  runtime.mainEvents.requestFileLabelAction();
+
+  assert.equal(runtime.state.playbackLogImporting, true);
+  assert.equal(JSON.stringify(runtime.vscode.messages), JSON.stringify([{ type: "choosePlaybackLogFile" }]));
+});
+
 test("settingsUpdated message refreshes current settings immediately", () => {
   const { runtime, listeners } = loadMainEventsRuntime("playback");
 
@@ -337,6 +359,21 @@ test("settingsUpdated message refreshes current settings immediately", () => {
   assert.equal(runtime.state.currentSettings.traceLearningEnabled, true);
   assert.equal(runtime.state.settingsFilePath, "/storage/user-settings.json");
   assert.equal(runtime.app.applyUserSettingsCount, 1);
+});
+
+test("documentOpenFinished message completes a pending XML open transition", () => {
+  const { listeners, runtime } = loadMainEventsRuntime("edit");
+  let finishCount = 0;
+
+  runtime.mainEvents.bindWebviewMessages({
+    finishDocumentOpen() {
+      finishCount += 1;
+    }
+  });
+
+  listeners.message({ data: { type: "documentOpenFinished" } });
+
+  assert.equal(finishCount, 1);
 });
 
 test("panel visibility and page hide pause playback", () => {

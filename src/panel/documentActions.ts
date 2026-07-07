@@ -249,7 +249,6 @@ export async function handleOpenExistingBehaviorTreeDocumentAction(context: Docu
     return;
   }
 
-  await showDocumentInEditor(document);
   context.attachDocument(document);
   context.revealPanel();
 }

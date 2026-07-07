@@ -10,6 +10,11 @@
         return;
       }
 
+      if (message?.type === "documentOpenFinished") {
+        handlers.finishDocumentOpen?.();
+        return;
+      }
+
       if (message?.type === "editResult") {
         if (message.payload?.dirtyState === "dirty") {
           runtime.state.hasUnsavedXmlChanges = true;
@@ -247,16 +252,14 @@
       handlers.setPreviewMode("playback");
     });
     runtime.refs.fileLabel?.addEventListener("click", () => {
-      if (runtime.modeRules.isPlaybackMode()) {
-        requestPlaybackLogImport();
-      }
+      requestFileLabelAction();
     });
     runtime.refs.fileLabel?.addEventListener("keydown", (event) => {
-      if (!runtime.modeRules.isPlaybackMode() || (event.key !== "Enter" && event.key !== " ")) {
+      if (event.key !== "Enter" && event.key !== " ") {
         return;
       }
       event.preventDefault();
-      requestPlaybackLogImport();
+      requestFileLabelAction();
     });
     runtime.refs.openSettingsButton?.addEventListener("click", () => {
       runtime.overlays.showSettingsDialog();
@@ -421,6 +424,16 @@
     runtime.vscode.postMessage({ type: "choosePlaybackLogFile" });
   }
 
+  function requestFileLabelAction() {
+    if (runtime.modeRules.isPlaybackMode()) {
+      requestPlaybackLogImport();
+      return;
+    }
+
+    runtime.app.renderDocumentOpeningState?.();
+    runtime.vscode.postMessage({ type: "openExistingBehaviorTreeDocument" });
+  }
+
   function requestCurrentDocumentSave() {
     if (!runtime.state.currentHasDocument) {
       return;
@@ -433,6 +446,7 @@
     bindWebviewMessages,
     bindGlobalKeys,
     bindChromeControls,
-    requestPlaybackLogImport
+    requestPlaybackLogImport,
+    requestFileLabelAction
   };
 })();

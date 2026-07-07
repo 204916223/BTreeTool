@@ -672,6 +672,12 @@ export class BehaviorTreePreviewPanel {
     });
   }
 
+  private postDocumentOpenFinished(): void {
+    this.panel.webview.postMessage({
+      type: "documentOpenFinished"
+    });
+  }
+
   private async refreshPreviewFromUri(): Promise<void> {
     if (!this.latestDocumentUri) {
       this.latestPayload = this.toPayload(undefined);
@@ -915,7 +921,11 @@ export class BehaviorTreePreviewPanel {
   }
 
   private async handleOpenExistingBehaviorTreeDocument(): Promise<void> {
-    await handleOpenExistingBehaviorTreeDocumentAction(this.getDocumentWorkflowContext());
+    try {
+      await handleOpenExistingBehaviorTreeDocumentAction(this.getDocumentWorkflowContext());
+    } finally {
+      this.postDocumentOpenFinished();
+    }
   }
 
   private async handleChoosePlaybackLogFile(): Promise<void> {

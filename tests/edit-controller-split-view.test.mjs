@@ -15,10 +15,16 @@ function createElementStub(tagName = "div") {
     classList: {
       toggle() {}
     },
-    appendChild() {},
-    replaceChildren() {},
     addEventListener() {},
-    textContent: ""
+    textContent: "",
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+    replaceChildren(...children) {
+      this.children = children;
+    }
   };
 }
 
@@ -86,6 +92,7 @@ function loadEditControllerRuntime() {
         return {
           renderSplitTreeView(_result, viewportStates) {
             renderSplitCalls.push(viewportStates);
+            runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
           },
           getCanvasViewportState() {
             return null;
@@ -115,7 +122,9 @@ function loadEditControllerRuntime() {
       }
     },
     mainEvents: {
-      bindWebviewMessages() {},
+      bindWebviewMessages(handlers) {
+        runtime.boundWebviewHandlers = handlers;
+      },
       bindGlobalKeys() {},
       bindChromeControls() {}
     },
@@ -177,13 +186,20 @@ function loadEditControllerRuntime() {
           emptyFileOutline: "Empty",
           noBehaviorTreeOutline: "No behavior tree",
           selectedTreeNotFound: "Tree not found",
-          noActiveDocument: "No active document"
+          noActiveDocument: "No active document",
+          openExistingXml: "Open existing XML",
+          openExistingOpening: "Opening XML..."
         };
       }
     },
     startupState: {
       buildNoDocumentState() {
         return createElementStub();
+      },
+      buildDocumentOpeningState() {
+        const element = createElementStub();
+        element.dataset.state = "opening-document";
+        return element;
       }
     }
   };
@@ -260,4 +276,30 @@ test("split view refresh preserves pane viewports even without an active canvas 
   assert.equal(renderSplitCalls.length, 1);
   assert.equal(renderSplitCalls[0], splitViewportStates);
   assert.ok(stateWrites.length > 0);
+});
+
+test("document open transition restores the previous payload when the picker is cancelled", () => {
+  const { runtime } = loadEditControllerRuntime();
+
+  runtime.editController.start({
+    vscode: {
+      postMessage() {},
+      setState() {}
+    },
+    persistedState: {},
+    initialMode: "edit",
+    initialSettings: {}
+  });
+
+  runtime.app.render(createPayload());
+  runtime.app.renderDocumentOpeningState();
+
+  assert.equal(runtime.state.openingXmlDocument, true);
+  assert.equal(runtime.refs.fileLabel.textContent, "Opening XML...");
+  assert.equal(runtime.refs.treeContent.children[0].dataset.state, "opening-document");
+
+  runtime.boundWebviewHandlers.finishDocumentOpen();
+
+  assert.equal(runtime.state.openingXmlDocument, false);
+  assert.equal(runtime.refs.fileLabel.textContent, "tree.xml");
 });

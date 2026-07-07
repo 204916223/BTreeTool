@@ -46,6 +46,7 @@
       currentDocumentPath: "",
       currentHasDocument: false,
       currentFileName: "No active document",
+      openingXmlDocument: false,
       hasUnsavedXmlChanges: false,
       currentHasBlockingIssues: false,
       treeSwitcherScrollLeft: Number.isFinite(persistedState.treeSwitcherScrollLeft)

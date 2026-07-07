@@ -220,19 +220,14 @@
       return;
     }
 
-    const isPlaybackMode = runtime.modeRules.isPlaybackMode();
-    label.classList.toggle("is-actionable", isPlaybackMode);
-    if (isPlaybackMode) {
-      label.tabIndex = 0;
-      label.setAttribute("role", "button");
-      label.title = runtime.i18n.getAppCopy().importPlaybackLog;
-      label.setAttribute("aria-label", runtime.i18n.getAppCopy().importPlaybackLog);
-    } else {
-      label.removeAttribute("tabindex");
-      label.removeAttribute("role");
-      label.removeAttribute("title");
-      label.removeAttribute("aria-label");
-    }
+    const title = runtime.modeRules.isPlaybackMode()
+      ? runtime.i18n.getAppCopy().importPlaybackLog
+      : runtime.i18n.getAppCopy().openExistingXml;
+    label.classList.add("is-actionable");
+    label.tabIndex = 0;
+    label.setAttribute("role", "button");
+    label.title = title;
+    label.setAttribute("aria-label", title);
   }
 
   function getSaveIndicatorState() {

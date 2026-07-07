@@ -45,6 +45,7 @@ test("app state initializes edit and playback modes from persisted webview state
   assert.equal(editState.searchIncludeNode, true);
   assert.equal(editState.searchIncludeDescription, true);
   assert.equal(editState.searchIncludeAttributes, true);
+  assert.equal(editState.openingXmlDocument, false);
 
   const playbackState = appState.createInitialState({ editModeEnabled: true }, "playback");
   assert.equal(playbackState.editModeEnabled, false);

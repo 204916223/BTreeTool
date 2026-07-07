@@ -32,6 +32,7 @@
     openButton.type = "button";
     openButton.textContent = appCopy.openExistingXml;
     openButton.addEventListener("click", () => {
+      runtime.app.renderDocumentOpeningState?.();
       runtime.vscode.postMessage({ type: "openExistingBehaviorTreeDocument" });
     });
 
@@ -39,6 +40,23 @@
     actions.appendChild(openButton);
     shell.appendChild(actions);
 
+    return shell;
+  }
+
+  function buildDocumentOpeningState(appCopy) {
+    const shell = document.createElement("div");
+    shell.className = "startup-state";
+
+    const title = document.createElement("strong");
+    title.className = "startup-state-title";
+    title.textContent = appCopy.openExistingXml;
+
+    const summary = document.createElement("p");
+    summary.className = "startup-state-summary";
+    summary.textContent = appCopy.openExistingOpening;
+
+    shell.appendChild(title);
+    shell.appendChild(summary);
     return shell;
   }
 
@@ -76,6 +94,7 @@
 
   runtime.startupState = {
     buildNoDocumentState,
+    buildDocumentOpeningState,
     buildPlaybackImportState
   };
 })();
