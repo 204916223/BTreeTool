@@ -1,4 +1,33 @@
 {
+  "errorMsg": {
+    "title": "错误日志",
+    "type": "string",
+    "unit": "",
+    "description": "",
+    "source": "",
+    "commonNodes": [],
+    "examples": []
+  },
+  "is_enable": {
+    "title": "功能启用开关",
+    "type": "bool",
+    "unit": "",
+    "description": "",
+    "source": "blackboard",
+    "commonNodes": [],
+    "examples": []
+  },
+  "lift_height": {
+    "title": "当前举升高度",
+    "type": "double",
+    "unit": "m",
+    "description": "当前叉齿或载具的实际高度。",
+    "source": "blackboard",
+    "commonNodes": [
+      "Precondition"
+    ],
+    "examples": []
+  },
   "walking_height": {
     "title": "行走高度",
     "type": "double",
@@ -12,16 +41,6 @@
     "examples": [
       "CarrierCtrl target_position={walking_height}",
       "Precondition if=lift_height < walking_height + max_walking"
-    ]
-  },
-  "lift_height": {
-    "title": "当前举升高度",
-    "type": "double",
-    "unit": "m",
-    "description": "当前叉齿或载具的实际高度。",
-    "source": "blackboard",
-    "commonNodes": [
-      "Precondition"
     ]
   }
 }

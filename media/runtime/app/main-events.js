@@ -28,6 +28,12 @@
       }
 
       if (message?.type === "shortcutAction") {
+        if (message.payload?.action === "openSearch") {
+          if (!document.body.classList.contains("has-blocking-overlay")) {
+            runtime.search.openPanel();
+          }
+          return;
+        }
         if (message.payload?.action === "undo") {
           runtime.vscode.postMessage({ type: "undoCurrentDocument" });
           return;

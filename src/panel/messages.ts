@@ -13,7 +13,14 @@ export type PreviewPayload = {
   settingsFilePath: string;
 };
 
-export type ShortcutAction = "copy" | "pasteSmart" | "undo" | "pasteAsChild" | "pasteBefore" | "pasteAfter";
+export type ShortcutAction =
+  | "copy"
+  | "pasteSmart"
+  | "undo"
+  | "pasteAsChild"
+  | "pasteBefore"
+  | "pasteAfter"
+  | "openSearch";
 
 export type NodeCopyTemplateMessage = {
   tagName?: string;

@@ -5,23 +5,13 @@
   const shared = overlayRuntime.shared;
 
   function createTreeNodesModelDialog() {
-    const element = document.createElement("div");
-    element.className = "node-picker tree-model-dialog";
-    element.hidden = true;
-
-    const backdrop = document.createElement("div");
-    backdrop.className = "node-picker-backdrop";
-    backdrop.addEventListener("click", hideTreeNodesModelDialog);
-
-    const dialog = document.createElement("div");
-    dialog.className = "node-picker-dialog tree-model-dialog-panel";
-
-    const header = document.createElement("div");
-    header.className = "node-picker-header";
-
-    const title = document.createElement("strong");
-    title.className = "node-picker-title";
-    title.textContent = "TreeNodesModel";
+    const shell = shared.createModalShell({
+      rootClass: "tree-model-dialog",
+      dialogClass: "tree-model-dialog-panel",
+      title: "TreeNodesModel",
+      onClose: hideTreeNodesModelDialog
+    });
+    const { element, dialog, header, title } = shell;
 
     const headerActions = document.createElement("div");
     headerActions.className = "tree-model-header-actions";
@@ -42,7 +32,6 @@
 
     headerActions.appendChild(openXmlButton);
     headerActions.appendChild(closeButton);
-    header.appendChild(title);
     header.appendChild(headerActions);
 
     const summary = document.createElement("p");
@@ -52,15 +41,14 @@
     meta.className = "tree-model-meta";
 
     const typeField = shared.createSettingsField("Type");
-    const typeSelect = document.createElement("select");
-    typeSelect.className = "attribute-input tree-model-meta-select";
-    ["Action", "Condition", "Decorator", "Control"].forEach((kind) => {
-      const option = document.createElement("option");
-      option.value = kind;
-      option.textContent = kind;
-      typeSelect.appendChild(option);
+    const typeSelect = shared.createChoiceControl({
+      className: "tree-model-meta-select",
+      options: ["Action", "Condition", "Decorator", "Control"].map((kind) => ({
+        value: kind,
+        label: kind
+      }))
     });
-    typeField.control.appendChild(typeSelect);
+    typeField.control.appendChild(typeSelect.element);
 
     const nameField = shared.createSettingsField("Name");
     const nameInput = document.createElement("input");
@@ -148,16 +136,12 @@
     });
 
     actions.appendChild(saveButton);
-    dialog.appendChild(header);
     dialog.appendChild(summary);
     dialog.appendChild(meta);
     dialog.appendChild(toolbar);
     dialog.appendChild(status);
     dialog.appendChild(tableWrap);
     dialog.appendChild(actions);
-    element.appendChild(backdrop);
-    element.appendChild(dialog);
-
     return {
       element,
       title,
@@ -336,20 +320,16 @@
     typeCell.appendChild(typeInput);
 
     const directionCell = document.createElement("td");
-    const directionSelect = document.createElement("select");
-    directionSelect.className = "attribute-input tree-model-port-direction";
-    [
-      ["input_port", runtime.i18n.getTreeNodesModelCopy().inputPort],
-      ["output_port", runtime.i18n.getTreeNodesModelCopy().outputPort],
-      ["inout_port", runtime.i18n.getTreeNodesModelCopy().inoutPort]
-    ].forEach(([value, label]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = label;
-      directionSelect.appendChild(option);
+    const directionSelect = shared.createChoiceControl({
+      className: "tree-model-port-direction",
+      options: [
+        ["input_port", runtime.i18n.getTreeNodesModelCopy().inputPort],
+        ["output_port", runtime.i18n.getTreeNodesModelCopy().outputPort],
+        ["inout_port", runtime.i18n.getTreeNodesModelCopy().inoutPort]
+      ],
+      value: port.tagName || "input_port"
     });
-    directionSelect.value = port.tagName || "input_port";
-    directionCell.appendChild(directionSelect);
+    directionCell.appendChild(directionSelect.element);
 
     const defaultCell = document.createElement("td");
     const defaultInput = document.createElement("input");

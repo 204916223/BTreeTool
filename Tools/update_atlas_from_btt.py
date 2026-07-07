@@ -5,7 +5,7 @@ import argparse
 import json
 import pathlib
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 
 PORT_ROLES = {
@@ -34,37 +34,6 @@ def normalize_text(value: Optional[str]) -> str:
     return value if value is not None else ""
 
 
-def normalize_availability(value: Any, tag: str) -> List[Dict[str, str]]:
-    if value == "always":
-        return [{"since": tag}]
-    if isinstance(value, list) and value:
-        result = []
-        for item in value:
-            if not isinstance(item, dict):
-                continue
-            normalized = {}
-            if item.get("since"):
-                normalized["since"] = str(item["since"])
-            if item.get("until"):
-                normalized["until"] = str(item["until"])
-            if normalized:
-                result.append(normalized)
-        if result:
-            return result
-    return [{"since": tag}]
-
-
-def close_availability_if_open(param: Dict[str, Any], tag: str) -> None:
-    availability = normalize_availability(param.get("availability"), tag)
-    changed = False
-    for item in availability:
-        if item.get("since") and not item.get("until"):
-            item["until"] = tag
-            changed = True
-    if changed:
-        param["availability"] = availability
-
-
 def parse_tree_nodes_model(path: pathlib.Path) -> Tuple[str, Dict[str, Dict[str, Any]]]:
     root = ET.parse(path).getroot()
     if root.tag != "TreeNodesModel":
@@ -83,7 +52,6 @@ def parse_tree_nodes_model(path: pathlib.Path) -> Tuple[str, Dict[str, Dict[str,
             if not role or not name:
                 continue
             param: Dict[str, Any] = {
-                "availability": [{"since": atlas_tag}],
                 "role": role,
                 "type": port.attrib.get("type") or "unknown",
                 "required": port.attrib.get("required") == "true",
@@ -112,9 +80,9 @@ def ensure_node_metadata(entry: Dict[str, Any], node_id: str, category: str) -> 
     entry.setdefault("custom", {})
 
 
-def merge_param(existing: Dict[str, Any], incoming: Dict[str, Any], tag: str) -> Dict[str, Any]:
+def merge_param(existing: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
     merged = dict(existing)
-    merged["availability"] = normalize_availability(merged.get("availability"), tag)
+    merged.pop("availability", None)
     merged["role"] = incoming.get("role") or merged.get("role") or "param"
     merged["type"] = merged.get("type") or incoming.get("type") or "unknown"
     merged["required"] = bool(merged.get("required", incoming.get("required", False)))
@@ -138,16 +106,11 @@ def merge_node(existing: Dict[str, Any], node_id: str, incoming: Dict[str, Any],
 
     existing_params = dict(mainline.get("params") or {})
     incoming_params = incoming.get("mainline", {}).get("params") or {}
-    incoming_names: Set[str] = set(incoming_params)
     for name, incoming_param in incoming_params.items():
         existing_params[name] = merge_param(
             existing_params.get(name, {}),
-            incoming_param,
-            tag,
+            incoming_param
         )
-    for name, existing_param in existing_params.items():
-        if name not in incoming_names and isinstance(existing_param, dict):
-            close_availability_if_open(existing_param, tag)
     mainline["params"] = existing_params
     entry["mainline"] = mainline
     entry["category"] = incoming.get("category") or entry.get("category") or "Action"
@@ -161,30 +124,6 @@ def merge_nodes(atlas_nodes: Dict[str, Any], btt_nodes: Dict[str, Dict[str, Any]
     return dict(sorted(merged.items(), key=lambda item: item[0].lower()))
 
 
-def update_manifest(path: pathlib.Path, tag: str) -> None:
-    manifest = read_json(path, {})
-    manifest.setdefault("schemaVersion", 1)
-    manifest.setdefault("atlasVersion", "2026.06")
-    manifest["defaultTag"] = tag if tag != "unknown" else manifest.get("defaultTag", "unknown")
-    manifest.setdefault(
-        "tagFormat",
-        {
-            "description": "Tag should be sortable. Common format: major.yyMM.patch, e.g. 3.2605.4.",
-            "examples": [tag] if tag != "unknown" else [],
-        },
-    )
-    manifest.setdefault("knownProjects", [])
-    manifest.setdefault(
-        "resolutionPolicy",
-        {
-            "unknownTag": "fallback_to_default_with_warning",
-            "unknownProject": "fallback_to_mainline_with_warning",
-            "customExtendsDefault": "mainline",
-        },
-    )
-    write_json(path, manifest)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Merge TreeNodesModel .btt ports into the default node atlas.")
     parser.add_argument("btt", type=pathlib.Path, help="TreeNodesModel .btt file")
@@ -192,18 +131,16 @@ def main() -> None:
         "--atlas-dir",
         type=pathlib.Path,
         default=pathlib.Path(__file__).resolve().parents[1] / "node-library" / "atlas",
-        help="Atlas directory containing manifest.json, nodes.json, and variables.json",
+        help="Atlas directory containing nodes.json and variables.json",
     )
     args = parser.parse_args()
 
     tag, btt_nodes = parse_tree_nodes_model(args.btt)
     nodes_path = args.atlas_dir / "nodes.json"
-    manifest_path = args.atlas_dir / "manifest.json"
     atlas_nodes = read_json(nodes_path, {})
     if not isinstance(atlas_nodes, dict):
         atlas_nodes = {}
     write_json(nodes_path, merge_nodes(atlas_nodes, btt_nodes, tag))
-    update_manifest(manifest_path, tag)
     variables_path = args.atlas_dir / "variables.json"
     if not variables_path.exists():
         write_json(variables_path, {})

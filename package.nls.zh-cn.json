@@ -7,5 +7,6 @@
   "command.undoEdit.title": "BTreeTool：撤销编辑",
   "command.pasteNodeAsChild.title": "BTreeTool：作为子节点粘贴",
   "command.pasteNodeBefore.title": "BTreeTool：粘贴到节点前",
-  "command.pasteNodeAfter.title": "BTreeTool：粘贴到节点后"
+  "command.pasteNodeAfter.title": "BTreeTool：粘贴到节点后",
+  "command.openSearch.title": "BTreeTool：打开搜索"
 }

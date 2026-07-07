@@ -28,7 +28,6 @@ body.has-blocking-overlay .app-shell {
   pointer-events: none;
 }
 
-body.has-blocking-overlay .delete-confirm,
 body.has-blocking-overlay .node-picker,
 body.has-blocking-overlay .settings-dialog {
   pointer-events: auto;

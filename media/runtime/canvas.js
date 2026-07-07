@@ -1115,6 +1115,7 @@
   function renderAttributeValueControl(node, field, tone, options) {
     const measuring = Boolean(options.measuring);
     const playbackMode = runtime.modeRules?.isPlaybackMode?.() === true;
+    const readonlyControls = options.readonlyControls === true && field.editableValue && !playbackMode;
     const editable =
       field.editableValue &&
       !playbackMode &&
@@ -1125,7 +1126,7 @@
             hasEditableFields: true
           })));
 
-    if (!editable) {
+    if (!editable && !readonlyControls) {
       const valueChip = document.createElement("span");
       valueChip.className = "flow-attribute-chip flow-attribute-chip-value is-readonly-value";
       valueChip.textContent = field.value || "-";
@@ -1147,7 +1148,7 @@
     input.spellcheck = false;
     input.dataset.originalValue = field.value || "";
     input.dataset.attributeKey = field.key || "";
-    if (measuring) {
+    if (measuring || readonlyControls) {
       input.readOnly = true;
       input.tabIndex = -1;
     } else {
@@ -1306,13 +1307,17 @@
   }
 
   function ensureAttributeInputPreview() {
-    if (runtime.state.attributeInputPreview?.host?.isConnected) {
-      return runtime.state.attributeInputPreview;
+    const parent = getAttributeInputPreviewParent();
+    if (!parent) {
+      return null;
     }
 
-    const workspace = runtime.refs?.treeWorkspace || document.querySelector(".tree-workspace");
-    if (!workspace) {
-      return null;
+    const existingPreview = runtime.state.attributeInputPreview;
+    if (existingPreview?.host && isUsableAttributePreviewHost(existingPreview.host)) {
+      if (existingPreview.host.parentElement !== parent) {
+        parent.appendChild(existingPreview.host);
+      }
+      return existingPreview;
     }
 
     const host = document.createElement("div");
@@ -1331,10 +1336,31 @@
     editor.hidden = true;
     bindAttributePreviewEditor(host, editor);
     host.appendChild(editor);
-    workspace.appendChild(host);
+    parent.appendChild(host);
 
     runtime.state.attributeInputPreview = { host, content, editor, source: null };
     return runtime.state.attributeInputPreview;
+  }
+
+  function getAttributeInputPreviewParent() {
+    if (runtime.modeRules?.isPlaybackMode?.() === true) {
+      const playbackCanvasPane = document.querySelector(".playback-canvas-pane");
+      if (playbackCanvasPane) {
+        return playbackCanvasPane;
+      }
+    }
+
+    return runtime.refs?.treeWorkspace || document.querySelector(".tree-workspace");
+  }
+
+  function isUsableAttributePreviewHost(host) {
+    if (!host) {
+      return false;
+    }
+    if (host.isConnected === true) {
+      return true;
+    }
+    return host.isConnected === undefined && Boolean(host.parentElement);
   }
 
   function bindAttributePreviewEditor(host, editor) {

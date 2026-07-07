@@ -8,22 +8,12 @@
   let whitelistQuery = "";
 
   function createAssistantWhitelistDialog() {
-    const element = document.createElement("div");
-    element.className = "node-picker settings-dialog assistant-whitelist-dialog";
-    element.hidden = true;
-
-    const backdrop = document.createElement("div");
-    backdrop.className = "node-picker-backdrop";
-    backdrop.addEventListener("click", hideAssistantWhitelistDialog);
-
-    const dialog = document.createElement("div");
-    dialog.className = "node-picker-dialog settings-dialog-panel assistant-whitelist-dialog-panel";
-
-    const header = document.createElement("div");
-    header.className = "node-picker-header";
-
-    const title = document.createElement("strong");
-    title.className = "node-picker-title";
+    const shell = shared.createModalShell({
+      rootClass: "settings-dialog assistant-whitelist-dialog",
+      dialogClass: "settings-dialog-panel assistant-whitelist-dialog-panel",
+      onClose: hideAssistantWhitelistDialog
+    });
+    const { element, dialog, header, title } = shell;
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
@@ -66,17 +56,12 @@
 
     actions.appendChild(cancelButton);
     actions.appendChild(saveButton);
-    header.appendChild(title);
     header.appendChild(closeButton);
-    dialog.appendChild(header);
     dialog.appendChild(summary);
     dialog.appendChild(search);
     dialog.appendChild(list);
     dialog.appendChild(empty);
     dialog.appendChild(actions);
-    element.appendChild(backdrop);
-    element.appendChild(dialog);
-
     return {
       element,
       title,

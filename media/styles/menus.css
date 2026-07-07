@@ -68,40 +68,8 @@
   color: var(--color-node-context-danger-text);
 }
 
-.delete-confirm {
-  position: fixed;
-  left: 50%;
-  top: 54px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: min(680px, calc(100vw - 32px));
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--color-danger-border-strong);
-  background: var(--color-dialog-danger-bg);
-  box-shadow: var(--shadow);
-  z-index: 30;
-}
-
-.delete-confirm[hidden] {
+.delete-confirm-host[hidden] {
   display: none;
-}
-
-.delete-confirm-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.delete-confirm-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
 }
 
 .node-picker {
@@ -136,4 +104,250 @@
   border: 1px solid var(--line-strong);
   background: var(--color-dialog-bg);
   box-shadow: var(--shadow);
+}
+
+.app-modal-panel {
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--color-dialog-bg);
+  box-shadow: var(--shadow);
+}
+
+.app-modal-header {
+  min-width: 0;
+}
+
+.app-modal-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.confirm-dialog-panel {
+  top: 50%;
+  width: min(440px, calc(100vw - 48px));
+  max-height: min(70vh, 360px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 16px;
+  transform: translate(-50%, -50%);
+}
+
+.confirm-dialog-header {
+  padding: 0;
+}
+
+.confirm-dialog-title {
+  font-size: 14px;
+}
+
+.confirm-dialog-message {
+  min-width: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.confirm-dialog-actions {
+  padding: 0;
+}
+
+.choice-control {
+  position: relative;
+  min-width: 0;
+  color: var(--text);
+  font: inherit;
+}
+
+.choice-control-button {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--color-surface-subtle);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.choice-control-button:hover,
+.choice-control.is-open .choice-control-button {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line-strong));
+  background: var(--color-surface-subtle-hover);
+}
+
+.choice-control-button:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.choice-control.is-disabled {
+  opacity: 0.72;
+}
+
+.choice-control.is-disabled .choice-control-button {
+  cursor: default;
+}
+
+.choice-control-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.choice-control-arrow {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.choice-control-arrow .app-icon {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.choice-control-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: min(260px, 48vh);
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--color-dialog-bg);
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+
+.choice-control-menu[hidden] {
+  display: none;
+}
+
+.choice-control-option {
+  width: 100%;
+  min-width: 0;
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.choice-control-option:hover,
+.choice-control-option:focus-visible,
+.choice-control-option.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+  background: var(--color-surface-subtle-hover);
+  outline: none;
+}
+
+.settings-language-choice {
+  width: 100%;
+  height: 34px;
+  font-size: 12px;
+}
+
+.tree-model-meta-select {
+  width: 100%;
+  height: 36px;
+  font-size: 12px;
+}
+
+.tree-model-port-direction {
+  width: 100%;
+  height: 34px;
+  font-size: 12px;
+}
+
+.tree-model-port-direction .choice-control-button {
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.playback-speed-select {
+  min-width: 76px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+}
+
+.playback-speed-select .choice-control-button {
+  min-height: 30px;
+  border-radius: 8px;
+}
+
+.playback-trace-provider-select {
+  max-width: 100%;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.playback-trace-provider-select .choice-control-button {
+  min-height: 24px;
+  padding: 2px 7px;
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.playback-trace-provider-select .choice-control-button:hover,
+.playback-trace-provider-select.is-open .choice-control-button {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--color-surface-subtle) 70%, transparent);
+  color: var(--text);
+}
+
+.tree-split-pane-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tree-split-pane-select .choice-control-button {
+  min-height: 26px;
+  padding: 3px 8px;
+  border-color: var(--line);
+  border-radius: 6px;
+  background: var(--color-surface-subtle);
 }

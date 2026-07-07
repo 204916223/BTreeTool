@@ -113,9 +113,10 @@ function matchesSelector(element, selector) {
   return false;
 }
 
-function loadEditAssistantRuntime() {
+function loadEditAssistantRuntime(options = {}) {
   const panel = new ElementStub("aside");
   const animationFrames = [];
+  const confirmRequests = [];
   const runtime = {
     refs: {
       editAssistantPanel: panel
@@ -141,7 +142,9 @@ function loadEditAssistantRuntime() {
       selectedTreeId: "MainTree",
       selectedNodePath: "0",
       editAssistantMessages: [],
-      editAssistantTreeQueue: []
+      editAssistantTreeQueue: [],
+      editAssistantVisible: true,
+      editAssistantHasPendingChanges: options.pendingChanges === true
     },
     modeRules: {
       isPlaybackMode() {
@@ -155,6 +158,17 @@ function loadEditAssistantRuntime() {
     },
     app: {
       persistUiState() {}
+    },
+    workspacePanels: {
+      apply() {
+        runtime.state.workspacePanelsApplied = (runtime.state.workspacePanelsApplied || 0) + 1;
+      }
+    },
+    overlays: {
+      confirm(request) {
+        confirmRequests.push(request);
+        return Promise.resolve(options.confirmResult === true);
+      }
     },
     vscode: {
       postMessage() {}
@@ -184,7 +198,7 @@ function loadEditAssistantRuntime() {
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
   runtime.editAssistant.render();
   animationFrames.splice(0).forEach((callback) => callback());
-  return { runtime, input: panel.querySelector("[data-edit-assistant-input]") };
+  return { runtime, input: panel.querySelector("[data-edit-assistant-input]"), confirmRequests };
 }
 
 test("edit assistant clears generated selected-node prompt on blur", () => {
@@ -218,4 +232,31 @@ test("edit assistant clears generated prompt when selected node is cleared", () 
 
   assert.equal(input.value, "");
   assert.equal(input.dataset.generatedNodePrompt, "false");
+});
+
+test("edit assistant uses custom confirmation before discarding pending changes", async () => {
+  const { runtime, confirmRequests } = loadEditAssistantRuntime({
+    pendingChanges: true,
+    confirmResult: false
+  });
+
+  await runtime.editAssistant.setVisible(false);
+
+  assert.equal(confirmRequests.length, 1);
+  assert.equal(confirmRequests[0].message, "The assistant has pending edits. Collapse it without applying them?");
+  assert.equal(runtime.state.editAssistantVisible, true);
+  assert.equal(runtime.state.workspacePanelsApplied || 0, 0);
+});
+
+test("edit assistant collapses after custom confirmation is accepted", async () => {
+  const { runtime, confirmRequests } = loadEditAssistantRuntime({
+    pendingChanges: true,
+    confirmResult: true
+  });
+
+  await runtime.editAssistant.setVisible(false);
+
+  assert.equal(confirmRequests.length, 1);
+  assert.equal(runtime.state.editAssistantVisible, false);
+  assert.equal(runtime.state.workspacePanelsApplied, 1);
 });

@@ -6,28 +6,19 @@
     "mainline": {
       "status": "draft",
       "params": {
-        "isEnable": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
-          "role": "input",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
-          "type": "unknown",
-          "required": false,
-          "description": "",
+          "type": "string",
+          "required": true,
+          "description": "错误日志",
           "default": "{errorMsg}"
+        },
+        "isEnable": {
+          "role": "input",
+          "type": "bool",
+          "required": true,
+          "description": "功能启用开关",
+          "default": "{is_enable}"
         }
       },
       "rules": [],
@@ -36,7 +27,8 @@
     "custom": {},
     "department": "对接",
     "maintainer": "陈凯伦",
-    "source_notes": []
+    "source_notes": [],
+    "usageFlows": []
   },
   "BaffleStatus": {
     "title": "挡板状态检测子",
@@ -46,11 +38,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -63,8 +50,9 @@
     },
     "custom": {},
     "department": "嵌入式",
-    "maintainer": "路江波",
-    "source_notes": []
+    "maintainer": "骆江波",
+    "source_notes": [],
+    "usageFlows": []
   },
   "BaffleStop": {
     "title": "挡板启用算子",
@@ -74,11 +62,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -86,11 +69,6 @@
           "default": "{errorMsg}"
         },
         "baffle_stop_enable": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -113,44 +91,24 @@
       "status": "draft",
       "params": {
         "move_distance": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "move_trans_speed": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "servo_cancel_flag": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -158,11 +116,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -170,11 +123,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -182,11 +130,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -194,11 +137,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -214,6 +152,18 @@
     "maintainer": "芦韩",
     "source_notes": []
   },
+  "BlockingNode": {
+    "title": "阻塞算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "芦韩",
+    "description": "阻塞算子"
+  },
   "CameraEnable": {
     "title": "相机使能算子",
     "category": "Action",
@@ -222,11 +172,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -234,11 +179,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -246,11 +186,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -258,11 +193,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -270,11 +200,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -282,22 +207,12 @@
           "default": "{out_error_details}"
         },
         "camera_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "camera_enable": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -320,22 +235,12 @@
       "status": "draft",
       "params": {
         "servo_status": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -343,11 +248,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -355,11 +255,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -367,11 +262,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -379,11 +269,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -391,11 +276,6 @@
           "default": "{out_error_details}"
         },
         "servo_cancel_flag": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -418,11 +298,6 @@
       "status": "stable",
       "params": {
         "carrier_id": {
-          "availability": [
-            {
-              "since": "3.2506.1"
-            }
-          ],
           "role": "input",
           "type": "uint16",
           "required": true,
@@ -437,11 +312,6 @@
           }
         },
         "action_cmd": {
-          "availability": [
-            {
-              "since": "3.2506.1"
-            }
-          ],
           "role": "input",
           "type": "enum",
           "required": true,
@@ -454,11 +324,6 @@
           }
         },
         "target_position": {
-          "availability": [
-            {
-              "since": "3.2506.1"
-            }
-          ],
           "role": "input",
           "type": "double",
           "required": false,
@@ -466,11 +331,6 @@
           "description": "目标位置。执行 position 指令时必须填写。"
         },
         "velocity_max": {
-          "availability": [
-            {
-              "since": "3.2506.1"
-            }
-          ],
           "role": "input",
           "type": "double",
           "required": false,
@@ -478,11 +338,6 @@
           "description": "载具限速。可根据实际需要填写或不填写。"
         },
         "stop_action": {
-          "availability": [
-            {
-              "since": "3.2506.1"
-            }
-          ],
           "role": "input",
           "type": "bool",
           "required": false,
@@ -493,11 +348,6 @@
           }
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2506.1"
-            }
-          ],
           "role": "output",
           "type": "string",
           "required": false,
@@ -505,11 +355,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2509.7"
-            }
-          ],
           "role": "output",
           "type": "string",
           "required": false,
@@ -517,11 +362,6 @@
           "default": "{out_error_id}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2509.10"
-            }
-          ],
           "role": "output",
           "type": "string",
           "required": false,
@@ -529,11 +369,6 @@
           "default": "{out_error_name}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2512.1"
-            }
-          ],
           "role": "output",
           "type": "int",
           "required": false,
@@ -541,11 +376,6 @@
           "default": "{out_error_level}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2512.8"
-            }
-          ],
           "role": "output",
           "type": "string",
           "required": false,
@@ -602,11 +432,6 @@
         "description": "bn 项目定制 CarrierCtrl，在主干基础上增加 ctrltype 输入端口。",
         "params": {
           "ctrltype": {
-            "availability": [
-              {
-                "since": "3.2509.1+bn-2"
-              }
-            ],
             "role": "input",
             "type": "int",
             "required": true,
@@ -648,44 +473,24 @@
       "status": "draft",
       "params": {
         "timeout_sec": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "prepare_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "mcs_approval": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -693,11 +498,6 @@
           "default": "{out_error_details}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -705,11 +505,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -717,11 +512,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -729,11 +519,6 @@
           "default": "{out_error_name}"
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -749,6 +534,18 @@
     "maintainer": "",
     "source_notes": []
   },
+  "checkMcsApproval": {
+    "title": "MCS信号检测算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "芦韩",
+    "description": "MCS信号检测算子"
+  },
   "DecelerateNavi": {
     "title": "缓慢停车算子",
     "category": "Action",
@@ -757,11 +554,6 @@
       "status": "draft",
       "params": {
         "prepare_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -769,11 +561,6 @@
           "default": "0.0"
         },
         "obs_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -781,11 +568,6 @@
           "default": "0.0"
         },
         "decelerate_stop": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -793,11 +575,6 @@
           "default": "0"
         },
         "err_obs_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -805,11 +582,6 @@
           "default": "0.02"
         },
         "mode": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -817,11 +589,6 @@
           "default": "in"
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -845,66 +612,36 @@
       "status": "draft",
       "params": {
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "current_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "servo_cancel_flag": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "stage": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -912,11 +649,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -924,11 +656,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -936,11 +663,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -948,11 +670,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -976,22 +693,12 @@
       "status": "draft",
       "params": {
         "output_param": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -999,11 +706,6 @@
           "default": "{errorMsg}"
         },
         "input_param": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -1026,88 +728,48 @@
       "status": "draft",
       "params": {
         "layer": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "schedule_report_result": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_height_low_1": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_height_high_1": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_height_low_2": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_height_high_2": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_height_low_3": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_height_high_3": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -1130,44 +792,24 @@
       "status": "draft",
       "params": {
         "min_threshold": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "max_threshold": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "current_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1175,11 +817,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1187,11 +824,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1199,11 +831,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1211,11 +838,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1231,6 +853,18 @@
     "maintainer": "何鸿献",
     "source_notes": []
   },
+  "FileIO": {
+    "title": "文件读写算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "陈凯伦",
+    "description": "文件读写算子"
+  },
   "ForkHeightServo": {
     "title": "高度伺服算子",
     "category": "Action",
@@ -1239,55 +873,30 @@
       "status": "draft",
       "params": {
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "teaching_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "servo_cancel_flag": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1295,11 +904,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1307,11 +911,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1319,11 +918,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1331,11 +925,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1359,11 +948,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1371,33 +955,18 @@
           "default": "{errorMsg}"
         },
         "lift_target_position": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "lift_speed_max": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "unload_finish": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -1420,11 +989,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1432,11 +996,6 @@
           "default": "{errorMsg}"
         },
         "push_target_position": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -1459,11 +1018,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1471,11 +1025,6 @@
           "default": "{errorMsg}"
         },
         "slide_target_position": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -1490,6 +1039,30 @@
     "maintainer": "骆江波",
     "source_notes": []
   },
+  "ForkTipControl": {
+    "title": "叉尖光电控制算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "梁宗",
+    "description": "叉尖光电控制算子"
+  },
+  "GetCircleRadius": {
+    "title": "获取圆形半径算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "陈凯伦",
+    "description": "获取圆形半径算子"
+  },
   "GetForkHeight": {
     "title": "叉臂高度控制算子",
     "category": "Action",
@@ -1498,33 +1071,18 @@
       "status": "draft",
       "params": {
         "lift_safe_position_low": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "lift_safe_position_high": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1532,11 +1090,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1544,11 +1097,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1556,11 +1104,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1568,11 +1111,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1580,11 +1118,6 @@
           "default": "{out_error_details}"
         },
         "fork_height": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1607,11 +1140,6 @@
       "status": "draft",
       "params": {
         "result": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1626,6 +1154,18 @@
     "maintainer": "何鸿献",
     "source_notes": []
   },
+  "GetGroundDistance": {
+    "title": "获取地面距离算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "陈凯伦",
+    "description": "获取地面距离算子"
+  },
   "GetLoadWeight": {
     "title": "载货重量算子",
     "category": "Action",
@@ -1634,11 +1174,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1646,11 +1181,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1658,11 +1188,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1670,11 +1195,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1682,11 +1202,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1694,11 +1209,6 @@
           "default": "{out_error_details}"
         },
         "load_weight": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1721,88 +1231,48 @@
       "status": "draft",
       "params": {
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "layer": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "multi_layer_teach_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_height_low": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_height_high": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "ref_layer_teach_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1810,11 +1280,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1822,11 +1287,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1834,11 +1294,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1846,11 +1301,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1874,11 +1324,6 @@
       "status": "draft",
       "params": {
         "result": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1901,11 +1346,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1913,11 +1353,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1925,11 +1360,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1937,11 +1367,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1949,11 +1374,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -1961,55 +1381,30 @@
           "default": "{out_error_details}"
         },
         "tines_distance": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "teaching_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_mode": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -2024,6 +1419,30 @@
     "maintainer": "刁怀锐",
     "source_notes": []
   },
+  "GlobalServo": {
+    "title": "全局伺服算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "陈凯伦",
+    "description": "全局伺服算子"
+  },
+  "GoodsReadyCheck": {
+    "title": "取货队员算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "陈凯伦",
+    "description": "取货队员算子"
+  },
   "HeadFixedNavigator": {
     "title": "导航首走子",
     "category": "Action",
@@ -2032,11 +1451,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2044,11 +1458,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2056,11 +1465,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2068,11 +1472,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2080,11 +1479,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2092,11 +1486,6 @@
           "default": "{out_error_details}"
         },
         "set_heading": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -2119,77 +1508,42 @@
       "status": "draft",
       "params": {
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "current_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "servo_cancel_flag": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "teaching_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "shelf_name_by_dispatch": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2197,11 +1551,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2209,11 +1558,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2221,11 +1565,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2233,11 +1572,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2261,11 +1595,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2273,22 +1602,12 @@
           "default": "{errorMsg}"
         },
         "cmd": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "lift_target_position": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -2311,33 +1630,18 @@
       "status": "draft",
       "params": {
         "high_threshold": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "low_threshold": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2345,11 +1649,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2357,11 +1656,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2369,11 +1663,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2381,11 +1670,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2393,11 +1677,6 @@
           "default": "{out_error_details}"
         },
         "lift_height": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2412,6 +1691,30 @@
     "maintainer": "骆江波",
     "source_notes": []
   },
+  "LoadingCheckControl": {
+    "title": "载货一致性检测算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "陈凯伦",
+    "description": "载货一致性检测算子"
+  },
+  "LoadRelease": {
+    "title": "载货释放算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "刁怀锐",
+    "description": "载货释放算子"
+  },
   "LoadStatus": {
     "title": "载货状态检测算子",
     "category": "Action",
@@ -2420,11 +1723,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2448,33 +1746,18 @@
       "status": "draft",
       "params": {
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "shelf_name_by_dispatch": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2482,11 +1765,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2494,11 +1772,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2506,11 +1779,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2518,11 +1786,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2546,11 +1809,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2558,11 +1816,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2570,11 +1823,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2582,11 +1830,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2594,11 +1837,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2606,55 +1844,30 @@
           "default": "{out_error_details}"
         },
         "lift_height": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "teaching_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_mode": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -2677,11 +1890,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2689,11 +1897,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2701,11 +1904,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2713,11 +1911,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2725,11 +1918,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2737,22 +1925,12 @@
           "default": "{out_error_details}"
         },
         "config_topic": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "mute": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -2767,6 +1945,18 @@
     "maintainer": "李然",
     "source_notes": []
   },
+  "NavCompensate": {
+    "title": "导航目标点补偿算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "导航",
+    "maintainer": "何鸿献",
+    "description": "导航目标点补偿算子"
+  },
   "NavSafePreCheck": {
     "title": "导航防呆检测算子",
     "category": "Action",
@@ -2775,11 +1965,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2787,11 +1972,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2799,11 +1979,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2811,11 +1986,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2823,11 +1993,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2835,44 +2000,24 @@
           "default": "{out_error_details}"
         },
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "teaching_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_mode": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -2895,11 +2040,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2923,11 +2063,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2935,11 +2070,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2947,11 +2077,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2959,11 +2084,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2971,11 +2091,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -2999,11 +2114,6 @@
       "status": "draft",
       "params": {
         "wait_timeout": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -3011,11 +2121,6 @@
           "default": "-1"
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3023,11 +2128,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3035,11 +2135,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3047,11 +2142,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3059,11 +2149,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3079,6 +2164,30 @@
     "maintainer": "刘万隆",
     "source_notes": []
   },
+  "OffsetCheck": {
+    "title": "偏移检查算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "郭本涛",
+    "description": "偏移检查算子"
+  },
+  "PalletInfoUpload": {
+    "title": "栈板信息上传算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "芦韩",
+    "description": "栈板信息上传算子"
+  },
   "PalletServo": {
     "title": "栈板伺服算子",
     "category": "Action",
@@ -3087,77 +2196,42 @@
       "status": "draft",
       "params": {
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "pallet_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "teaching_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "current_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "servo_cancel_flag": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3165,11 +2239,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3177,11 +2246,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3189,11 +2253,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3201,11 +2260,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3229,22 +2283,12 @@
       "status": "draft",
       "params": {
         "lift_down_speed": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3252,11 +2296,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3264,11 +2303,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3276,11 +2310,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3288,11 +2317,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3316,11 +2340,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3328,11 +2347,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3340,11 +2354,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3352,11 +2361,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3364,11 +2368,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3376,11 +2375,6 @@
           "default": "{out_error_details}"
         },
         "pause_enable": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -3403,11 +2397,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3415,11 +2404,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3427,11 +2411,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3439,11 +2418,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3451,11 +2425,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3463,176 +2432,96 @@
           "default": "{out_error_details}"
         },
         "DI1": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI2": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI3": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI4": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI5": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI6": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI7": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI8": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI9": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI10": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI11": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI12": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI13": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI14": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI15": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "DI16": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3655,11 +2544,6 @@
       "status": "draft",
       "params": {
         "message": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -3682,55 +2566,30 @@
       "status": "draft",
       "params": {
         "error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3738,11 +2597,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3750,11 +2604,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3762,11 +2611,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3774,11 +2618,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3802,66 +2641,36 @@
       "status": "draft",
       "params": {
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "teaching_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "check_height": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "current_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3869,11 +2678,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3881,11 +2685,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3893,11 +2692,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3905,11 +2699,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3917,11 +2706,6 @@
           "default": "{out_error_details}"
         },
         "have_obstracle": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3944,11 +2728,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -3956,33 +2735,18 @@
           "default": "{errorMsg}"
         },
         "schedule_report_result": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "schedule_report_action": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "schedule_report_extra_data": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4005,33 +2769,18 @@
       "status": "draft",
       "params": {
         "dist_to_target": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4039,11 +2788,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4051,11 +2795,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4063,11 +2802,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4075,11 +2809,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4118,11 +2847,6 @@
       "status": "draft",
       "params": {
         "message": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4145,11 +2869,6 @@
       "status": "draft",
       "params": {
         "message": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4164,6 +2883,18 @@
     "maintainer": "刘万隆",
     "source_notes": []
   },
+  "RotateControlNew": {
+    "title": "新转盘控制算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "导航",
+    "maintainer": "梁宗",
+    "description": "新转盘控制算子"
+  },
   "SafeLaserCtrl": {
     "title": "安全激光控制算子",
     "category": "Action",
@@ -4172,11 +2903,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4184,11 +2910,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4196,11 +2917,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4208,11 +2924,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4220,11 +2931,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4232,22 +2938,12 @@
           "default": "{out_error_details}"
         },
         "laser_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "command": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4270,11 +2966,6 @@
       "status": "draft",
       "params": {
         "message": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4297,22 +2988,12 @@
       "status": "draft",
       "params": {
         "scan_success": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4320,11 +3001,6 @@
           "default": "{errorMsg}"
         },
         "scan_result": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4347,11 +3023,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4359,11 +3030,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4371,11 +3037,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4383,11 +3044,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4395,11 +3051,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4407,22 +3058,12 @@
           "default": "{out_error_details}"
         },
         "config_topic": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "open_scan": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4445,33 +3086,18 @@
       "status": "draft",
       "params": {
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "servo_mode": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4479,11 +3105,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4491,11 +3112,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4503,11 +3119,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4515,11 +3126,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4543,11 +3149,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4555,11 +3156,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4567,11 +3163,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4579,11 +3170,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4591,11 +3177,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4603,11 +3184,6 @@
           "default": "{out_error_details}"
         },
         "servo_status": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4630,11 +3206,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4642,22 +3213,12 @@
           "default": "{errorMsg}"
         },
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "status": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4680,77 +3241,42 @@
       "status": "draft",
       "params": {
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "current_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "shelf_servo_teaching_result": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "servo_cancel_flag": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "shelf_name_by_dispatch": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4758,11 +3284,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4770,11 +3291,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4782,11 +3298,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4794,11 +3305,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4814,6 +3320,18 @@
     "maintainer": "刁怀锐",
     "source_notes": []
   },
+  "SimpleLift": {
+    "title": "简单举升节点",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "基线",
+    "maintainer": "刘万隆",
+    "description": "简单举升节点"
+  },
   "SlowDownToStop": {
     "title": "虚拟阀码物算子",
     "category": "Action",
@@ -4822,22 +3340,12 @@
       "status": "draft",
       "params": {
         "obs_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4861,11 +3369,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4873,11 +3376,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4885,11 +3383,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4897,11 +3390,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4909,11 +3397,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -4921,22 +3404,12 @@
           "default": "{out_error_details}"
         },
         "lowest_priority_speed": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "reset_priority": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4959,11 +3432,6 @@
       "status": "draft",
       "params": {
         "phase": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4971,11 +3439,6 @@
           "default": ""
         },
         "event": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -4983,11 +3446,6 @@
           "default": ""
         },
         "return_status": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -5011,44 +3469,24 @@
       "status": "draft",
       "params": {
         "min_threshold": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "max_threshold": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "current_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5056,11 +3494,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5068,11 +3501,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5080,11 +3508,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5092,11 +3515,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5112,6 +3530,18 @@
     "maintainer": "何鸿献",
     "source_notes": []
   },
+  "StationOffset": {
+    "title": "站点偏移算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "邹本善",
+    "description": "站点偏移算子"
+  },
   "TipPhotoelectricCtrl": {
     "title": "TipPhotoelectricCtrl",
     "category": "Action",
@@ -5120,11 +3550,6 @@
       "status": "draft",
       "params": {
         "ignore_enabled": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
@@ -5139,6 +3564,18 @@
     "maintainer": "",
     "source_notes": []
   },
+  "tipPhotoelectricCtrl": {
+    "title": "齿尖光电屏蔽算子",
+    "category": "Action",
+    "mainline": {
+      "status": "draft",
+      "params": {}
+    },
+    "custom": {},
+    "department": "安全",
+    "maintainer": "芦韩",
+    "description": "齿尖光电屏蔽算子"
+  },
   "UnloadingProcess": {
     "title": "放货+称重检测算子",
     "category": "Action",
@@ -5147,33 +3584,18 @@
       "status": "draft",
       "params": {
         "weighing_result": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "landing_speed": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5181,11 +3603,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5193,11 +3610,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5205,11 +3617,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5217,11 +3624,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5245,11 +3647,6 @@
       "status": "draft",
       "params": {
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5257,11 +3654,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5269,11 +3661,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5281,11 +3668,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5293,11 +3675,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5321,66 +3698,36 @@
       "status": "draft",
       "params": {
         "action_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "station_args": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "current_dist": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "servo_cancel_flag": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "target_position_type": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "input",
           "type": "unknown",
           "required": false,
           "description": ""
         },
         "errorMsg": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5388,11 +3735,6 @@
           "default": "{errorMsg}"
         },
         "out_error_id": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5400,11 +3742,6 @@
           "default": "{out_error_id}"
         },
         "out_error_level": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5412,11 +3749,6 @@
           "default": "{out_error_level}"
         },
         "out_error_name": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5424,11 +3756,6 @@
           "default": "{out_error_name}"
         },
         "out_error_details": {
-          "availability": [
-            {
-              "since": "3.2605.4"
-            }
-          ],
           "role": "output",
           "type": "unknown",
           "required": false,
@@ -5458,209 +3785,5 @@
     "department": "基线",
     "maintainer": "刘万隆",
     "source_notes": []
-  },
-  "checkMcsApproval": {
-    "title": "MCS信号检测算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "芦韩",
-    "description": "MCS信号检测算子"
-  },
-  "FileIO": {
-    "title": "文件读写算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "文件读写算子"
-  },
-  "ForkTipControl": {
-    "title": "叉尖光电控制算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "梁宗",
-    "description": "叉尖光电控制算子"
-  },
-  "GetCircleRadius": {
-    "title": "获取圆形半径算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "获取圆形半径算子"
-  },
-  "GetGroundDistance": {
-    "title": "获取地面距离算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "获取地面距离算子"
-  },
-  "GlobalServo": {
-    "title": "全局伺服算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "全局伺服算子"
-  },
-  "GoodsReadyCheck": {
-    "title": "取货队员算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "取货队员算子"
-  },
-  "LoadingCheckControl": {
-    "title": "载货一致性检测算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "载货一致性检测算子"
-  },
-  "LoadRelease": {
-    "title": "载货释放算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "刁怀锐",
-    "description": "载货释放算子"
-  },
-  "OffsetCheck": {
-    "title": "偏移检查算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "郭本涛",
-    "description": "偏移检查算子"
-  },
-  "PalletInfoUpload": {
-    "title": "栈板信息上传算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "芦韩",
-    "description": "栈板信息上传算子"
-  },
-  "RotateControlNew": {
-    "title": "新转盘控制算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "导航",
-    "maintainer": "梁宗",
-    "description": "新转盘控制算子"
-  },
-  "SimpleLift": {
-    "title": "简单举升节点",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "基线",
-    "maintainer": "刘万隆",
-    "description": "简单举升节点"
-  },
-  "StationOffset": {
-    "title": "站点偏移算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "邹本善",
-    "description": "站点偏移算子"
-  },
-  "tipPhotoelectricCtrl": {
-    "title": "齿尖光电屏蔽算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "安全",
-    "maintainer": "芦韩",
-    "description": "齿尖光电屏蔽算子"
-  },
-  "BlockingNode": {
-    "title": "阻塞算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "芦韩",
-    "description": "阻塞算子"
-  },
-  "NavCompensate": {
-    "title": "导航目标点补偿算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "导航",
-    "maintainer": "何鸿献",
-    "description": "导航目标点补偿算子"
   }
 }

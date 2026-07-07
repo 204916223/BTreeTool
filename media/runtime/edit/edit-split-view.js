@@ -61,27 +61,24 @@
       const isChinese = runtime.state.currentSettings?.language === "zh-CN";
       title.textContent = paneId === "left" ? (isChinese ? "左" : "Left") : (isChinese ? "右" : "Right");
 
-      const select = document.createElement("select");
-      select.className = "tree-split-pane-select";
-      result.behaviorTrees.forEach((entry) => {
-        const option = document.createElement("option");
-        option.value = entry.id;
-        option.textContent = entry.id;
-        select.appendChild(option);
+      const select = runtime.overlayRuntime.shared.createChoiceControl({
+        className: "tree-split-pane-select",
+        options: result.behaviorTrees.map((entry) => ({
+          value: entry.id,
+          label: entry.id
+        })),
+        value: treeId || result.behaviorTrees[0]?.id || "",
+        onChange(value) {
+          selectTreeInPane(paneId, value, result);
+        }
       });
-      if (treeId) {
-        select.value = treeId;
-      }
-      select.addEventListener("pointerdown", (event) => {
+      select.element.addEventListener("pointerdown", (event) => {
         event.stopPropagation();
-        activateTreePane(paneId, select.value, null);
-      });
-      select.addEventListener("change", () => {
-        selectTreeInPane(paneId, select.value, result);
+        activateTreePane(paneId, select.getValue(), null);
       });
 
       header.appendChild(title);
-      header.appendChild(select);
+      header.appendChild(select.element);
       pane.appendChild(header);
 
       pane.addEventListener("pointerdown", () => {

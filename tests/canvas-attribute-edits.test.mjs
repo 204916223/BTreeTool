@@ -51,6 +51,9 @@ class ElementStub {
   }
 
   appendChild(child) {
+    if (child.parentElement) {
+      child.parentElement.children = child.parentElement.children.filter((entry) => entry !== child);
+    }
     child.parentElement = this;
     this.children.push(child);
     return child;
@@ -101,10 +104,22 @@ function findFormControls(element, result = []) {
   return result;
 }
 
-function loadCanvasRuntime() {
+function findByClass(element, className, result = []) {
+  if (element.classList?.contains?.(className)) {
+    result.push(element);
+  }
+  element.children.forEach((child) => findByClass(child, className, result));
+  return result;
+}
+
+function loadCanvasRuntime(options = {}) {
   const messages = [];
   const workspace = new ElementStub();
   workspace.className = "tree-workspace";
+  const playbackCanvasPane = options.playbackMode ? new ElementStub() : null;
+  if (playbackCanvasPane) {
+    playbackCanvasPane.className = "playback-canvas-pane";
+  }
   const runtime = {
     state: {
       selectedTreeId: "MainTree",
@@ -122,7 +137,7 @@ function loadCanvasRuntime() {
     },
     modeRules: {
       isPlaybackMode() {
-        return false;
+        return options.playbackMode === true;
       }
     },
     app: {
@@ -166,6 +181,9 @@ function loadCanvasRuntime() {
       return [];
     },
     querySelector(selector) {
+      if (selector === ".playback-canvas-pane") {
+        return playbackCanvasPane;
+      }
       if (selector === ".tree-workspace") {
         return workspace;
       }
@@ -189,7 +207,7 @@ function loadCanvasRuntime() {
   };
   const scriptPath = path.resolve("media/runtime/canvas.js");
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
-  return { runtime, messages, document, workspace };
+  return { runtime, messages, document, workspace, playbackCanvasPane };
 }
 
 test("copying two output values across split panes keeps the first pending target value", () => {
@@ -530,4 +548,44 @@ test("long attribute values can be edited from the preview editor without multil
     if: "current_dist > 0 && current_dist < (prepare_dist + 0.2)",
     else: "FAILURE"
   });
+});
+
+test("readonly attribute preview is anchored to playback canvas pane in playback mode", () => {
+  const { runtime, workspace, playbackCanvasPane } = loadCanvasRuntime({ playbackMode: true });
+  const node = {
+    nodePath: "0.1",
+    title: "Precondition",
+    kind: "Precondition",
+    category: "Decorator",
+    attributes: {
+      if: "dist_to_target < baffle_enable_dist"
+    },
+    attributeFields: [
+      {
+        key: "if",
+        value: "dist_to_target < baffle_enable_dist",
+        role: "param",
+        editableValue: true,
+        required: false
+      }
+    ],
+    children: [],
+    warnings: [],
+    warningCount: 0,
+    hasError: false
+  };
+
+  const card = runtime.canvas.buildNodeCard(node, { behaviorTrees: [] }, {
+    interactive: true,
+    currentTreeId: "MainTree"
+  });
+  const conditionChip = findByClass(card, "flow-attribute-chip-value")[0];
+
+  conditionChip.dispatch("focus");
+
+  const previewHost = playbackCanvasPane.children.find((entry) => entry.className === "attribute-input-preview");
+  assert.ok(previewHost);
+  assert.equal(workspace.children.some((entry) => entry.className === "attribute-input-preview"), false);
+  assert.equal(previewHost.hidden, false);
+  assert.equal(previewHost.children[0].textContent, "dist_to_target < baffle_enable_dist");
 });

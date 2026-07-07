@@ -165,6 +165,21 @@ test("ctrl f opens tree search in edit mode", () => {
   assert.equal(runtime.search.openCount, 1);
 });
 
+test("shortcut action opens tree search from extension keybinding", () => {
+  const { runtime, listeners } = loadMainEventsRuntime("edit");
+
+  runtime.mainEvents.bindWebviewMessages({});
+
+  listeners.message({
+    data: {
+      type: "shortcutAction",
+      payload: { action: "openSearch" }
+    }
+  });
+
+  assert.equal(runtime.search.openCount, 1);
+});
+
 test("ctrl s saves the current XML document", () => {
   const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("edit");
   runtime.state.currentHasDocument = true;

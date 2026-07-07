@@ -626,8 +626,8 @@
     return queue.length > 0 ? queue.join(", ") : getCopy().none;
   }
 
-  function setVisible(visible) {
-    if (!visible && hasPendingChanges() && !window.confirm(getCopy().discardPendingConfirm)) {
+  async function setVisible(visible) {
+    if (!visible && hasPendingChanges() && !(await confirmDiscardPendingChanges())) {
       return;
     }
     runtime.state.editAssistantVisible = visible;
@@ -636,6 +636,22 @@
     if (visible) {
       render();
     }
+  }
+
+  function confirmDiscardPendingChanges() {
+    const copy = getCopy();
+    const overlayCopy = runtime.i18n?.getOverlayCopy?.() || {};
+    if (!runtime.overlays?.confirm) {
+      return Promise.resolve(false);
+    }
+
+    return runtime.overlays.confirm({
+      title: copy.discardPendingTitle,
+      message: copy.discardPendingConfirm,
+      cancelText: overlayCopy.cancel,
+      confirmText: copy.discardPendingAction,
+      tone: "danger"
+    });
   }
 
   function hasPendingChanges() {
@@ -720,7 +736,9 @@
       hidePanel: "Hide assistant",
       configure: "Configure AI",
       configNotReady: "AI configuration is not implemented yet.",
+      discardPendingTitle: "Collapse assistant?",
       discardPendingConfirm: "The assistant has pending edits. Collapse it without applying them?",
+      discardPendingAction: "Collapse",
       queueTitle: "Queue",
       errorLabel: "Errors",
       warningLabel: "Warnings",

@@ -145,10 +145,6 @@ export function getWebviewHtml(options: GetWebviewHtmlOptions): string {
       vscode.Uri.joinPath(extensionUri, "node-library", "atlas", "nodes.json").fsPath,
       "{}\n"
     );
-    const atlasManifestJson = readExtensionTextFile(
-      vscode.Uri.joinPath(extensionUri, "node-library", "atlas", "manifest.json").fsPath,
-      "{}\n"
-    );
     const atlasVariablesJson = readExtensionTextFile(
       vscode.Uri.joinPath(extensionUri, "node-library", "atlas", "variables.json").fsPath,
       "{}\n"
@@ -170,7 +166,6 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
     <script nonce="${nonce}">
       window.BTreeToolInitialMode = ${JSON.stringify(hasDocument ? "edit" : "playback")};
       window.BTreeToolInitialSettings = ${initialSettingsScript};
-      window.BTreeToolAtlasManifestJson = ${stringifyScriptJson(atlasManifestJson)};
       window.BTreeToolAtlasNodesJson = ${stringifyScriptJson(atlasNodesJson)};
       window.BTreeToolAtlasVariablesJson = ${stringifyScriptJson(atlasVariablesJson)};
     </script>

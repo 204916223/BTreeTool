@@ -22,23 +22,13 @@
   };
 
   function createSettingsDialog() {
-    const element = document.createElement("div");
-    element.className = "node-picker settings-dialog";
-    element.hidden = true;
-
-    const backdrop = document.createElement("div");
-    backdrop.className = "node-picker-backdrop";
-    backdrop.addEventListener("click", hideSettingsDialog);
-
-    const dialog = document.createElement("div");
-    dialog.className = "node-picker-dialog settings-dialog-panel";
-
-    const header = document.createElement("div");
-    header.className = "node-picker-header";
-
-    const title = document.createElement("strong");
-    title.className = "node-picker-title";
-    title.textContent = "Settings";
+    const shell = shared.createModalShell({
+      rootClass: "settings-dialog",
+      dialogClass: "settings-dialog-panel",
+      title: "Settings",
+      onClose: hideSettingsDialog
+    });
+    const { element, dialog, header, title } = shell;
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
@@ -52,9 +42,11 @@
 
     const commonSection = createSettingsSection("General Mode");
     const languageRow = createInlineField("Language");
-    const languageSelect = document.createElement("select");
-    languageSelect.className = "attribute-input";
-    languageRow.control.appendChild(languageSelect);
+    const languageSelect = shared.createChoiceControl({
+      className: "settings-language-choice",
+      options: []
+    });
+    languageRow.control.appendChild(languageSelect.element);
     const themeRow = createInlineField("Theme");
     const themePicker = createThemePicker();
     const customThemePicker = createCustomThemePicker();
@@ -246,7 +238,7 @@
       const currentSettings = runtime.state.currentSettings || {};
       const nextSettings = {
         ...currentSettings,
-        language: languageSelect.value,
+        language: languageSelect.getValue(),
         themePreset: themePicker.getValue(),
         customTheme: {
           primaryColor: normalizeColorInputValue(customThemePicker.primaryInput.value, "#5e8de6"),
@@ -294,18 +286,13 @@
     actions.appendChild(importNodesButton);
     actions.appendChild(saveButton);
 
-    header.appendChild(title);
     header.appendChild(closeButton);
     form.appendChild(commonSection.element);
     form.appendChild(editSection.element);
     form.appendChild(playbackSection.element);
     form.appendChild(traceSection.element);
-    dialog.appendChild(header);
     dialog.appendChild(form);
     dialog.appendChild(actions);
-    element.appendChild(backdrop);
-    element.appendChild(dialog);
-
     return {
       element,
       title,
@@ -664,21 +651,17 @@
     overlayState.settingsDialog.clearImportedNodesButton.textContent = copy.clearImportedNodes;
     overlayState.settingsDialog.importNodesButton.textContent = copy.importNodes;
     overlayState.settingsDialog.saveButton.textContent = copy.save;
-    overlayState.settingsDialog.languageSelect.replaceChildren();
-    [
-      ["en-US", copy.languageOptions.english],
-      ["zh-CN", copy.languageOptions.chinese]
-    ].forEach(([value, label]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = label;
-      overlayState.settingsDialog.languageSelect.appendChild(option);
-    });
-    overlayState.settingsDialog.languageSelect.value = runtime.state.currentSettings?.language || "en-US";
+    overlayState.settingsDialog.languageSelect.setOptions(
+      [
+        { value: "en-US", label: copy.languageOptions.english },
+        { value: "zh-CN", label: copy.languageOptions.chinese }
+      ],
+      runtime.state.currentSettings?.language || "en-US"
+    );
     overlayState.settingsDialog.themePicker.render(
       runtime.i18n.getThemeOptions().map((option) => ({
         value: option.value,
-        label: option.textContent || option.value
+        label: option.label || option.value
       })),
       copy.themeGroups
     );

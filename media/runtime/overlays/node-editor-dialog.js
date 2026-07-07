@@ -5,29 +5,18 @@
   const shared = overlayRuntime.shared;
 
   function createNodeEditorDialog() {
-    const element = document.createElement("div");
-    element.className = "node-picker node-editor-dialog";
-    element.hidden = true;
-
-    const backdrop = document.createElement("div");
-    backdrop.className = "node-picker-backdrop";
-    backdrop.addEventListener("click", hideNodeEditorDialog);
-
-    const dialog = document.createElement("div");
-    dialog.className = "node-picker-dialog node-editor-dialog-panel";
-
-    const header = document.createElement("div");
-    header.className = "node-picker-header";
-
-    const title = document.createElement("strong");
-    title.className = "node-picker-title";
+    const shell = shared.createModalShell({
+      rootClass: "node-editor-dialog",
+      dialogClass: "node-editor-dialog-panel",
+      onClose: hideNodeEditorDialog
+    });
+    const { element, dialog, header, title } = shell;
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.className = "canvas-btn subtle";
     closeButton.addEventListener("click", hideNodeEditorDialog);
 
-    header.appendChild(title);
     header.appendChild(closeButton);
 
     const meta = document.createElement("div");
@@ -103,15 +92,11 @@
     saveButton.addEventListener("click", saveCurrentNodeEditorState);
     actions.appendChild(saveButton);
 
-    dialog.appendChild(header);
     dialog.appendChild(meta);
     dialog.appendChild(tabs);
     dialog.appendChild(status);
     dialog.appendChild(panels);
     dialog.appendChild(actions);
-    element.appendChild(backdrop);
-    element.appendChild(dialog);
-
     return {
       element,
       title,

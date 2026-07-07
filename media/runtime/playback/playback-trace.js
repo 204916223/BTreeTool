@@ -178,20 +178,21 @@
 
       const statusbar = document.createElement("div");
       statusbar.className = "playback-trace-statusbar";
-      const providerSelect = document.createElement("select");
-      providerSelect.className = "playback-trace-provider-select";
-      providerSelect.dataset.traceProviderSelect = "true";
-      providerSelect.addEventListener("change", () => {
-        const providerId = providerSelect.value;
-        if (!providerId || providerId === runtime.state.traceConfig?.activeProvider) {
-          return;
+      const providerSelect = runtime.overlayRuntime.shared.createChoiceControl({
+        className: "playback-trace-provider-select",
+        options: [],
+        onChange(providerId) {
+          if (!providerId || providerId === runtime.state.traceConfig?.activeProvider) {
+            return;
+          }
+          vscode.postMessage({
+            type: "setTraceProvider",
+            payload: { providerId }
+          });
         }
-        vscode.postMessage({
-          type: "setTraceProvider",
-          payload: { providerId }
-        });
       });
-      statusbar.appendChild(providerSelect);
+      providerSelect.element.dataset.traceProviderSelect = "true";
+      statusbar.appendChild(providerSelect.element);
 
       const send = document.createElement("button");
       send.type = "submit";
@@ -269,26 +270,25 @@
         .join("|");
       if (select.dataset.providerListKey !== activeKey) {
         select.dataset.providerListKey = activeKey;
-        select.replaceChildren();
         if (providers.length === 0) {
-          const option = document.createElement("option");
-          option.value = "";
-          option.textContent = playbackCopy.providerNotConfigured;
-          select.appendChild(option);
+          select.__choiceControl?.setOptions?.([
+            { value: "", label: playbackCopy.providerNotConfigured }
+          ], "");
         } else {
-          providers.forEach((provider) => {
-            const option = document.createElement("option");
-            option.value = provider.id;
-            option.textContent = playbackCopy.traceCurrentProvider(provider.label, provider.model);
-            select.appendChild(option);
-          });
+          select.__choiceControl?.setOptions?.(
+            providers.map((provider) => ({
+              value: provider.id,
+              label: playbackCopy.traceCurrentProvider(provider.label, provider.model)
+            })),
+            activeProvider
+          );
         }
       }
-      select.value = providers.some((provider) => provider.id === activeProvider)
+      select.__choiceControl?.setValue?.(providers.some((provider) => provider.id === activeProvider)
         ? activeProvider
-        : providers[0]?.id || "";
-      select.disabled = providers.length === 0 || isPending;
-      select.title = providers.length === 0 ? playbackCopy.providerNotConfigured : "";
+        : providers[0]?.id || "", false);
+      select.__choiceControl?.setDisabled?.(providers.length === 0 || isPending);
+      select.__choiceControl?.setTitle?.(providers.length === 0 ? playbackCopy.providerNotConfigured : "");
     }
 
     function updateTraceAttachmentTray(container, playbackCopy, isPending) {

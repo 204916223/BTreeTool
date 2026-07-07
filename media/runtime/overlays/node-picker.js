@@ -5,24 +5,12 @@
   const shared = overlayRuntime.shared;
 
   function createNodePicker() {
-    const element = document.createElement("div");
-    element.className = "node-picker";
-    element.hidden = true;
     const overlayCopy = runtime.i18n.getOverlayCopy();
-
-    const backdrop = document.createElement("div");
-    backdrop.className = "node-picker-backdrop";
-    backdrop.addEventListener("click", hideNodePicker);
-
-    const dialog = document.createElement("div");
-    dialog.className = "node-picker-dialog";
-
-    const header = document.createElement("div");
-    header.className = "node-picker-header";
-
-    const title = document.createElement("strong");
-    title.className = "node-picker-title";
-    title.textContent = overlayCopy.nodePickerTitle;
+    const shell = shared.createModalShell({
+      title: overlayCopy.nodePickerTitle,
+      onClose: hideNodePicker
+    });
+    const { element, dialog, header, title } = shell;
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
@@ -40,13 +28,9 @@
     const list = document.createElement("div");
     list.className = "node-picker-list";
 
-    header.appendChild(title);
     header.appendChild(closeButton);
-    dialog.appendChild(header);
     dialog.appendChild(search);
     dialog.appendChild(list);
-    element.appendChild(backdrop);
-    element.appendChild(dialog);
 
     return {
       element,

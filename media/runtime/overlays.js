@@ -18,6 +18,7 @@
     overlayState.nodeContextMenu = contextMenus.createNodeContextMenu();
     overlayState.canvasContextMenu = contextMenus.createCanvasContextMenu();
     overlayState.deleteConfirmBar = getPart("deleteConfirm").createDeleteConfirmBar();
+    overlayState.confirmDialog = getPart("confirmDialog").createConfirmDialog();
     overlayState.nodePicker = getPart("nodePicker").createNodePicker();
     overlayState.settingsDialog = getPart("settingsDialog").createSettingsDialog();
     overlayState.assistantWhitelistDialog = getPart("assistantWhitelistDialog").createAssistantWhitelistDialog();
@@ -29,6 +30,7 @@
     document.body.appendChild(overlayState.nodeContextMenu.element);
     document.body.appendChild(overlayState.canvasContextMenu.element);
     document.body.appendChild(overlayState.deleteConfirmBar.element);
+    document.body.appendChild(overlayState.confirmDialog.element);
     document.body.appendChild(overlayState.nodePicker.element);
     document.body.appendChild(overlayState.settingsDialog.element);
     document.body.appendChild(overlayState.assistantWhitelistDialog.element);
@@ -42,6 +44,7 @@
     api.hideNodeContextMenu();
     api.hideCanvasContextMenu();
     api.hideDeleteConfirm();
+    api.hideConfirmDialog();
     api.hideNodePicker();
     api.hideSettingsDialog();
     api.hideAssistantWhitelistDialog();
@@ -114,6 +117,8 @@
     executeNodeShortcutAction: (...args) => getPart("contextMenus").executeNodeShortcutAction(...args),
     requestDeleteConfirmation: (...args) => getPart("deleteConfirm").requestDeleteConfirmation(...args),
     hideDeleteConfirm: (...args) => getPart("deleteConfirm").hideDeleteConfirm(...args),
+    confirm: (...args) => getPart("confirmDialog").showConfirmDialog(...args),
+    hideConfirmDialog: (...args) => getPart("confirmDialog").hideConfirmDialog(...args),
     showNodePicker: (...args) => getPart("nodePicker").showNodePicker(...args),
     hideNodePicker: (...args) => getPart("nodePicker").hideNodePicker(...args),
     showSettingsDialog: (...args) => getPart("settingsDialog").showSettingsDialog(...args),

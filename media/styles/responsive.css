@@ -132,6 +132,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .confirm-dialog-panel {
+    width: min(420px, calc(100vw - 28px));
+  }
+
   .panel-edge-toggle-left {
     left: 4px;
   }

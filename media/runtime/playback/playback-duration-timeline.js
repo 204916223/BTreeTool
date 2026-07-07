@@ -67,23 +67,22 @@
         }
       });
 
-      const speedSelect = document.createElement("select");
-      speedSelect.className = "playback-speed-select";
-      speedSelect.setAttribute("aria-label", playbackCopy.playbackSpeed);
-      speedSelect.title = playbackCopy.playbackSpeed;
-      PLAYBACK_SPEED_OPTIONS.forEach((option) => {
-        const item = document.createElement("option");
-        item.value = String(option.value);
-        item.textContent = option.label;
-        speedSelect.appendChild(item);
-      });
-      speedSelect.value = String(runtime.state.playbackPlaybackSpeed);
-      speedSelect.addEventListener("change", () => {
-        runtime.state.playbackPlaybackSpeed = normalizePlaybackSpeed(speedSelect.value);
-        persistUiState();
-        updatePlaybackTimelineControls(log);
-        if (runtime.state.playbackIsPlaying) {
-          reschedulePlaybackAutoAdvance(log);
+      const speedSelect = runtime.overlayRuntime.shared.createChoiceControl({
+        className: "playback-speed-select",
+        ariaLabel: playbackCopy.playbackSpeed,
+        title: playbackCopy.playbackSpeed,
+        options: PLAYBACK_SPEED_OPTIONS.map((option) => ({
+          value: String(option.value),
+          label: option.label
+        })),
+        value: String(runtime.state.playbackPlaybackSpeed),
+        onChange(value) {
+          runtime.state.playbackPlaybackSpeed = normalizePlaybackSpeed(value);
+          persistUiState();
+          updatePlaybackTimelineControls(log);
+          if (runtime.state.playbackIsPlaying) {
+            reschedulePlaybackAutoAdvance(log);
+          }
         }
       });
 
@@ -103,7 +102,7 @@
       heightControls.appendChild(growButton);
 
       controls.appendChild(playButton);
-      controls.appendChild(speedSelect);
+      controls.appendChild(speedSelect.element);
       controls.appendChild(heightControls);
 
       const ruler = document.createElement("div");

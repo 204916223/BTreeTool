@@ -5,22 +5,12 @@
   const shared = overlayRuntime.shared;
 
   function createBehaviorTreeDialog() {
-    const element = document.createElement("div");
-    element.className = "node-picker settings-dialog behavior-tree-dialog";
-    element.hidden = true;
-
-    const backdrop = document.createElement("div");
-    backdrop.className = "node-picker-backdrop";
-    backdrop.addEventListener("click", hideBehaviorTreeDialog);
-
-    const dialog = document.createElement("div");
-    dialog.className = "node-picker-dialog settings-dialog-panel behavior-tree-dialog-panel";
-
-    const header = document.createElement("div");
-    header.className = "node-picker-header";
-
-    const title = document.createElement("strong");
-    title.className = "node-picker-title";
+    const shell = shared.createModalShell({
+      rootClass: "settings-dialog behavior-tree-dialog",
+      dialogClass: "settings-dialog-panel behavior-tree-dialog-panel",
+      onClose: hideBehaviorTreeDialog
+    });
+    const { element, dialog, header, title } = shell;
 
     const form = document.createElement("div");
     form.className = "settings-form behavior-tree-form";
@@ -74,17 +64,12 @@
 
     actions.appendChild(cancelButton);
     actions.appendChild(createButton);
-    header.appendChild(title);
     form.appendChild(nameRow.element);
     form.appendChild(message);
     form.appendChild(related);
-    dialog.appendChild(header);
     dialog.appendChild(form);
     dialog.appendChild(status);
     dialog.appendChild(actions);
-    element.appendChild(backdrop);
-    element.appendChild(dialog);
-
     return {
       element,
       title,

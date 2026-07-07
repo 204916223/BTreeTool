@@ -181,12 +181,10 @@
             { value: "custom", label: "Custom" }
           ];
 
-    return themes.map((theme) => {
-      const option = document.createElement("option");
-      option.value = theme.value;
-      option.textContent = theme.label;
-      return option;
-    });
+    return themes.map((theme) => ({
+      value: theme.value,
+      label: theme.label
+    }));
   }
 
   function getTreeNodesModelCopy(language = getCurrentLanguage()) {
@@ -335,6 +333,16 @@
       atlasInvalidJson: "Invalid atlas JSON",
       atlasSearchPlaceholder: "Search name / author / department",
       atlasSearchTitle: "Search",
+      atlasShowUsageFlowTitle: "Show usage flow",
+      atlasShowNodeStyleTitle: "Show node style",
+      atlasFlowRootTitle: "Usage sequence",
+      atlasFlowRootDescription: "Typical behavior-tree context for this node.",
+      atlasFlowConditionTitle: "Precondition",
+      atlasFlowConditionDescription: "Checks whether the flow should continue.",
+      atlasFlowActionTitle: "Next action",
+      atlasFlowActionDescription: "Represents the following step in the flow.",
+      atlasFlowDecoratedActionTitle: "Decorated action",
+      atlasFlowDecoratedActionDescription: "The action controlled by this decorator.",
       atlasNoFilterResults: "No matching nodes.",
       addModelTitle: "Add TreeNodesModel node definition",
       deleteDropHint: "Drop this area to delete",
@@ -368,6 +376,16 @@
         atlasInvalidJson: "图鉴 JSON 格式无效",
         atlasSearchPlaceholder: "按名称 / 作者 / 部门搜索",
         atlasSearchTitle: "搜索",
+        atlasShowUsageFlowTitle: "显示使用流程",
+        atlasShowNodeStyleTitle: "显示节点样式",
+        atlasFlowRootTitle: "使用流程",
+        atlasFlowRootDescription: "该节点在行为树中的典型使用上下文。",
+        atlasFlowConditionTitle: "前置条件",
+        atlasFlowConditionDescription: "判断流程是否继续执行。",
+        atlasFlowActionTitle: "后续动作",
+        atlasFlowActionDescription: "表示流程中的下一步动作。",
+        atlasFlowDecoratedActionTitle: "被装饰动作",
+        atlasFlowDecoratedActionDescription: "由当前装饰器控制的动作节点。",
         atlasNoFilterResults: "没有匹配的节点。",
         addModelTitle: "新增 TreeNodesModel 节点定义",
         deleteDropHint: "拖动至该区域删除",
@@ -421,6 +439,8 @@
       addNodeAfterTitle: (nodeTitle) => `Add node after "${nodeTitle || "node"}"`,
       addChildTitle: (nodeTitle) => `Add child to "${nodeTitle || "node"}"`,
       cancel: "Cancel",
+      confirmTitle: "Confirm action",
+      confirm: "Confirm",
       delete: "Delete",
       deleteConfirm: (title) => `Delete "${title || "this node"}"? This only removes the current node instance.`,
       hideAllNodeDetails: "Hide All Node Display Items",
@@ -446,6 +466,8 @@
         addNodeAfterTitle: (nodeTitle) => `在“${nodeTitle || "节点"}”后插入节点`,
         addChildTitle: (nodeTitle) => `给“${nodeTitle || "节点"}”添加子节点`,
         cancel: "取消",
+        confirmTitle: "确认操作",
+        confirm: "确认",
         delete: "删除",
         deleteConfirm: (title) => `删除“${title || "当前节点"}”？这只会移除当前节点实例。`,
         hideAllNodeDetails: "隐藏所有节点显示项",
@@ -783,7 +805,9 @@
       hidePanel: "Hide assistant",
       configure: "Warning whitelist",
       configNotReady: "AI configuration is not implemented yet.",
+      discardPendingTitle: "Collapse assistant?",
       discardPendingConfirm: "The assistant has pending edits. Collapse it without applying them?",
+      discardPendingAction: "Collapse",
       queueTitle: "Queue",
       errorLabel: "Errors",
       warningLabel: "Warnings",
@@ -836,7 +860,9 @@
         hidePanel: "隐藏助手",
         configure: "警告白名单",
         configNotReady: "AI 配置入口已预留，功能尚未实现。",
+        discardPendingTitle: "收起助手？",
         discardPendingConfirm: "助手中有尚未应用的修改，确定收起吗？",
+        discardPendingAction: "收起",
         queueTitle: "队列",
         errorLabel: "异常",
         warningLabel: "警告",

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { parseBehaviorTreeDocument } from "./core/parse";
 import { BehaviorTreePreviewPanel } from "./panel";
 import { createPreviewStatusBarController } from "./extension/statusBar";
+import type { ShortcutAction } from "./panel/messages";
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("btreeTool");
@@ -99,13 +100,14 @@ export function activate(context: vscode.ExtensionContext): void {
       await BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, document);
     })
   );
-  const shortcutCommands: Array<[string, "copy" | "pasteSmart" | "undo" | "pasteAsChild" | "pasteBefore" | "pasteAfter"]> = [
+  const shortcutCommands: Array<[string, ShortcutAction]> = [
     ["btreeTool.copyNode", "copy"],
     ["btreeTool.pasteNodeSmart", "pasteSmart"],
     ["btreeTool.undoEdit", "undo"],
     ["btreeTool.pasteNodeAsChild", "pasteAsChild"],
     ["btreeTool.pasteNodeBefore", "pasteBefore"],
-    ["btreeTool.pasteNodeAfter", "pasteAfter"]
+    ["btreeTool.pasteNodeAfter", "pasteAfter"],
+    ["btreeTool.openSearch", "openSearch"]
   ];
 
   shortcutCommands.forEach(([command, action]) => {

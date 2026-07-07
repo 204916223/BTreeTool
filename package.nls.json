@@ -7,5 +7,6 @@
   "command.undoEdit.title": "BTreeTool: Undo Edit",
   "command.pasteNodeAsChild.title": "BTreeTool: Paste Node as Child",
   "command.pasteNodeBefore.title": "BTreeTool: Paste Node Before",
-  "command.pasteNodeAfter.title": "BTreeTool: Paste Node After"
+  "command.pasteNodeAfter.title": "BTreeTool: Paste Node After",
+  "command.openSearch.title": "BTreeTool: Open Search"
 }
