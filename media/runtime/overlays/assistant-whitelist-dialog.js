@@ -22,9 +22,6 @@
     closeButton.innerHTML = runtime.icons.iconHtml("close");
     closeButton.addEventListener("click", hideAssistantWhitelistDialog);
 
-    const summary = document.createElement("p");
-    summary.className = "assistant-whitelist-summary";
-
     const search = document.createElement("input");
     search.type = "search";
     search.className = "attribute-input assistant-whitelist-search";
@@ -57,7 +54,6 @@
     actions.appendChild(cancelButton);
     actions.appendChild(saveButton);
     header.appendChild(closeButton);
-    dialog.appendChild(summary);
     dialog.appendChild(search);
     dialog.appendChild(list);
     dialog.appendChild(empty);
@@ -66,7 +62,6 @@
       element,
       title,
       closeButton,
-      summary,
       search,
       list,
       empty,
@@ -84,7 +79,6 @@
     overlayState.assistantWhitelistDialog.title.textContent = copy.whitelistTitle;
     overlayState.assistantWhitelistDialog.closeButton.title = copy.closeWhitelist;
     overlayState.assistantWhitelistDialog.closeButton.setAttribute("aria-label", copy.closeWhitelist);
-    overlayState.assistantWhitelistDialog.summary.textContent = copy.whitelistSummary;
     overlayState.assistantWhitelistDialog.search.placeholder = copy.whitelistSearchPlaceholder;
     overlayState.assistantWhitelistDialog.empty.textContent = copy.whitelistEmpty;
     overlayState.assistantWhitelistDialog.cancelButton.textContent = copy.cancelWhitelist;

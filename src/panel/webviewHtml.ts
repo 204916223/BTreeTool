@@ -174,6 +174,15 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
         <div class="card-title-row tree-topbar">
           <div class="tree-topbar-main">
             <button
+              id="open-node-atlas"
+              class="mode-toggle-btn catalog-atlas-button"
+              type="button"
+              title="Open node atlas"
+              aria-label="Open node atlas"
+            >
+              ${iconHtml("atlas")}
+            </button>
+            <button
               id="mode-edit"
               class="mode-toggle-btn is-active"
               type="button"
@@ -232,19 +241,7 @@ ${styleUris.map((uri) => `    <link rel="stylesheet" href="${uri}" />`).join("\n
             <div class="catalog-header">
               <div class="catalog-title-row">
                 <strong id="catalog-eyebrow" class="catalog-title">Node Palette</strong>
-                <button
-                  id="open-node-atlas"
-                  class="canvas-btn icon-btn subtle catalog-atlas-button"
-                  type="button"
-                  title="Open node atlas"
-                  aria-label="Open node atlas"
-                >
-                  ${iconHtml("atlas")}
-                </button>
               </div>
-              <p id="catalog-summary" class="catalog-summary">
-                Built-in nodes, model-backed actions, and SubTree entries available in this XML.
-              </p>
               <div class="catalog-search-row">
                 <button
                   id="add-node-model"

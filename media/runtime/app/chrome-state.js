@@ -28,7 +28,6 @@
     runtime.refs.saveDocumentButton.title = indicatorTitle;
     runtime.refs.saveDocumentButton.setAttribute("aria-label", indicatorTitle);
     runtime.refs.catalogEyebrow.textContent = catalogCopy.eyebrow;
-    runtime.refs.catalogSummary.textContent = catalogCopy.summary;
     runtime.refs.catalogSearchInput.placeholder = catalogCopy.searchPlaceholder;
     runtime.refs.openNodeAtlasButton.title = catalogCopy.openAtlasTitle;
     runtime.refs.openNodeAtlasButton.setAttribute("aria-label", catalogCopy.openAtlasTitle);

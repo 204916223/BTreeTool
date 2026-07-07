@@ -190,10 +190,6 @@
     gap: 8px;
   }
 
-  .node-atlas-summary {
-    font-size: 11px;
-  }
-
   .node-atlas-layout {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows:

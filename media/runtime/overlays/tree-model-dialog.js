@@ -34,9 +34,6 @@
     headerActions.appendChild(closeButton);
     header.appendChild(headerActions);
 
-    const summary = document.createElement("p");
-    summary.className = "tree-model-summary";
-
     const meta = document.createElement("div");
     meta.className = "tree-model-meta";
 
@@ -136,7 +133,6 @@
     });
 
     actions.appendChild(saveButton);
-    dialog.appendChild(summary);
     dialog.appendChild(meta);
     dialog.appendChild(toolbar);
     dialog.appendChild(status);
@@ -145,7 +141,6 @@
     return {
       element,
       title,
-      summary,
       openXmlButton,
       closeButton,
       typeField,
@@ -185,7 +180,6 @@
 
     const copy = runtime.i18n.getTreeNodesModelCopy();
     overlayState.treeNodesModelDialog.title.textContent = copy.title;
-    overlayState.treeNodesModelDialog.summary.textContent = copy.summary;
     overlayState.treeNodesModelDialog.openXmlButton.textContent = copy.openXml;
     overlayState.treeNodesModelDialog.closeButton.textContent = copy.close;
     overlayState.treeNodesModelDialog.typeField.text.textContent = copy.modelKind;

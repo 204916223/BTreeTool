@@ -22,7 +22,13 @@
       }
 
       if (message?.type === "nodeClipboardState") {
+        const nodeTemplate = normalizeNodeClipboardTemplate(message.payload?.nodeTemplate);
         runtime.state.hasSharedNodeTemplate = message.payload?.hasNodeTemplate === true;
+        if (nodeTemplate) {
+          runtime.state.copiedNodeTemplate = nodeTemplate;
+        } else if (runtime.state.hasSharedNodeTemplate !== true) {
+          runtime.state.copiedNodeTemplate = null;
+        }
         runtime.overlays.syncNodeContextMenu?.();
         return;
       }
@@ -378,6 +384,30 @@
       clearTimeout(shortcutState.resetHandle);
       shortcutState.resetHandle = 0;
     }
+  }
+
+  function normalizeNodeClipboardTemplate(value) {
+    if (!value || typeof value.tagName !== "string" || !value.tagName.trim()) {
+      return null;
+    }
+    return {
+      tagName: value.tagName,
+      attributes: isRecord(value.attributes) ? { ...value.attributes } : {},
+      children: normalizeNodeClipboardChildren(value.children)
+    };
+  }
+
+  function normalizeNodeClipboardChildren(children) {
+    if (!Array.isArray(children)) {
+      return [];
+    }
+    return children
+      .map(normalizeNodeClipboardTemplate)
+      .filter(Boolean);
+  }
+
+  function isRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
 
   function requestPlaybackLogImport() {

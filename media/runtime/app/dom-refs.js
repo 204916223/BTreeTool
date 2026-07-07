@@ -32,7 +32,6 @@
       treeSearchResults: root.getElementById("tree-search-results"),
       catalogPanel: root.getElementById("catalog-panel"),
       catalogEyebrow: root.getElementById("catalog-eyebrow"),
-      catalogSummary: root.getElementById("catalog-summary"),
       openNodeAtlasButton: root.getElementById("open-node-atlas"),
       catalogSearchButton: root.getElementById("catalog-search-button"),
       catalogList: root.getElementById("catalog-list"),

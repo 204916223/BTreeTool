@@ -167,6 +167,14 @@ export class BehaviorTreePreviewPanel {
     panels.forEach((panel) => panel.postNodeClipboardState());
   }
 
+  private static cloneNodeTemplate(nodeTemplate: NodeCopyTemplateMessage): NodeCopyTemplateMessage {
+    return {
+      tagName: nodeTemplate.tagName,
+      attributes: { ...(nodeTemplate.attributes || {}) },
+      children: normalizeNodeCopyChildren(nodeTemplate.children)
+    };
+  }
+
   private static addPanelForDocument(uri: vscode.Uri, panel: BehaviorTreePreviewPanel): void {
     const documentKey = uri.toString();
     const documentPanels = BehaviorTreePreviewPanel.panelsByDocument.get(documentKey) || new Set<BehaviorTreePreviewPanel>();
@@ -654,10 +662,12 @@ export class BehaviorTreePreviewPanel {
   }
 
   private postNodeClipboardState(): void {
+    const nodeTemplate = BehaviorTreePreviewPanel.copiedNodeTemplate;
     this.panel.webview.postMessage({
       type: "nodeClipboardState",
       payload: {
-        hasNodeTemplate: Boolean(BehaviorTreePreviewPanel.copiedNodeTemplate)
+        hasNodeTemplate: Boolean(nodeTemplate),
+        nodeTemplate: nodeTemplate ? BehaviorTreePreviewPanel.cloneNodeTemplate(nodeTemplate) : null
       }
     });
   }
@@ -877,11 +887,7 @@ export class BehaviorTreePreviewPanel {
 
     await this.handleCreateNodeCopy({
       ...payload,
-      nodeTemplate: {
-        tagName: nodeTemplate.tagName,
-        attributes: { ...(nodeTemplate.attributes || {}) },
-        children: normalizeNodeCopyChildren(nodeTemplate.children)
-      }
+      nodeTemplate: BehaviorTreePreviewPanel.cloneNodeTemplate(nodeTemplate)
     });
   }
 

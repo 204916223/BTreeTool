@@ -26,9 +26,6 @@
     closeButton.innerHTML = runtime.icons.iconHtml("close");
     closeButton.addEventListener("click", hideNodeAtlasDialog);
 
-    const summary = document.createElement("p");
-    summary.className = "node-atlas-summary";
-
     const layout = document.createElement("div");
     layout.className = "node-atlas-layout";
 
@@ -99,14 +96,12 @@
     layout.appendChild(params);
     layout.appendChild(functionIntro);
     header.appendChild(closeButton);
-    dialog.appendChild(summary);
     dialog.appendChild(layout);
 
     return {
       element,
       title,
       closeButton,
-      summary,
       list,
       listResults,
       searchInput,
@@ -126,7 +121,6 @@
 
     const copy = runtime.i18n.getCatalogCopy();
     dialog.title.textContent = copy.atlasDialogTitle;
-    dialog.summary.textContent = copy.atlasDialogSummary;
     dialog.searchInput.placeholder = copy.atlasSearchPlaceholder;
     dialog.searchButton.title = copy.atlasSearchTitle;
     dialog.searchButton.setAttribute("aria-label", copy.atlasSearchTitle);

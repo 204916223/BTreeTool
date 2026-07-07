@@ -180,6 +180,50 @@ test("shortcut action opens tree search from extension keybinding", () => {
   assert.equal(runtime.search.openCount, 1);
 });
 
+test("node clipboard state refreshes stale local copied node templates", () => {
+  const { runtime, listeners } = loadMainEventsRuntime("edit");
+  runtime.state.copiedNodeTemplate = {
+    tagName: "OldNode",
+    attributes: { old: "1" },
+    children: []
+  };
+
+  runtime.mainEvents.bindWebviewMessages({});
+
+  listeners.message({
+    data: {
+      type: "nodeClipboardState",
+      payload: {
+        hasNodeTemplate: true,
+        nodeTemplate: {
+          tagName: "NewNode",
+          attributes: { next: "2" },
+          children: [
+            {
+              tagName: "ChildNode",
+              attributes: { child: "3" },
+              children: []
+            }
+          ]
+        }
+      }
+    }
+  });
+
+  assert.equal(runtime.state.hasSharedNodeTemplate, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(runtime.state.copiedNodeTemplate)), {
+    tagName: "NewNode",
+    attributes: { next: "2" },
+    children: [
+      {
+        tagName: "ChildNode",
+        attributes: { child: "3" },
+        children: []
+      }
+    ]
+  });
+});
+
 test("ctrl s saves the current XML document", () => {
   const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("edit");
   runtime.state.currentHasDocument = true;

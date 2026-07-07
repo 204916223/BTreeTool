@@ -190,7 +190,6 @@
   function getTreeNodesModelCopy(language = getCurrentLanguage()) {
     const base = {
       title: "TreeNodesModel",
-      summary: "Edit one node model at a time. Saving rewrites the current XML file.",
       openXml: "Open XML",
       close: "Close",
       addModel: "Add Model",
@@ -227,7 +226,6 @@
       base,
       {
         title: "节点模型",
-        summary: "每次编辑一个节点模型。保存后会直接回写当前 XML。",
         openXml: "打开 XML",
         close: "关闭",
         addModel: "新增模型",
@@ -314,11 +312,9 @@
   function getCatalogCopy(language = getCurrentLanguage()) {
     const base = {
       eyebrow: "Node Palette",
-      summary: "Built-in nodes, model-backed actions, and SubTree entries available in this XML.",
       searchPlaceholder: "Search nodes",
       openAtlasTitle: "Open node atlas",
       atlasDialogTitle: "Node Atlas",
-      atlasDialogSummary: "Node atlas generated from the current TreeNodesModel export.",
       atlasEmpty: "No atlas JSON is available.",
       atlasParamsTitle: "Parameters",
       atlasFunctionTitle: "Function",
@@ -357,11 +353,9 @@
       base,
       {
         eyebrow: "节点面板",
-        summary: "当前 XML 中可用的内建节点、模型节点和 SubTree 引用。",
         searchPlaceholder: "搜索节点",
         openAtlasTitle: "打开节点图鉴",
         atlasDialogTitle: "节点图鉴",
-        atlasDialogSummary: "按当前 TreeNodesModel 导出生成的节点图鉴。",
         atlasEmpty: "暂无可用的图鉴 JSON。",
         atlasParamsTitle: "参数",
         atlasFunctionTitle: "功能介绍",
@@ -841,7 +835,6 @@
         return `Explain selected ${node.type || "node"}: ${node.title || "node"}${uid}`;
       },
       whitelistTitle: "Warning whitelist",
-      whitelistSummary: "Select custom nodes whose empty parameters should not produce warnings.",
       whitelistSearchPlaceholder: "Search custom nodes...",
       whitelistEmpty: "No custom TreeNodesModel nodes are available in the current XML.",
       whitelistNoSearchResults: "No matching custom nodes.",
@@ -896,7 +889,6 @@
           return `解释选中${node.type || "节点"}：${node.title || "节点"}${uid}`;
         },
         whitelistTitle: "警告白名单",
-        whitelistSummary: "选择允许空参数不产生警告的自定义节点。",
         whitelistSearchPlaceholder: "搜索自定义节点...",
         whitelistEmpty: "当前 XML 中没有可选择的自定义 TreeNodesModel 节点。",
         whitelistNoSearchResults: "没有匹配的自定义节点。",

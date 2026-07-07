@@ -390,18 +390,11 @@
   fill: currentColor;
 }
 
-.assistant-whitelist-dialog-panel {
+.settings-dialog-panel.assistant-whitelist-dialog-panel {
   width: min(460px, calc(100vw - 48px));
   max-height: min(72vh, 620px);
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 8px;
-}
-
-.assistant-whitelist-summary {
-  margin: -4px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.35;
 }
 
 .assistant-whitelist-search {
