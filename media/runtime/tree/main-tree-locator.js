@@ -85,7 +85,8 @@
       paddingX: 18,
       paddingY: 16
     };
-    const measuredRoot = measure(tree.node);
+    const treeMap = runtime.app.getTreeMap(result);
+    const measuredRoot = measure(tree.node, tree.id, new Set([tree.id]), true);
     const positionedRoot = position(measuredRoot, config.paddingX, config.paddingY);
     const nodes = [];
     const edges = [];
@@ -101,9 +102,22 @@
       edges
     };
 
-    function measure(node) {
+    function measure(node, sourceTreeId, branchTreeIds, includeNodeChildren) {
       const marker = getMainTreeLocatorMarker(node, focusTreeId);
-      const children = (node.children || []).map(measure);
+      const children = includeNodeChildren
+        ? (node.children || []).map((child) => measure(child, sourceTreeId, branchTreeIds, true))
+        : [];
+      const targetTreeId = node.kind === "SubTree" ? node.targetTreeId : "";
+      if (targetTreeId && treeMap.has(targetTreeId) && !branchTreeIds.has(targetTreeId)) {
+        const targetTree = treeMap.get(targetTreeId);
+        if (targetTree?.node) {
+          const nestedSubTrees = collectSubTreeReferences(targetTree.node);
+          const nextBranchTreeIds = new Set([...branchTreeIds, targetTreeId]);
+          nestedSubTrees.forEach((subTreeNode) => {
+            children.push(measure(subTreeNode, targetTreeId, nextBranchTreeIds, false));
+          });
+        }
+      }
       const childrenWidth =
         children.reduce((sum, child) => sum + child.subtreeWidth, 0) +
         config.horizontalGap * Math.max(0, children.length - 1);
@@ -113,6 +127,7 @@
 
       return {
         node,
+        sourceTreeId,
         marker,
         children,
         width: config.nodeWidth,
@@ -151,6 +166,7 @@
     function collect(entry, parent) {
       const descriptor = {
         node: entry.node,
+        sourceTreeId: entry.sourceTreeId,
         marker: entry.marker,
         x: entry.x,
         y: entry.y,
@@ -177,8 +193,27 @@
     }
   }
 
+  function collectSubTreeReferences(root) {
+    const references = [];
+    walkNode(root, (node) => {
+      if (node?.kind === "SubTree" && node.targetTreeId) {
+        references.push(node);
+      }
+    });
+    return references;
+  }
+
+  function walkNode(node, visitor) {
+    if (!node) {
+      return;
+    }
+    visitor(node);
+    (node.children || []).forEach((child) => walkNode(child, visitor));
+  }
+
   function renderMainTreeLocatorSvg(result, tree, layout) {
     const copy = runtime.i18n.getMainTreeLocatorCopy();
+    const treeMap = runtime.app.getTreeMap(result);
     const svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("class", "main-tree-locator-map");
     svg.setAttribute("viewBox", `0 0 ${layout.width} ${layout.height}`);
@@ -205,16 +240,17 @@
       );
       group.setAttribute("role", "button");
       group.setAttribute("tabindex", "0");
+      const sourceTreeId = entry.sourceTreeId || tree.id;
       const targetTreeId = entry.node.kind === "SubTree" ? entry.node.targetTreeId : "";
       group.setAttribute(
         "aria-label",
-        targetTreeId && runtime.app.getTreeMap(result).has(targetTreeId)
+        targetTreeId && treeMap.has(targetTreeId)
           ? copy.openSubTree(targetTreeId)
-          : copy.focusNode(tree.id, entry.node.title)
+          : copy.focusNode(sourceTreeId, entry.node.title)
       );
 
       const title = document.createElementNS(SVG_NS, "title");
-      title.textContent = [tree.id, entry.node.title, entry.node.targetTreeId].filter(Boolean).join(" / ");
+      title.textContent = [sourceTreeId, entry.node.title, entry.node.targetTreeId].filter(Boolean).join(" / ");
       group.appendChild(title);
 
       const rect = document.createElementNS(SVG_NS, "rect");
@@ -237,18 +273,18 @@
       const focusLocatorNode = (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (targetTreeId && runtime.app.getTreeMap(result).has(targetTreeId)) {
-          runtime.treeNavigation.navigateToSubTree(result, tree.id, entry.node.nodePath, targetTreeId);
+        if (targetTreeId && treeMap.has(targetTreeId)) {
+          runtime.treeNavigation.navigateToSubTree(result, sourceTreeId, entry.node.nodePath, targetTreeId);
         } else {
-          runtime.state.selectedTreeId = tree.id;
+          runtime.state.selectedTreeId = sourceTreeId;
           runtime.state.selectedNodePath = entry.node.nodePath;
           runtime.editAssistant?.syncSelectedNodePrompt?.();
           runtime.app.persistUiState();
           runtime.app.renderCurrentTree(result, { ensureActiveTreeVisible: true });
         }
         requestAnimationFrame(() => {
-          if (runtime.state.selectedTreeId === tree.id) {
-            runtime.viewport.focusNodePath(entry.node.nodePath);
+          if (runtime.state.selectedTreeId === sourceTreeId) {
+            runtime.viewport.focusNodePath(entry.node.nodePath, sourceTreeId);
           }
         });
       };
@@ -290,11 +326,9 @@
 
     const visited = new Set();
     let currentTreeId = selectedTreeId;
-    let focusTreeId = null;
 
     while (currentTreeId && currentTreeId !== mainTreeId && !visited.has(currentTreeId)) {
       visited.add(currentTreeId);
-      focusTreeId = currentTreeId;
       const parentReference = runtime.treeNavigation.findParentTreeReference(result, currentTreeId);
       if (!parentReference) {
         return null;
@@ -302,7 +336,7 @@
       currentTreeId = parentReference.treeId;
     }
 
-    return currentTreeId === mainTreeId ? focusTreeId : null;
+    return currentTreeId === mainTreeId ? selectedTreeId : null;
   }
 
   function abbreviateLocatorLabel(label) {

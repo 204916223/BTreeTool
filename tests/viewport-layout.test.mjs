@@ -186,6 +186,57 @@ test("blank canvas pointerdown clears generated selected-node assistant prompt",
   assert.equal(persistCount, 1);
 });
 
+test("canvas pan stops when pointer returns after primary button was released", () => {
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  const layout = {
+    width: 2000,
+    height: 1400,
+    nodes: []
+  };
+
+  runtime.viewport.setupCanvas(shell, stage, layout, null, { active: false });
+  const initialPanX = shell.__btreeCanvasState.panX;
+  const initialPanY = shell.__btreeCanvasState.panY;
+
+  shell.listeners.pointerdown({
+    target: shell,
+    button: 0,
+    clientX: 10,
+    clientY: 20,
+    pointerId: 1,
+    preventDefault() {}
+  });
+
+  assert.equal(shell.hasClass("is-dragging"), true);
+
+  shell.listeners.pointermove({
+    target: shell,
+    buttons: 0,
+    clientX: 80,
+    clientY: 120,
+    pointerId: 1
+  });
+
+  assert.equal(shell.hasClass("is-dragging"), false);
+  assert.equal(shell.__btreeCanvasState.panX, initialPanX);
+  assert.equal(shell.__btreeCanvasState.panY, initialPanY);
+
+  shell.listeners.pointermove({
+    target: shell,
+    buttons: 1,
+    clientX: 120,
+    clientY: 180,
+    pointerId: 1
+  });
+
+  assert.equal(shell.__btreeCanvasState.panX, initialPanX);
+  assert.equal(shell.__btreeCanvasState.panY, initialPanY);
+});
+
 test("tree layout reuses base measurements for expanded drop target sizing", () => {
   let buildNodeCardCalls = 0;
   const runtime = loadViewportRuntime({

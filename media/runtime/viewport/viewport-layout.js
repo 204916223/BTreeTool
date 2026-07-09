@@ -693,6 +693,11 @@
         return;
       }
 
+      if (typeof event.buttons === "number" && (event.buttons & 1) === 0) {
+        stopDragging(event, { force: true });
+        return;
+      }
+
       activateCanvasState(shell.__btreeCanvasState);
       const deltaX = event.clientX - startX;
       const deltaY = event.clientY - startY;
@@ -702,8 +707,14 @@
       setCanvasPan(initialPanX + deltaX, initialPanY + deltaY);
     });
 
-    const stopDragging = (event) => {
-      if (event && capturedPointerId !== null && "pointerId" in event && event.pointerId !== capturedPointerId) {
+    const stopDragging = (event, options = {}) => {
+      if (
+        !options.force &&
+        event &&
+        capturedPointerId !== null &&
+        "pointerId" in event &&
+        event.pointerId !== capturedPointerId
+      ) {
         return;
       }
 
@@ -730,9 +741,16 @@
 
     shell.addEventListener("pointerup", stopDragging);
     shell.addEventListener("pointercancel", stopDragging);
+    shell.addEventListener("lostpointercapture", stopDragging);
     window.addEventListener("pointerup", stopDragging, true);
     window.addEventListener("pointercancel", stopDragging, true);
+    window.addEventListener("mouseup", stopDragging, true);
     window.addEventListener("blur", stopDragging);
+    document.addEventListener?.("visibilitychange", () => {
+      if (document.hidden) {
+        stopDragging(null, { force: true });
+      }
+    });
 
     shell.addEventListener(
       "wheel",
@@ -773,7 +791,7 @@
         [runtime.state.activeTreePane]: null
       };
     }
-    runtime.app.persistUiState?.();
+    runtime.app?.persistUiState?.();
     if (!render) {
       return;
     }
