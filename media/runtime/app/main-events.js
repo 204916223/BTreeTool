@@ -64,7 +64,7 @@
         handlers.pausePlayback();
         runtime.state.playbackLogImporting = false;
         const previousLogPath = runtime.state.playbackLog?.filePath || "";
-        runtime.state.playbackLog = message.payload || null;
+        runtime.state.playbackLog = runtime.playbackData?.hydratePlaybackLog?.(message.payload) || message.payload || null;
         const nextLogPath = runtime.state.playbackLog?.filePath || "";
         if (previousLogPath !== nextLogPath) {
           handlers.clearTraceMessages();
@@ -79,6 +79,14 @@
         runtime.workspacePanels.apply();
         handlers.updateEditModeButton();
         handlers.renderPlaybackState();
+        return;
+      }
+
+      if (message?.type === "playbackLogImportStarted") {
+        runtime.state.playbackLogImporting = true;
+        if (runtime.modeRules?.isPlaybackMode?.()) {
+          handlers.renderPlaybackState();
+        }
         return;
       }
 

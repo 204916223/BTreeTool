@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BtPlaybackLog, decodeBtlogFile } from "../core/btlog";
+import { BtPlaybackLog, decodeBtlogFileAsync } from "../core/btlog";
 import { BtUserSettings } from "../userSettings";
 
 export type ChoosePlaybackLogResult =
@@ -51,15 +51,45 @@ export async function choosePlaybackLogFile(
   try {
     return {
       canceled: false,
-      playbackLog: decodeBtlogFile(file.fsPath, currentSettings, {
-        allowTruncatedLog: currentSettings.allowUnclosedPlaybackLog === true
-      })
+      playbackLog: await loadPlaybackLogFile(file.fsPath, currentSettings)
     };
   } catch (error) {
     return {
       canceled: false,
       error: error instanceof Error ? error.message : String(error)
     };
+  }
+}
+
+export async function loadPlaybackLogFile(filePath: string, currentSettings: BtUserSettings): Promise<BtPlaybackLog> {
+  const normalizedPath = String(filePath || "").trim();
+  if (!normalizedPath) {
+    throw new Error("No playback log file path was provided.");
+  }
+
+  return decodeBtlogFileAsync(normalizedPath, currentSettings, {
+    allowTruncatedLog: currentSettings.allowUnclosedPlaybackLog === true
+  });
+}
+
+export async function handleImportPlaybackLogFileAction(
+  filePath: string,
+  currentSettings: BtUserSettings
+): Promise<PlaybackLogActionResult> {
+  try {
+    const playbackLog = await loadPlaybackLogFile(filePath, currentSettings);
+    return {
+      kind: "loaded",
+      playbackLog,
+      panelTitle: `BTreeTool: ${playbackLog.fileName}`,
+      message: {
+        type: "playbackLog",
+        payload: playbackLog
+      },
+      clearTraceContext: true
+    };
+  } catch (error) {
+    return toPlaybackLogErrorResult(error instanceof Error ? error.message : String(error));
   }
 }
 

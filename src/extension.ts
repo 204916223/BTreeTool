@@ -4,6 +4,36 @@ import { BehaviorTreePreviewPanel } from "./panel";
 import { createPreviewStatusBarController } from "./extension/statusBar";
 import type { ShortcutAction } from "./panel/messages";
 
+class BtlogCustomEditorProvider implements vscode.CustomReadonlyEditorProvider<vscode.CustomDocument> {
+  static readonly viewType = "btreeTool.btlogEditor";
+
+  constructor(private readonly context: vscode.ExtensionContext) {}
+
+  openCustomDocument(uri: vscode.Uri): vscode.CustomDocument {
+    return {
+      uri,
+      dispose() {}
+    };
+  }
+
+  async resolveCustomEditor(
+    document: vscode.CustomDocument,
+    webviewPanel: vscode.WebviewPanel
+  ): Promise<void> {
+    webviewPanel.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, "media")]
+    };
+
+    await BehaviorTreePreviewPanel.createForPlaybackLogEditor(
+      webviewPanel,
+      this.context.extensionUri,
+      this.context.globalStorageUri,
+      document.uri
+    );
+  }
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("btreeTool");
 
@@ -120,6 +150,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(previewButton.item);
   context.subscriptions.push(diagnostics);
+  context.subscriptions.push(
+    vscode.window.registerCustomEditorProvider(
+      BtlogCustomEditorProvider.viewType,
+      new BtlogCustomEditorProvider(context),
+      {
+        supportsMultipleEditorsPerDocument: false,
+        webviewOptions: {
+          retainContextWhenHidden: true
+        }
+      }
+    )
+  );
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {

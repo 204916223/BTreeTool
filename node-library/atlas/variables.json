@@ -32,15 +32,9 @@
     "title": "行走高度",
     "type": "double",
     "unit": "m",
-    "description": "机器人移动过程中载具或叉齿应保持的安全高度。",
-    "source": "global_param_or_blackboard",
-    "commonNodes": [
-      "CarrierCtrl",
-      "Precondition"
-    ],
-    "examples": [
-      "CarrierCtrl target_position={walking_height}",
-      "Precondition if=lift_height < walking_height + max_walking"
-    ]
+    "description": "机器人在主路上移动过程中叉齿应保持的高度。",
+    "source": "actions",
+    "commonNodes": [],
+    "examples": []
   }
 }

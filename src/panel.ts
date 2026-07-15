@@ -17,7 +17,10 @@ import {
 import { routeWebviewMessage } from "./panel/messageRouter";
 import { getPanelCopy } from "./panel/panelCopy";
 import { mergePresetNodeSets, normalizeNodeCopyChildren, toBaseName } from "./panel/panelUtils";
-import { handleChoosePlaybackLogFileAction } from "./panel/playbackLogActions";
+import {
+  handleChoosePlaybackLogFileAction,
+  handleImportPlaybackLogFileAction
+} from "./panel/playbackLogActions";
 import {
   cancelTraceRequest,
   chooseTraceContextFile,
@@ -133,6 +136,24 @@ export class BehaviorTreePreviewPanel {
     BehaviorTreePreviewPanel.addPanelForDocument(document.uri, previewPanel);
   }
 
+  static async createForPlaybackLogEditor(
+    panel: vscode.WebviewPanel,
+    extensionUri: vscode.Uri,
+    globalStorageUri: vscode.Uri,
+    logUri: vscode.Uri
+  ): Promise<void> {
+    const initialState = await BehaviorTreePreviewPanel.loadInitialPanelState(extensionUri, globalStorageUri);
+    const previewPanel = new BehaviorTreePreviewPanel(
+      panel,
+      extensionUri,
+      globalStorageUri,
+      undefined,
+      initialState
+    );
+    BehaviorTreePreviewPanel.noDocumentPanels.add(previewPanel);
+    previewPanel.queuePlaybackLogFile(logUri.fsPath);
+  }
+
   static refreshIfAttached(document: vscode.TextDocument): void {
     BehaviorTreePreviewPanel.panelsByDocument
       .get(document.uri.toString())
@@ -230,6 +251,7 @@ export class BehaviorTreePreviewPanel {
   private readonly traceRequestControllers = createTraceRequestControllers();
   private readonly atlasNodes: ReturnType<typeof loadAtlasNodeIndex>;
   private readonly xmlMutations: XmlMutationController;
+  private pendingPlaybackLogFilePath: string | null = null;
   private effectiveSettingsCache:
     | {
         currentSettings: BtUserSettings;
@@ -395,6 +417,7 @@ export class BehaviorTreePreviewPanel {
         this.webviewReady = true;
         this.postLatestPayload();
         void this.postTraceConfigState();
+        void this.consumePendingPlaybackLogFile();
       },
       handleEditMessage: (message) => this.handleEditMessage(message),
       handleSettingsMessage: (message) => this.handleSettingsMessage(message),
@@ -920,6 +943,33 @@ export class BehaviorTreePreviewPanel {
 
   private async handleChoosePlaybackLogFile(): Promise<void> {
     const result = await handleChoosePlaybackLogFileAction(this.getCopy().importPlaybackLogTitle, this.currentSettings);
+    this.applyPlaybackLogActionResult(result);
+  }
+
+  private async handleImportPlaybackLogFile(filePath: string): Promise<void> {
+    const result = await handleImportPlaybackLogFileAction(filePath, this.currentSettings);
+    this.applyPlaybackLogActionResult(result);
+  }
+
+  private queuePlaybackLogFile(filePath: string): void {
+    this.pendingPlaybackLogFilePath = filePath;
+    if (this.webviewReady) {
+      void this.consumePendingPlaybackLogFile();
+    }
+  }
+
+  private async consumePendingPlaybackLogFile(): Promise<void> {
+    const filePath = this.pendingPlaybackLogFilePath;
+    if (!filePath) {
+      return;
+    }
+
+    this.pendingPlaybackLogFilePath = null;
+    this.panel.webview.postMessage({ type: "playbackLogImportStarted" });
+    await this.handleImportPlaybackLogFile(filePath);
+  }
+
+  private applyPlaybackLogActionResult(result: Awaited<ReturnType<typeof handleChoosePlaybackLogFileAction>>): void {
     if (result.kind === "loaded") {
       this.latestPlaybackLog = result.playbackLog;
       this.panel.title = result.panelTitle;

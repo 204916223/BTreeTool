@@ -14,7 +14,7 @@ Module._load = function loadWithVscodeStub(request, parent, isMain) {
   return originalLoad.call(this, request, parent, isMain);
 };
 
-const { decodeBtlogFile } = await import("../dist/core/btlog.js");
+const { decodeBtlogFile, decodeBtlogFileAsync } = await import("../dist/core/btlog.js");
 Module._load = originalLoad;
 
 const baseSettings = {
@@ -58,6 +58,26 @@ test("decodeBtlogFile can ignore a truncated gzip log when enabled", () => {
   }
 });
 
+test("decodeBtlogFileAsync matches sync decoding for SBTLOG files", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "btree-tool-btlog-async-"));
+  const filePath = path.join(tempDir, "sample.btlog");
+
+  try {
+    fs.writeFileSync(filePath, buildBtlogBytes());
+
+    const syncDecoded = decodeBtlogFile(filePath, baseSettings);
+    const asyncDecoded = await decodeBtlogFileAsync(filePath, baseSettings);
+
+    assert.equal(asyncDecoded.header.xml, syncDecoded.header.xml);
+    assert.deepEqual(asyncDecoded.frames, syncDecoded.frames);
+    assert.deepEqual(asyncDecoded.transitions, syncDecoded.transitions);
+    assert.deepEqual(asyncDecoded.blackboardEvents, syncDecoded.blackboardEvents);
+    assert.deepEqual(asyncDecoded.nodeDefinitions, syncDecoded.nodeDefinitions);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("decodeBtlogFile supports native BehaviorTree.CPP FileLogger2 btlog files", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "btree-tool-filelogger2-"));
   const filePath = path.join(tempDir, "native.btlog");
@@ -89,6 +109,52 @@ test("decodeBtlogFile supports native BehaviorTree.CPP FileLogger2 btlog files",
         [11, "Work"]
       ]
     );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("decodeBtlogFileAsync matches sync decoding for native FileLogger2 files", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "btree-tool-filelogger2-async-"));
+  const filePath = path.join(tempDir, "native.btlog");
+
+  try {
+    const nativeLog = buildFileLogger2Bytes([
+      { tUs: 100, uid: 10, status: 1 },
+      { tUs: 250, uid: 10, status: 2 },
+      { tUs: 300, uid: 11, status: 1 }
+    ]);
+    fs.writeFileSync(filePath, nativeLog);
+
+    const syncDecoded = decodeBtlogFile(filePath, baseSettings);
+    const asyncDecoded = await decodeBtlogFileAsync(filePath, baseSettings);
+
+    assert.equal(asyncDecoded.header.codec, syncDecoded.header.codec);
+    assert.deepEqual(asyncDecoded.frames, syncDecoded.frames);
+    assert.deepEqual(asyncDecoded.transitions, syncDecoded.transitions);
+    assert.deepEqual(asyncDecoded.blackboardEvents, syncDecoded.blackboardEvents);
+    assert.deepEqual(asyncDecoded.nodeDefinitions, syncDecoded.nodeDefinitions);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("decodeBtlogFileAsync returns compact payload for large native FileLogger2 files", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "btree-tool-filelogger2-compact-"));
+  const filePath = path.join(tempDir, "native-large.btlog");
+
+  try {
+    fs.writeFileSync(filePath, buildFileLogger2BytesWithRepeatedTransitions(200_000));
+
+    const decoded = await decodeBtlogFileAsync(filePath, baseSettings);
+
+    assert.equal(decoded.header.codec, "filelogger2");
+    assert.equal(decoded.frames.length, 0);
+    assert.equal(decoded.transitions.length, 0);
+    assert.equal(decoded.compactTransitions?.codec, "filelogger2-base64-v1");
+    assert.equal(decoded.compactTransitions?.transitionCount, 200_000);
+    assert.equal(decoded.compactTransitions?.trailingBytes, 0);
+    assert.equal(typeof decoded.compactTransitions?.transitionBytesBase64, "string");
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -139,7 +205,23 @@ function buildBtlogBytes() {
   return Buffer.concat([magic, header, firstFrame, secondFrame]);
 }
 
+function buildFileLogger2BytesWithRepeatedTransitions(count) {
+  const transitions = [];
+  for (let index = 0; index < count; index += 1) {
+    transitions.push(encodeFileLogger2Transition({
+      tUs: index + 1,
+      uid: 10 + (index % 3),
+      status: index % 2 === 0 ? 1 : 2
+    }));
+  }
+  return buildFileLogger2BytesFromBuffers(transitions);
+}
+
 function buildFileLogger2Bytes(transitions) {
+  return buildFileLogger2BytesFromBuffers(transitions.map(encodeFileLogger2Transition));
+}
+
+function buildFileLogger2BytesFromBuffers(transitions) {
   const magic = Buffer.from("BTCPP4-FileLogger2", "utf8");
   const protocol = Buffer.from([1]);
   const headerXml =
@@ -158,7 +240,7 @@ function buildFileLogger2Bytes(transitions) {
     xmlLength,
     xml,
     createdWallTime,
-    ...transitions.map(encodeFileLogger2Transition)
+    ...transitions
   ]);
 }
 

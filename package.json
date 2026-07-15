@@ -26,6 +26,7 @@
     "onCommand:btreeTool.pasteNodeBefore",
     "onCommand:btreeTool.pasteNodeAfter",
     "onCommand:btreeTool.openSearch",
+    "onCustomEditor:btreeTool.btlogEditor",
     "onStartupFinished",
     "onLanguage:xml"
   ],
@@ -90,6 +91,18 @@
         "command": "btreeTool.undoEdit",
         "key": "z z",
         "when": "webviewFocus && webviewId == 'btreeTool.preview' && !inputFocus"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "btreeTool.btlogEditor",
+        "displayName": "BTreeTool btlog playback",
+        "selector": [
+          {
+            "filenamePattern": "*.btlog"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "menus": {

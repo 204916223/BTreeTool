@@ -12,6 +12,255 @@
     return String(value || "").trim().toLowerCase();
   }
 
+  function hydratePlaybackLog(log) {
+    const compact = log?.compactTransitions;
+    if (!compact || compact.codec !== "filelogger2-base64-v1") {
+      return log;
+    }
+
+    const store = createFileLogger2CompactStore(log, compact);
+    return {
+      ...log,
+      frames: createLazyFileLogger2Frames(store),
+      transitions: createLazyFileLogger2Transitions(store),
+      blackboardEvents: []
+    };
+  }
+
+  function createFileLogger2CompactStore(log, compact) {
+    const bytes = decodeBase64Bytes(compact.transitionBytesBase64 || "");
+    const count = Math.min(
+      Math.max(0, Number(compact.transitionCount) || 0),
+      Math.floor(bytes.length / 9)
+    );
+    const statusCodes = log?.header?.statusCodes || {};
+    const createdWallTimeUs = log?.header?.createdWallTimeUs ?? null;
+    const prevStatusCodes = new Uint8Array(count);
+    const durationUs = new Float64Array(count);
+    durationUs.fill(Number.NaN);
+
+    const lastStatusByUid = new Map();
+    const runningStartByUid = new Map();
+    for (let index = 0; index < count; index += 1) {
+      const uid = readFileLogger2Uid(bytes, index);
+      const statusCode = readFileLogger2Status(bytes, index);
+      const prevStatusCode = lastStatusByUid.has(uid) ? lastStatusByUid.get(uid) : 0;
+      prevStatusCodes[index] = prevStatusCode;
+      if (statusCode === 1) {
+        runningStartByUid.set(uid, readFileLogger2Time(bytes, index));
+      } else if (runningStartByUid.has(uid)) {
+        durationUs[index] = Math.max(0, readFileLogger2Time(bytes, index) - runningStartByUid.get(uid));
+        runningStartByUid.delete(uid);
+      }
+      lastStatusByUid.set(uid, statusCode);
+    }
+
+    return {
+      bytes,
+      count,
+      statusCodes,
+      createdWallTimeUs,
+      prevStatusCodes,
+      durationUs
+    };
+  }
+
+  function createLazyFileLogger2Transitions(store) {
+    let proxy = null;
+    const target = {
+      length: store.count,
+      forEach(callback, thisArg) {
+        for (let index = 0; index < store.count; index += 1) {
+          callback.call(thisArg, getFileLogger2Transition(store, index), index, proxy);
+        }
+      },
+      map(callback, thisArg) {
+        const result = [];
+        for (let index = 0; index < store.count; index += 1) {
+          result.push(callback.call(thisArg, getFileLogger2Transition(store, index), index, proxy));
+        }
+        return result;
+      },
+      filter(callback, thisArg) {
+        const result = [];
+        for (let index = 0; index < store.count; index += 1) {
+          const transition = getFileLogger2Transition(store, index);
+          if (callback.call(thisArg, transition, index, proxy)) {
+            result.push(transition);
+          }
+        }
+        return result;
+      },
+      slice(start = 0, end = store.count) {
+        const result = [];
+        const normalizedStart = Math.max(0, start < 0 ? store.count + start : start);
+        const normalizedEnd = Math.min(store.count, end < 0 ? store.count + end : end);
+        for (let index = normalizedStart; index < normalizedEnd; index += 1) {
+          result.push(getFileLogger2Transition(store, index));
+        }
+        return result;
+      },
+      [Symbol.iterator]: function* iterator() {
+        for (let index = 0; index < store.count; index += 1) {
+          yield getFileLogger2Transition(store, index);
+        }
+      }
+    };
+    proxy = new Proxy(target, {
+      get(targetObject, property) {
+        if (property in targetObject) {
+          return targetObject[property];
+        }
+        const index = toArrayIndex(property);
+        return index === null ? undefined : getFileLogger2Transition(store, index);
+      }
+    });
+    return proxy;
+  }
+
+  function createLazyFileLogger2Frames(store) {
+    let proxy = null;
+    const target = {
+      length: store.count,
+      forEach(callback, thisArg) {
+        for (let index = 0; index < store.count; index += 1) {
+          callback.call(thisArg, getFileLogger2Frame(store, index), index, proxy);
+        }
+      },
+      [Symbol.iterator]: function* iterator() {
+        for (let index = 0; index < store.count; index += 1) {
+          yield getFileLogger2Frame(store, index);
+        }
+      }
+    };
+    proxy = new Proxy(target, {
+      get(targetObject, property) {
+        if (property in targetObject) {
+          return targetObject[property];
+        }
+        const index = toArrayIndex(property);
+        return index === null ? undefined : getFileLogger2Frame(store, index);
+      }
+    });
+    return proxy;
+  }
+
+  function toArrayIndex(property) {
+    if (typeof property !== "string" || !/^(0|[1-9]\d*)$/.test(property)) {
+      return null;
+    }
+    const index = Number(property);
+    return Number.isSafeInteger(index) ? index : null;
+  }
+
+  function getFileLogger2Transition(store, index) {
+    if (!Number.isInteger(index) || index < 0 || index >= store.count) {
+      return undefined;
+    }
+    const tUs = readFileLogger2Time(store.bytes, index);
+    const uid = readFileLogger2Uid(store.bytes, index);
+    const statusCode = readFileLogger2Status(store.bytes, index);
+    const prevStatusCode = store.prevStatusCodes[index] ?? 0;
+    const durationUs = store.durationUs[index];
+    return {
+      frameIndex: index,
+      seq: index + 1,
+      tUs,
+      wallUs: addScalarMicroseconds(store.createdWallTimeUs, tUs),
+      uid,
+      prevStatusCode,
+      statusCode,
+      prevStatus: statusCodeToName(prevStatusCode, store.statusCodes),
+      status: statusCodeToName(statusCode, store.statusCodes),
+      durationUs: Number.isNaN(durationUs) ? null : durationUs
+    };
+  }
+
+  function getFileLogger2Frame(store, index) {
+    if (!Number.isInteger(index) || index < 0 || index >= store.count) {
+      return undefined;
+    }
+    const tUs = readFileLogger2Time(store.bytes, index);
+    return {
+      index,
+      kind: "node",
+      tUs,
+      wallUs: addScalarMicroseconds(store.createdWallTimeUs, tUs),
+      seq: index + 1,
+      transitionIndex: index
+    };
+  }
+
+  function readFileLogger2Time(bytes, index) {
+    const offset = index * 9;
+    let value = 0;
+    let multiplier = 1;
+    for (let cursor = 0; cursor < 6; cursor += 1) {
+      value += bytes[offset + cursor] * multiplier;
+      multiplier *= 256;
+    }
+    return value;
+  }
+
+  function readFileLogger2Uid(bytes, index) {
+    const offset = index * 9 + 6;
+    return bytes[offset] | (bytes[offset + 1] << 8);
+  }
+
+  function readFileLogger2Status(bytes, index) {
+    return bytes[index * 9 + 8];
+  }
+
+  function statusCodeToName(code, statusCodes) {
+    const key = String(code ?? "");
+    if (statusCodes?.[key]) {
+      return statusCodes[key];
+    }
+    switch (Number(code)) {
+      case 0:
+        return "IDLE";
+      case 1:
+        return "RUNNING";
+      case 2:
+        return "SUCCESS";
+      case 3:
+        return "FAILURE";
+      case 4:
+        return "SKIPPED";
+      default:
+        return "UNKNOWN";
+    }
+  }
+
+  function addScalarMicroseconds(value, offsetUs) {
+    if (typeof value === "number") {
+      return value + offsetUs;
+    }
+    if (typeof value === "string" && /^\d+$/.test(value)) {
+      return (BigInt(value) + BigInt(offsetUs)).toString();
+    }
+    return value;
+  }
+
+  function decodeBase64Bytes(value) {
+    if (typeof atob === "function") {
+      const binary = atob(value);
+      const bytes = new Uint8Array(binary.length);
+      const chunkSize = 65536;
+      for (let start = 0; start < binary.length; start += chunkSize) {
+        const end = Math.min(binary.length, start + chunkSize);
+        for (let index = start; index < end; index += 1) {
+          bytes[index] = binary.charCodeAt(index);
+        }
+      }
+      return bytes;
+    }
+    if (typeof Buffer !== "undefined") {
+      return new Uint8Array(Buffer.from(value, "base64"));
+    }
+    return new Uint8Array();
+  }
+
   function getPlaybackCache(log) {
     let cache = playbackCaches.get(log);
     if (cache) {
@@ -677,6 +926,7 @@
   }
 
   Object.assign(playbackData, {
+    hydratePlaybackLog,
     getPlaybackCache,
     buildPlaybackSnapshot,
     buildPlaybackSnapshotAtTime,

@@ -59,11 +59,61 @@ test("playback snapshots can be built at exact timeline time", () => {
   assert.equal(runtime.playbackData.findFirstTransitionIndexAfterTime(log.transitions, 3_000), 2);
 });
 
+test("compact FileLogger2 playback logs hydrate into lazy frame and transition accessors", () => {
+  const runtime = loadPlaybackDataRuntime();
+  const log = runtime.playbackData.hydratePlaybackLog({
+    header: {
+      createdWallTimeUs: 1_000_000,
+      statusCodes: { 0: "IDLE", 1: "RUNNING", 2: "SUCCESS", 3: "FAILURE" }
+    },
+    preview: { behaviorTrees: [] },
+    nodeDefinitions: [{ uid: 10, name: "Root" }],
+    transitions: [],
+    frames: [],
+    blackboardEvents: [],
+    compactTransitions: {
+      codec: "filelogger2-base64-v1",
+      transitionCount: 3,
+      trailingBytes: 0,
+      transitionBytesBase64: Buffer.concat([
+        encodeFileLogger2Transition({ tUs: 100, uid: 10, status: 1 }),
+        encodeFileLogger2Transition({ tUs: 250, uid: 10, status: 2 }),
+        encodeFileLogger2Transition({ tUs: 300, uid: 11, status: 1 })
+      ]).toString("base64")
+    }
+  });
+
+  assert.equal(log.transitions.length, 3);
+  assert.equal(log.frames.length, 3);
+  assert.equal(log.transitions[0].status, "RUNNING");
+  assert.equal(log.transitions[1].prevStatus, "RUNNING");
+  assert.equal(log.transitions[1].status, "SUCCESS");
+  assert.equal(log.transitions[1].durationUs, 150);
+  assert.equal(log.frames[2].transitionIndex, 2);
+  assert.equal(
+    JSON.stringify(log.transitions.filter((transition) => transition.uid === 10).map((transition) => transition.seq)),
+    JSON.stringify([1, 2])
+  );
+
+  const snapshot = runtime.playbackData.buildPlaybackSnapshot(log, 1);
+  assert.equal(snapshot.statusByUid["10"], "SUCCESS");
+  assert.equal(runtime.playbackData.getActiveTransitionIndexAtTime(log, 260), 1);
+});
+
+function encodeFileLogger2Transition({ tUs, uid, status }) {
+  const buffer = Buffer.alloc(9);
+  buffer.writeUIntLE(tUs, 0, 6);
+  buffer.writeUInt16LE(uid, 6);
+  buffer.writeUInt8(status, 8);
+  return buffer;
+}
+
 function loadPlaybackDataRuntime() {
   const runtime = {
     state: {}
   };
   const context = {
+    Buffer,
     window: {
       BTreeToolRuntime: runtime
     }

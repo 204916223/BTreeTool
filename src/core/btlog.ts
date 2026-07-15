@@ -71,11 +71,27 @@ export interface BtPlaybackLog {
   transitions: BtPlaybackTransition[];
   blackboardEvents: BtPlaybackBlackboardEvent[];
   nodeDefinitions: BtPlaybackNodeDefinition[];
+  compactTransitions?: BtCompactFileLogger2Transitions;
+}
+
+export interface BtCompactFileLogger2Transitions {
+  codec: "filelogger2-base64-v1";
+  transitionCount: number;
+  trailingBytes: number;
+  transitionBytesBase64: string;
 }
 
 export interface BtPlaybackDecodeOptions {
   allowTruncatedLog?: boolean;
 }
+
+type AsyncDecodeState = {
+  lastYieldAt: number;
+};
+
+const ASYNC_DECODE_YIELD_INTERVAL_MS = 16;
+const FILE_LOGGER2_ASYNC_BATCH_SIZE = 25_000;
+const FILE_LOGGER2_COMPACT_THRESHOLD = 200_000;
 
 export function decodeBtlogFile(
   filePath: string,
@@ -98,6 +114,49 @@ export function decodeBtlogFile(
   }
 
   return decodeSbtlogBytes(filePath, bytes, settings, allowTruncatedLog);
+}
+
+export async function decodeBtlogFileAsync(
+  filePath: string,
+  settings: BtUserSettings,
+  options: BtPlaybackDecodeOptions = {}
+): Promise<BtPlaybackLog> {
+  const allowTruncatedLog = options.allowTruncatedLog === true;
+  const compressed = await fs.promises.readFile(filePath);
+  return decodeBtlogBytesAsync(path.basename(filePath), filePath, compressed, settings, allowTruncatedLog);
+}
+
+export async function decodeBtlogContentAsync(
+  fileName: string,
+  bytes: Buffer,
+  settings: BtUserSettings,
+  options: BtPlaybackDecodeOptions = {}
+): Promise<BtPlaybackLog> {
+  return decodeBtlogBytesAsync(fileName, fileName, bytes, settings, options.allowTruncatedLog === true);
+}
+
+async function decodeBtlogBytesAsync(
+  fileName: string,
+  filePath: string,
+  compressed: Buffer,
+  settings: BtUserSettings,
+  allowTruncatedLog: boolean
+): Promise<BtPlaybackLog> {
+  const bytes = await maybeGunzipAsync(compressed, allowTruncatedLog);
+  const asyncState: AsyncDecodeState = { lastYieldAt: Date.now() };
+
+  if (
+    bytes.length >= FILE_LOGGER2_MAGIC.length &&
+    bytes.subarray(0, FILE_LOGGER2_MAGIC.length).equals(FILE_LOGGER2_MAGIC)
+  ) {
+    return decodeFileLogger2BytesAsync(fileName, filePath, bytes, settings, allowTruncatedLog, asyncState);
+  }
+
+  if (bytes.length < MAGIC.length || !bytes.subarray(0, MAGIC.length).equals(MAGIC)) {
+    throw new Error("Unsupported btlog format: missing SBTLOG1 header.");
+  }
+
+  return decodeSbtlogBytesAsync(fileName, filePath, bytes, settings, allowTruncatedLog, asyncState);
 }
 
 function decodeSbtlogBytes(
@@ -199,6 +258,116 @@ function decodeSbtlogBytes(
 
   return {
     fileName: path.basename(filePath),
+    filePath,
+    header,
+    preview,
+    frames,
+    transitions,
+    blackboardEvents,
+    nodeDefinitions: normalizedNodeDefinitions
+  };
+}
+
+async function decodeSbtlogBytesAsync(
+  fileName: string,
+  filePath: string,
+  bytes: Buffer,
+  settings: BtUserSettings,
+  allowTruncatedLog: boolean,
+  asyncState: AsyncDecodeState
+): Promise<BtPlaybackLog> {
+  let offset = MAGIC.length;
+  let header: BtPlaybackHeader | null = null;
+  const frames: BtPlaybackFrame[] = [];
+  const transitions: BtPlaybackTransition[] = [];
+  const blackboardEvents: BtPlaybackBlackboardEvent[] = [];
+  const nodeDefinitions: BtPlaybackNodeDefinition[] = [];
+
+  while (offset < bytes.length) {
+    if (offset + 4 > bytes.length) {
+      if (allowTruncatedLog) {
+        break;
+      }
+      throw new Error("Corrupt btlog: truncated frame length.");
+    }
+
+    const frameLength = bytes.readUInt32LE(offset);
+    offset += 4;
+    const frameEnd = offset + frameLength;
+    if (frameLength < 0 || frameEnd > bytes.length) {
+      if (allowTruncatedLog) {
+        break;
+      }
+      throw new Error("Corrupt btlog: frame payload exceeds file size.");
+    }
+
+    let payload: unknown;
+    try {
+      payload = decodeMsgpack(bytes.subarray(offset, frameEnd));
+    } catch (error) {
+      if (allowTruncatedLog && frameEnd >= bytes.length) {
+        break;
+      }
+      if (allowTruncatedLog && isTruncationError(error)) {
+        break;
+      }
+      throw error;
+    }
+    offset = frameEnd;
+
+    if (isRecord(payload) && payload.type === "header") {
+      header = normalizeHeader(payload);
+    } else if (Array.isArray(payload)) {
+      const frameIndex = frames.length;
+      const eventType = String(payload[0] ?? "");
+      if (eventType === "d") {
+        nodeDefinitions.push({
+          uid: toNumber(payload[1], 0),
+          name: String(payload[2] ?? ""),
+          nodeType: toScalar(payload[3])
+        });
+      } else if (eventType === "n") {
+        const transition = normalizeTransition(payload, frameIndex, header?.statusCodes || {});
+        const transitionIndex = transitions.length;
+        transitions.push(transition);
+        frames.push({
+          index: frameIndex,
+          kind: "node",
+          tUs: transition.tUs,
+          wallUs: transition.wallUs,
+          seq: transition.seq,
+          transitionIndex
+        });
+      } else if (eventType === "bs" || eventType === "bp") {
+        const blackboardEvent = normalizeBlackboardEvent(payload, frameIndex, eventType);
+        const blackboardIndex = blackboardEvents.length;
+        blackboardEvents.push(blackboardEvent);
+        frames.push({
+          index: frameIndex,
+          kind: "blackboard",
+          tUs: blackboardEvent.tUs,
+          wallUs: blackboardEvent.wallUs,
+          seq: blackboardEvent.seq,
+          blackboardIndex
+        });
+      }
+    }
+
+    await yieldToEventLoopIfNeeded(asyncState);
+  }
+
+  if (!header?.xml) {
+    throw new Error("Unsupported btlog format: header XML was not found.");
+  }
+
+  const ast = parseBehaviorTreeDocument(header.xml);
+  const preview = buildPreviewDocument(ast, settings);
+  const normalizedNodeDefinitions = nodeDefinitions.length > 0
+    ? nodeDefinitions
+    : collectNodeDefinitionsFromPreview(preview);
+
+  return {
+    fileName,
     filePath,
     header,
     preview,
@@ -319,6 +488,149 @@ function decodeFileLogger2Bytes(
   };
 }
 
+async function decodeFileLogger2BytesAsync(
+  fileName: string,
+  filePath: string,
+  bytes: Buffer,
+  settings: BtUserSettings,
+  allowTruncatedLog: boolean,
+  asyncState: AsyncDecodeState
+): Promise<BtPlaybackLog> {
+  let offset = FILE_LOGGER2_MAGIC.length;
+  if (offset + 1 + 4 > bytes.length) {
+    throw new Error("Corrupt FileLogger2 btlog: truncated header.");
+  }
+
+  const protocol = bytes.readUInt8(offset);
+  offset += 1;
+  if (protocol !== 1) {
+    throw new Error(`Unsupported FileLogger2 btlog protocol: ${protocol}.`);
+  }
+
+  const xmlLength = bytes.readInt32LE(offset);
+  offset += 4;
+  if (xmlLength <= 0 || offset + xmlLength + 8 > bytes.length) {
+    throw new Error("Corrupt FileLogger2 btlog: XML payload exceeds file size.");
+  }
+
+  const xml = bytes.subarray(offset, offset + xmlLength).toString("utf8");
+  offset += xmlLength;
+
+  const createdWallTimeUs = bigintToSerializable(bytes.readBigInt64LE(offset));
+  offset += 8;
+  const transitionStartOffset = offset;
+
+  const ast = parseBehaviorTreeDocument(xml);
+  const preview = buildPreviewDocument(ast, settings);
+  const nodeDefinitions = collectNodeDefinitionsFromPreview(preview);
+  const statusCodes = {
+    0: "IDLE",
+    1: "RUNNING",
+    2: "SUCCESS",
+    3: "FAILURE",
+    4: "SKIPPED"
+  };
+  const header: BtPlaybackHeader = {
+    type: "header",
+    schemaVersion: 1,
+    codec: "filelogger2",
+    treeName: ast.mainTreeToExecute || preview.defaultTreeId || "",
+    rootNodeName: preview.behaviorTrees.find((tree) => tree.id === (ast.mainTreeToExecute || preview.defaultTreeId))?.node?.title || "",
+    createdWallTimeUs,
+    statusCodes,
+    eventTypes: {},
+    xml
+  };
+
+  const remainingBytes = bytes.length - transitionStartOffset;
+  const compactTransitionCount = Math.floor(remainingBytes / FILE_LOGGER2_TRANSITION_SIZE);
+  const compactTrailingBytes = remainingBytes % FILE_LOGGER2_TRANSITION_SIZE;
+  if (compactTransitionCount >= FILE_LOGGER2_COMPACT_THRESHOLD) {
+    const transitionBytesEnd = transitionStartOffset + compactTransitionCount * FILE_LOGGER2_TRANSITION_SIZE;
+    return {
+      fileName,
+      filePath,
+      header,
+      preview,
+      frames: [],
+      transitions: [],
+      blackboardEvents: [],
+      nodeDefinitions,
+      compactTransitions: {
+        codec: "filelogger2-base64-v1",
+        transitionCount: compactTransitionCount,
+        trailingBytes: compactTrailingBytes,
+        transitionBytesBase64: bytes.subarray(transitionStartOffset, transitionBytesEnd).toString("base64")
+      }
+    };
+  }
+
+  const frames: BtPlaybackFrame[] = [];
+  const transitions: BtPlaybackTransition[] = [];
+  const lastStatusByUid = new Map<number, number | string | null>();
+  const runningStartByUid = new Map<number, number>();
+  let batchCount = 0;
+
+  while (offset < bytes.length) {
+    if (offset + FILE_LOGGER2_TRANSITION_SIZE > bytes.length) {
+      if (allowTruncatedLog) {
+        break;
+      }
+      throw new Error("Corrupt FileLogger2 btlog: truncated transition.");
+    }
+
+    const frameIndex = frames.length;
+    const tUs = bytes.readUIntLE(offset, 6);
+    offset += 6;
+    const uid = bytes.readUInt16LE(offset);
+    offset += 2;
+    const statusCode = bytes.readUInt8(offset);
+    offset += 1;
+
+    const prevStatusCode = lastStatusByUid.get(uid) ?? 0;
+    const transition = {
+      frameIndex,
+      seq: frameIndex + 1,
+      tUs,
+      wallUs: addScalarMicroseconds(createdWallTimeUs, tUs),
+      uid,
+      prevStatusCode,
+      statusCode,
+      prevStatus: statusCodeToName(prevStatusCode, statusCodes),
+      status: statusCodeToName(statusCode, statusCodes),
+      durationUs: resolveFileLogger2Duration(uid, statusCode, tUs, runningStartByUid)
+    };
+
+    transitions.push(transition);
+    frames.push({
+      index: frameIndex,
+      kind: "node",
+      tUs: transition.tUs,
+      wallUs: transition.wallUs,
+      seq: transition.seq,
+      transitionIndex: transitions.length - 1
+    });
+    lastStatusByUid.set(uid, statusCode);
+
+    batchCount += 1;
+    if (batchCount >= FILE_LOGGER2_ASYNC_BATCH_SIZE) {
+      batchCount = 0;
+      await yieldToEventLoop(asyncState);
+    }
+  }
+
+  return {
+    fileName,
+    filePath,
+    header,
+    preview,
+    frames,
+    transitions,
+    blackboardEvents: [],
+    nodeDefinitions
+  };
+}
+
 function maybeGunzip(bytes: Buffer, allowTruncatedLog: boolean): Buffer {
   if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
     if (allowTruncatedLog) {
@@ -328,6 +640,45 @@ function maybeGunzip(bytes: Buffer, allowTruncatedLog: boolean): Buffer {
   }
 
   return bytes;
+}
+
+function maybeGunzipAsync(bytes: Buffer, allowTruncatedLog: boolean): Promise<Buffer> {
+  if (bytes.length < 2 || bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
+    return Promise.resolve(bytes);
+  }
+
+  return new Promise((resolve, reject) => {
+    const callback = (error: Error | null, result: Buffer) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(result);
+    };
+
+    if (allowTruncatedLog) {
+      zlib.gunzip(bytes, { finishFlush: zlib.constants.Z_SYNC_FLUSH }, callback);
+      return;
+    }
+
+    zlib.gunzip(bytes, callback);
+  });
+}
+
+async function yieldToEventLoopIfNeeded(asyncState: AsyncDecodeState): Promise<void> {
+  if (Date.now() - asyncState.lastYieldAt >= ASYNC_DECODE_YIELD_INTERVAL_MS) {
+    await yieldToEventLoop(asyncState);
+  }
+}
+
+function yieldToEventLoop(asyncState: AsyncDecodeState): Promise<void> {
+  asyncState.lastYieldAt = Date.now();
+  return new Promise((resolve) => {
+    setImmediate(() => {
+      asyncState.lastYieldAt = Date.now();
+      resolve();
+    });
+  });
 }
 
 function isTruncationError(error: unknown): boolean {

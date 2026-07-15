@@ -72,6 +72,9 @@ function loadMainEventsRuntime(mode = "playback") {
   };
 
   const context = {
+    btoa(value) {
+      return Buffer.from(value, "binary").toString("base64");
+    },
     window: {
       BTreeToolRuntime: runtime,
       addEventListener(type, handler) {
@@ -325,6 +328,21 @@ test("file label action imports playback log in playback mode", () => {
 
   assert.equal(runtime.state.playbackLogImporting, true);
   assert.equal(JSON.stringify(runtime.vscode.messages), JSON.stringify([{ type: "choosePlaybackLogFile" }]));
+});
+
+test("playbackLogImportStarted message renders playback loading state", () => {
+  const { runtime, listeners } = loadMainEventsRuntime("playback");
+
+  runtime.mainEvents.bindWebviewMessages({
+    renderPlaybackState() {
+      runtime.app.renderPlaybackState();
+    }
+  });
+
+  listeners.message({ data: { type: "playbackLogImportStarted" } });
+
+  assert.equal(runtime.state.playbackLogImporting, true);
+  assert.equal(runtime.app.renderPlaybackStateCount, 1);
 });
 
 test("settingsUpdated message refreshes current settings immediately", () => {
