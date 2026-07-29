@@ -131,11 +131,117 @@ textarea {
   cursor: pointer;
 }
 
+.tnm-dialog {
+  width: min(980px, calc(100vw - 48px));
+  height: min(760px, calc(100vh - 48px));
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+}
+
+.tnm-dialog::backdrop {
+  background: rgba(4, 7, 10, 0.78);
+}
+
+.tnm-dialog-shell {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.tnm-dialog-header,
+.tnm-dialog-footer,
+.tnm-dialog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tnm-dialog-header {
+  justify-content: space-between;
+}
+
+.tnm-dialog-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.tnm-dialog-header span,
+.tnm-dialog-toolbar span,
+.tnm-dialog-footer span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tnm-dialog-toolbar {
+  flex-wrap: wrap;
+}
+
+.tnm-dialog-toolbar span {
+  margin-left: auto;
+}
+
+.tnm-dialog-footer {
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+}
+
+.tnm-change-list {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 14px;
+}
+
+.tnm-change-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tnm-change-item:last-child {
+  border-bottom: 0;
+}
+
+.tnm-change-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.tnm-change-copy code {
+  color: var(--accent-strong);
+}
+
+.tnm-change-copy small {
+  color: var(--muted);
+}
+
+.tnm-change-item.is-removal .tnm-change-copy code {
+  color: var(--warning);
+}
+
 .workspace {
   min-height: 0;
   display: grid;
   grid-template-columns: 310px minmax(360px, 1fr) 10px minmax(460px, var(--edit-pane-width));
   overflow: hidden;
+}
+
+body[data-view="variables"] .workspace {
+  grid-template-columns: 310px minmax(0, 1fr);
+}
+
+body[data-view="variables"] .editor-panel,
+body[data-view="variables"] .panel-resizer {
+  display: none;
 }
 
 .sidebar,
@@ -349,7 +455,6 @@ body[data-view="nodes"] .editor-panel {
   grid-template-rows: minmax(0, 1fr);
 }
 
-body[data-view="variables"] .editor-panel,
 body[data-view="audit"] .editor-panel {
   grid-template-rows: minmax(0, 1fr);
 }
@@ -404,31 +509,6 @@ body[data-view="audit"] .editor-panel {
 .atlas-preview-toolbar span {
   color: var(--muted);
   font-size: 12px;
-}
-
-.segmented {
-  flex: 0 0 auto;
-  display: inline-flex;
-  gap: 4px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.segment {
-  min-height: 26px;
-  border: 0;
-  border-radius: 6px;
-  padding: 4px 9px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.segment.is-active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
 }
 
 .atlas-canvas {
@@ -533,64 +613,6 @@ body[data-view="audit"] .editor-panel {
   color: var(--text);
   padding: 5px 8px;
   font-size: 11px;
-}
-
-.usage-flow-title {
-  justify-self: start;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.usage-flow-tree {
-  min-width: 0;
-  display: grid;
-  justify-items: center;
-  gap: 28px;
-}
-
-.usage-flow-node {
-  display: grid;
-  justify-items: center;
-  gap: 20px;
-}
-
-.usage-flow-children {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 18px;
-}
-
-.preview-param,
-.preview-function-block {
-  min-width: 0;
-  display: grid;
-  gap: 5px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--surface);
-}
-
-.preview-param span,
-.preview-function-block p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.preview-param code {
-  color: var(--text);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-}
-
-.preview-empty {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .empty-state {
@@ -809,72 +831,6 @@ body[data-view="audit"] .editor-panel {
   white-space: nowrap;
 }
 
-.usage-flow-editor {
-  min-width: 0;
-}
-
-.usage-flow-hint {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.usage-flow-editor-body {
-  display: grid;
-  gap: 10px;
-}
-
-.usage-flow-editor-empty {
-  border: 1px dashed var(--line);
-  border-radius: 7px;
-  padding: 10px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.usage-flow-editor-node {
-  display: grid;
-  gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 8px;
-  background: #151a20;
-}
-
-.usage-flow-editor-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: end;
-}
-
-.usage-flow-editor-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  padding-bottom: 1px;
-}
-
-.usage-flow-editor-children {
-  display: grid;
-  gap: 8px;
-  margin-left: 12px;
-  padding-left: 10px;
-  border-left: 1px solid var(--line);
-}
-
-.usage-flow-json-details {
-  display: grid;
-  gap: 8px;
-}
-
-.usage-flow-json-details summary {
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 12px;
-}
-
 .section-title-row {
   display: flex;
   align-items: center;
@@ -981,29 +937,6 @@ body[data-view="audit"] .editor-panel {
 }
 
 .param-card.has-unknown-type .param-type-help {
-  color: #f1d58d;
-}
-
-.param-card.has-variable-reference {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-}
-
-.param-card.has-variable-reference .param-variable-help {
-  color: var(--accent-strong);
-}
-
-.param-card.has-variable-reference .is-derived {
-  border-color: color-mix(in srgb, var(--accent) 52%, var(--line));
-  background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface));
-  color: var(--muted);
-  cursor: not-allowed;
-}
-
-.param-card.has-inferred-type {
-  border-color: color-mix(in srgb, var(--warning) 42%, var(--line));
-}
-
-.param-card.has-inferred-type .param-variable-help {
   color: #f1d58d;
 }
 

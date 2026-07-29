@@ -138,6 +138,7 @@
         : 1,
       currentSettings: normalizedInitialSettings,
       copiedNodeTemplate: null,
+      copiedNodeModels: [],
       pendingAttributeEdit: null,
       pendingAttributeSnapshots: {},
       forceHideNodeDetails: false,

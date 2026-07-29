@@ -5,6 +5,7 @@ import {
   deleteNode,
   insertNode,
   insertNodeCopy,
+  mergeCopiedNodeModels,
   moveNode,
   renameBehaviorTree,
   replaceNodeAttributes,
@@ -15,7 +16,7 @@ import { serializeBehaviorTreeDocument } from "../core/serialize";
 import { BtUserSettings } from "../userSettings";
 import type { getPanelCopy } from "./panelCopy";
 import { NodeCopyTemplateMessage, PreviewPayload } from "./messages";
-import { normalizeNodeCopyChildren } from "./panelUtils";
+import { normalizeNodeCopyChildren, normalizeNodeCopyModels } from "./panelUtils";
 
 export type XmlMutation = {
   unchangedMessage: string;
@@ -267,6 +268,7 @@ export async function handleCreateNodeCopyAction(
         targetParentPath?: string;
         targetIndex?: number;
         nodeTemplate?: NodeCopyTemplateMessage;
+        nodeModels?: BtNodeModel[];
       }
     | undefined,
   context: EditActionContext
@@ -297,6 +299,7 @@ export async function handleCreateNodeCopyAction(
     failurePrefix: copy.nodeCopyFailed,
     mutate: (documentText) => {
       const parsed = parseForEdit(documentText, context);
+      mergeCopiedNodeModels(parsed, normalizeNodeCopyModels(payload.nodeModels));
       insertNodeCopy(parsed, payload.treeId!, payload.targetParentPath!, targetIndex, {
         tagName: nodeTemplate.tagName!,
         attributes: nodeTemplate.attributes!,

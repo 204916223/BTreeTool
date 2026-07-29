@@ -1,5 +1,6 @@
 (function () {
   const EDIT_PANE_WIDTH_KEY = "btree-atlas-editor.editPaneWidth";
+  const ATLAS_DRAFT_KEY = "btree-atlas-editor.draft.v1";
   const EDIT_PANE_MIN_WIDTH = 460;
   const PREVIEW_MIN_WIDTH = 360;
 
@@ -7,13 +8,19 @@
     view: "nodes",
     nodes: {},
     variables: {},
+    meta: createDefaultMeta(),
+    hashes: { nodes: null, variables: null, meta: null },
+    tnmCandidate: null,
+    tnmChanges: [],
+    warningBaseline: [],
     selectedNodeKey: "",
     selectedVariableKey: "",
     nodeQuery: "",
     variableQuery: "",
     nodeFilter: "all",
-    previewMode: "node",
     selectedParamName: "",
+    pendingVariableKeys: {},
+    restoredDraft: false,
     isElectron: Boolean(window.atlasEditorBridge),
     dirty: {
       nodes: false,
@@ -49,6 +56,7 @@
   function bindEvents() {
     refs.nodesFile.addEventListener("change", (event) => loadJsonFile(event, "nodes"));
     refs.variablesFile.addEventListener("change", (event) => loadJsonFile(event, "variables"));
+    refs.tnmFile.addEventListener("change", loadTnmCandidate);
 
     document.querySelectorAll(".tab").forEach((button) => {
       button.addEventListener("click", () => {
@@ -87,21 +95,20 @@
       exportJson("nodes");
       window.setTimeout(() => exportJson("variables"), 120);
     });
-    refs.reloadFiles.addEventListener("click", loadElectronAtlasFiles);
+    refs.reloadFiles.addEventListener("click", () => loadElectronAtlasFiles({ confirmDirty: true }));
     refs.saveAllFiles.addEventListener("click", saveAllElectronAtlasFiles);
     refs.openAtlasDir.addEventListener("click", () => window.atlasEditorBridge?.openAtlasDir());
-    refs.previewModeNode.addEventListener("click", () => {
-      state.previewMode = "node";
-      renderNodePreview();
-    });
-    refs.previewModeUsage.addEventListener("click", () => {
-      state.previewMode = "usage";
-      renderNodePreview();
-    });
-    refs.addUsageFlowRoot.addEventListener("click", () => {
-      state.previewMode = "usage";
-      ensureSelectedUsageFlow();
-      render();
+    refs.tnmSelectRecommended.addEventListener("click", () => setTnmSelection("recommended"));
+    refs.tnmSelectAll.addEventListener("click", () => setTnmSelection("all"));
+    refs.tnmSelectNone.addEventListener("click", () => setTnmSelection("none"));
+    refs.tnmApply.addEventListener("click", applySelectedTnmChanges);
+    refs.tnmChangeList.addEventListener("change", updateTnmSelectionSummary);
+    window.addEventListener("beforeunload", (event) => {
+      if (!hasDirtyChanges() || state.isElectron) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = "";
     });
     bindEditPaneResizer();
   }
@@ -180,8 +187,6 @@
       refs.nodeSourceNotes
     ];
     fields.forEach((field) => field.addEventListener("input", updateSelectedNodeFromForm));
-    refs.nodeUsageFlows.addEventListener("change", updateSelectedNodeUsageFlows);
-    refs.nodeUsageFlows.addEventListener("blur", updateSelectedNodeUsageFlows);
   }
 
   function bindVariableForm() {
@@ -191,27 +196,65 @@
       refs.variableUnit,
       refs.variableSource,
       refs.variableDescription,
-      refs.variableCommonNodes,
-      refs.variableExamples
+      refs.variableDefault
     ];
     fields.forEach((field) => field.addEventListener("input", updateSelectedVariableFromForm));
+    refs.variableKey.addEventListener("input", () => {
+      const key = state.selectedVariableKey;
+      if (!key) {
+        return;
+      }
+      const previousDraftKey = Object.prototype.hasOwnProperty.call(state.pendingVariableKeys, key)
+        ? state.pendingVariableKeys[key]
+        : key;
+      const nextDraftKey = refs.variableKey.value;
+      if (state.variables[key]?.description === createVariableDescriptionTemplate(previousDraftKey)) {
+        state.variables[key].description = createVariableDescriptionTemplate(nextDraftKey);
+        refs.variableDescription.value = state.variables[key].description;
+      }
+      state.pendingVariableKeys[key] = nextDraftKey;
+      markDirty("variables");
+    });
   }
 
-  async function loadElectronAtlasFiles() {
+  async function loadElectronAtlasFiles(options = {}) {
     if (!state.isElectron) {
+      return;
+    }
+    if (options.confirmDirty && hasDirtyChanges() && !confirm("重载磁盘会放弃当前未保存更改，是否继续？")) {
       return;
     }
     try {
       refs.statusLine.textContent = "正在读取 node-library/atlas...";
       const payload = await window.atlasEditorBridge.loadAtlas();
-      state.nodes = isRecord(payload.files?.nodes) ? payload.files.nodes : {};
-      state.variables = isRecord(payload.files?.variables) ? payload.files.variables : {};
-      state.selectedNodeKey = Object.keys(state.nodes).sort(compareText)[0] || "";
-      state.selectedVariableKey = Object.keys(state.variables).sort(compareText)[0] || "";
+      if (!isRecord(payload.files?.nodes) || !isRecord(payload.files?.variables) || !isRecord(payload.files?.meta)) {
+        throw new Error("磁盘中的图鉴文件结构无效。");
+      }
+      state.nodes = payload.files.nodes;
+      state.variables = payload.files.variables;
+      state.meta = payload.files.meta;
+      state.hashes = { ...state.hashes, ...(payload.hashes || {}) };
+      state.warningBaseline = (payload.issues || [])
+        .filter((issue) => issue.level === "warning")
+        .map(issueFingerprint);
       state.dirty.nodes = false;
       state.dirty.variables = false;
+      state.pendingVariableKeys = {};
+      if (options.confirmDirty) {
+        clearCachedDraft();
+        state.restoredDraft = false;
+      } else {
+        state.restoredDraft = restoreCachedDraft();
+      }
+      state.selectedNodeKey = state.selectedNodeKey && state.nodes[state.selectedNodeKey]
+        ? state.selectedNodeKey
+        : Object.keys(state.nodes).sort(compareText)[0] || "";
+      state.selectedVariableKey = state.selectedVariableKey && state.variables[state.selectedVariableKey]
+        ? state.selectedVariableKey
+        : Object.keys(state.variables).sort(compareText)[0] || "";
       state.lastLoaded.nodes = "node-library/atlas/nodes.json";
       state.lastLoaded.variables = "node-library/atlas/variables.json";
+      syncDirtyState();
       render();
     } catch (error) {
       refs.statusLine.textContent = `读取失败：${formatError(error)}`;
@@ -227,12 +270,15 @@
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
+      if (!isRecord(parsed)) {
+        throw new Error(`${file.name} 顶层必须是 JSON 对象。`);
+      }
       if (kind === "nodes") {
-        state.nodes = isRecord(parsed) ? parsed : {};
+        state.nodes = parsed;
         state.selectedNodeKey = Object.keys(state.nodes).sort(compareText)[0] || "";
         state.view = "nodes";
       } else if (kind === "variables") {
-        state.variables = isRecord(parsed) ? parsed : {};
+        state.variables = parsed;
         state.selectedVariableKey = Object.keys(state.variables).sort(compareText)[0] || "";
         state.view = "variables";
       }
@@ -250,7 +296,7 @@
     if (state.view === "nodes" && state.selectedNodeKey) {
       updateSelectedNodeFromForm();
       updateParamsFromCards();
-      return updateSelectedNodeUsageFlows();
+      return true;
     }
     if (state.view === "variables" && state.selectedVariableKey) {
       updateSelectedVariableFromForm();
@@ -260,13 +306,15 @@
 
   function render() {
     document.body.dataset.view = state.view;
-    renderVariableSuggestions();
     renderTabs();
     renderTools();
     renderList();
     renderEditor();
     renderInspector();
     renderStatus();
+    if (hasDirtyChanges()) {
+      persistCachedDraft();
+    }
   }
 
   function renderTabs() {
@@ -324,9 +372,6 @@
       }
       if (hasUnknownType(entry)) {
         badges.appendChild(createBadge("类型未知", "warn"));
-      }
-      if (collectNodeVariables(entry).length > 0) {
-        badges.appendChild(createBadge("引用变量"));
       }
 
       button.append(title, meta, badges);
@@ -414,99 +459,7 @@
     refs.nodeRules.value = arrayToLines(entry.mainline.rules);
     refs.nodeExamples.value = arrayToLines(entry.mainline.examples);
     refs.nodeSourceNotes.value = arrayToLines(entry.source_notes);
-    refs.nodeUsageFlows.value = JSON.stringify(entry.usageFlows || [], null, 2);
-    refs.nodeUsageFlows.classList.remove("is-invalid");
-    renderUsageFlowEditor(entry);
     renderParams(entry);
-  }
-
-  function renderUsageFlowEditor(entry) {
-    refs.usageFlowEditor.replaceChildren();
-    const flow = (entry.usageFlows || [])[0];
-    if (!isRecord(flow?.tree)) {
-      refs.usageFlowEditor.appendChild(createUsageFlowEmpty());
-      return;
-    }
-    refs.usageFlowEditor.appendChild(createUsageFlowEditorNode(flow.tree, []));
-  }
-
-  function createUsageFlowEmpty() {
-    const empty = document.createElement("div");
-    empty.className = "usage-flow-editor-empty";
-    empty.textContent = "暂无使用流程。点击“初始化流程”生成可编辑流程树。";
-    return empty;
-  }
-
-  function createUsageFlowEditorNode(node, path) {
-    const item = document.createElement("section");
-    item.className = "usage-flow-editor-node";
-    const header = document.createElement("div");
-    header.className = "usage-flow-editor-header";
-
-    const tagField = document.createElement("label");
-    tagField.className = "field";
-    const tagLabel = document.createElement("span");
-    tagLabel.className = "field-label";
-    tagLabel.textContent = "节点类型";
-    const tagInput = document.createElement("input");
-    tagInput.className = "input mono";
-    tagInput.value = node.tagName || "";
-    tagInput.placeholder = "Sequence / ScriptCondition / 当前节点 ID";
-    tagInput.addEventListener("input", () => updateUsageFlowNode(path, { tagName: tagInput.value.trim() || "Action" }));
-    tagField.append(tagLabel, tagInput);
-
-    const actions = document.createElement("div");
-    actions.className = "usage-flow-editor-actions";
-    const addButton = document.createElement("button");
-    addButton.type = "button";
-    addButton.className = "btn small";
-    addButton.textContent = "添加子节点";
-    addButton.addEventListener("click", () => addUsageFlowChild(path));
-    actions.appendChild(addButton);
-    if (path.length > 0) {
-      const removeButton = document.createElement("button");
-      removeButton.type = "button";
-      removeButton.className = "btn small danger";
-      removeButton.textContent = "删除";
-      removeButton.addEventListener("click", () => removeUsageFlowNode(path));
-      actions.appendChild(removeButton);
-    }
-
-    header.append(tagField, actions);
-    item.appendChild(header);
-
-    const attributesField = document.createElement("label");
-    attributesField.className = "field";
-    const attributesLabel = document.createElement("span");
-    attributesLabel.className = "field-label";
-    attributesLabel.textContent = "节点属性 JSON";
-    const attributesInput = document.createElement("textarea");
-    attributesInput.className = "textarea compact mono";
-    attributesInput.rows = 3;
-    attributesInput.value = JSON.stringify(node.attributes || {}, null, 2);
-    attributesInput.addEventListener("change", () => {
-      try {
-        const parsed = attributesInput.value.trim() ? JSON.parse(attributesInput.value) : {};
-        if (!isRecord(parsed)) {
-          throw new Error("attributes must be object");
-        }
-        attributesInput.classList.remove("is-invalid");
-        updateUsageFlowNode(path, { attributes: parsed });
-      } catch (_error) {
-        attributesInput.classList.add("is-invalid");
-      }
-    });
-    attributesField.append(attributesLabel, attributesInput);
-    item.appendChild(attributesField);
-
-    const children = Array.isArray(node.children) ? node.children : [];
-    if (children.length > 0) {
-      const childList = document.createElement("div");
-      childList.className = "usage-flow-editor-children";
-      children.forEach((child, index) => childList.appendChild(createUsageFlowEditorNode(child, [...path, index])));
-      item.appendChild(childList);
-    }
-    return item;
   }
 
   function renderParams(entry) {
@@ -546,14 +499,9 @@
     fields.defaultValue.value = param?.default || "";
     fields.description.value = param?.description || "";
     syncParamCardState(card);
-    syncParamVariableReference(card);
 
     [fields.name, fields.role, fields.type, fields.required, fields.defaultValue, fields.description].forEach((field) => {
-      field.addEventListener("focus", () => selectParamCard(card.dataset.paramName || fields.name.value.trim(), { focus: false }));
       field.addEventListener("input", () => {
-        if (field === fields.name || field === fields.defaultValue) {
-          syncParamVariableReference(card);
-        }
         if (field === fields.name) {
           card.dataset.paramName = fields.name.value.trim();
           state.selectedParamName = card.dataset.paramName;
@@ -564,9 +512,6 @@
         syncParamIndex();
       });
       field.addEventListener("change", () => {
-        if (field === fields.name || field === fields.defaultValue) {
-          syncParamVariableReference(card);
-        }
         if (field === fields.name) {
           card.dataset.paramName = fields.name.value.trim();
           state.selectedParamName = card.dataset.paramName;
@@ -663,205 +608,30 @@
     return Array.from(refs.nodeForm.querySelectorAll(".param-card"));
   }
 
-  function syncParamVariableReference(card) {
-    const nameInput = card.querySelector(".param-name");
-    const typeInput = card.querySelector(".param-type");
-    const defaultInput = card.querySelector(".param-default");
-    const descriptionInput = card.querySelector(".param-description");
-    const help = card.querySelector(".param-variable-help");
-    const typeHelp = card.querySelector(".param-type-help");
-    const descriptionHelp = card.querySelector(".param-description-help");
-    const name = nameInput?.value?.trim() || "";
-    const inferred = inferVariableReference(name, defaultInput?.value || "");
-    card.classList.toggle("has-variable-reference", Boolean(inferred.variable));
-    card.classList.toggle("has-inferred-type", Boolean(!inferred.variable && inferred.type));
-    if (!inferred.variable && !inferred.type) {
-      setVariableDerivedLock(card, false);
-      if (help) {
-        help.textContent = "使用 {变量名} 时会引用变量库里的类型和说明；引用后请到“变量”页修改。";
-      }
-      if (typeHelp) {
-        typeHelp.textContent = "unknown 表示当前图鉴还不知道这个参数的数据类型，需要人工补充。";
-      }
-      if (descriptionHelp) {
-        descriptionHelp.textContent = "说明这个参数的用途、取值含义、单位或限制。";
-      }
-      return;
-    }
-    if (typeInput) {
-      const currentType = typeInput.value.trim();
-      if (inferred.variable) {
-        typeInput.value = inferred.type || "unknown";
-      } else if (!currentType || currentType === "unknown") {
-        typeInput.value = inferred.type || typeInput.value;
-      }
-    }
-    if (descriptionInput && inferred.variable) {
-      descriptionInput.value = inferred.description || "";
-    } else if (descriptionInput && inferred.description && !descriptionInput.value.trim()) {
-      descriptionInput.value = inferred.description;
-    }
-    if (defaultInput && inferred.variableKey) {
-      if (!defaultInput.value.trim() || defaultInput.value.trim() === `{${toSnakeCase(name)}}`) {
-        defaultInput.value = `{${inferred.variableKey}}`;
-      }
-    }
-    if (help) {
-      help.textContent = inferred.variable
-        ? `已引用变量库：${inferred.summary || inferred.variableKey}。类型和说明请到“变量”页修改。`
-        : `已根据命名推断类型：${inferred.type}`;
-    }
-    setVariableDerivedLock(card, Boolean(inferred.variable));
-    if (inferred.variable) {
-      if (typeHelp) {
-        typeHelp.textContent = "类型来自变量库，如需修改请到“变量”页编辑。";
-      }
-      if (descriptionHelp) {
-        descriptionHelp.textContent = "说明来自变量库，如需修改请到“变量”页编辑。";
-      }
-    } else {
-      if (typeHelp) {
-        typeHelp.textContent = "已根据参数名推断类型，可手动修改。";
-      }
-      if (descriptionHelp) {
-        descriptionHelp.textContent = "说明这个参数的用途、取值含义、单位或限制。";
-      }
-    }
-  }
-
-  function setVariableDerivedLock(card, locked) {
-    const typeInput = card.querySelector(".param-type");
-    const descriptionInput = card.querySelector(".param-description");
-    [typeInput, descriptionInput].filter(Boolean).forEach((field) => {
-      field.readOnly = locked;
-      field.classList.toggle("is-derived", locked);
-      field.title = locked ? "来自变量库。如需修改，请到变量页编辑。" : "";
-    });
-  }
-
-  function renderVariableSuggestions() {
-    if (!refs.variableDefaultOptions) {
-      return;
-    }
-    refs.variableDefaultOptions.replaceChildren();
-    Object.entries(state.variables || {})
-      .sort(([left], [right]) => compareText(left, right))
-      .forEach(([key, rawVariable]) => {
-        const variable = normalizeVariableEntry(rawVariable);
-        const label = [variable.title, variable.type, variable.unit].filter(Boolean).join(" / ");
-        const defaultOption = document.createElement("option");
-        defaultOption.value = `{${key}}`;
-        if (label) {
-          defaultOption.label = label;
-        }
-        refs.variableDefaultOptions.appendChild(defaultOption);
-      });
-  }
-
-  function inferVariableReference(paramName, defaultValue) {
-    const explicitVariable = extractVariableName(defaultValue);
-    const candidates = [explicitVariable].filter(Boolean);
-    const variableMatch = findVariableMatch(candidates);
-    if (variableMatch) {
-      const variable = normalizeVariableEntry(variableMatch.value);
-      return {
-        variable: true,
-        variableKey: variableMatch.key,
-        type: variable.type || inferTypeFromName(variableMatch.key) || "unknown",
-        description: variable.description || variable.title || "",
-        summary: [variable.title, variable.type, variable.unit].filter(Boolean).join(" / ")
-      };
-    }
-    const inferredType = inferTypeFromName(explicitVariable || paramName);
-    return {
-      variable: false,
-      variableKey: explicitVariable || "",
-      type: inferredType,
-      description: ""
-    };
-  }
-
-  function findVariableMatch(candidates) {
-    const entries = Object.entries(state.variables || {});
-    for (const candidate of candidates) {
-      if (state.variables[candidate]) {
-        return { key: candidate, value: state.variables[candidate] };
-      }
-      const normalizedCandidate = normalizeIdentifier(candidate);
-      const found = entries.find(([key]) => normalizeIdentifier(key) === normalizedCandidate);
-      if (found) {
-        return { key: found[0], value: found[1] };
-      }
-    }
-    return null;
-  }
-
-  function extractVariableName(value) {
-    const match = String(value || "").match(/\{([^{}\s]+)\}/);
-    return match ? match[1] : "";
-  }
-
-  function inferTypeFromName(name) {
-    const normalized = normalizeIdentifier(name);
-    if (!normalized) {
-      return "";
-    }
-    if (/^(is|has|can|should|enable|enabled|disable|disabled|flag|valid|ready|success|failed|error)/.test(normalized)) {
-      return "bool";
-    }
-    if (/(count|num|index|level|id|type|mode)$/.test(normalized)) {
-      return "int";
-    }
-    if (/(height|width|distance|speed|velocity|length|radius|angle|time|duration|ratio|x|y|z)$/.test(normalized)) {
-      return "double";
-    }
-    if (/(msg|message|name|code|text|path|state|status)$/.test(normalized)) {
-      return "string";
-    }
-    return "";
-  }
-
-  function normalizeIdentifier(value) {
-    return toSnakeCase(value).replace(/[^a-z0-9]/g, "");
-  }
-
-  function toSnakeCase(value) {
-    return String(value || "")
-      .trim()
-      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-      .replace(/[-\s]+/g, "_")
-      .toLowerCase();
-  }
-
   function syncParamCardState(card) {
     const type = card.querySelector(".param-type")?.value?.trim() || "";
     const unknown = type === "" || type === "unknown";
     card.classList.toggle("has-unknown-type", unknown);
     const help = card.querySelector(".param-type-help");
     if (help) {
-      if (card.classList.contains("has-variable-reference")) {
-        help.textContent = unknown
-          ? "类型来自变量库且当前为 unknown，请到“变量”页补充。"
-          : "类型来自变量库，如需修改请到“变量”页编辑。";
-        return;
-      }
       help.textContent = unknown
         ? "当前参数类型未知，请补充为 bool、int、double、string 或项目内的具体类型。"
-        : "已补充参数类型。";
+        : "类型完全由当前字段维护，不会自动推断。";
     }
   }
 
   function renderVariableForm() {
     const key = state.selectedVariableKey;
     const entry = normalizeVariableEntry(state.variables[key]);
-    refs.variableKey.value = key;
+    refs.variableKey.value = Object.prototype.hasOwnProperty.call(state.pendingVariableKeys, key)
+      ? state.pendingVariableKeys[key]
+      : key;
     refs.variableTitle.value = entry.title;
     refs.variableType.value = entry.type;
     refs.variableUnit.value = entry.unit;
     refs.variableSource.value = entry.source;
     refs.variableDescription.value = entry.description;
-    refs.variableCommonNodes.value = arrayToLines(entry.commonNodes);
-    refs.variableExamples.value = arrayToLines(entry.examples);
+    refs.variableDefault.value = entry.default;
   }
 
   function updateSelectedNodeFromForm() {
@@ -884,136 +654,6 @@
     renderNodePreview();
   }
 
-  function updateSelectedNodeUsageFlows() {
-    const key = state.selectedNodeKey;
-    if (!key || !state.nodes[key]) {
-      return true;
-    }
-    const text = refs.nodeUsageFlows.value.trim();
-    try {
-      const parsed = text ? JSON.parse(text) : [];
-      if (!Array.isArray(parsed)) {
-        throw new Error("usageFlows 必须是数组");
-      }
-      const entry = normalizeNodeEntry(state.nodes[key], key);
-      entry.usageFlows = parsed.filter(isRecord).map(normalizeUsageFlow);
-      state.nodes[key] = entry;
-      refs.nodeUsageFlows.classList.remove("is-invalid");
-      markDirty("nodes");
-      renderNodePreview();
-      renderUsageFlowEditor(entry);
-      return true;
-    } catch (_error) {
-      refs.nodeUsageFlows.classList.add("is-invalid");
-      renderInspector();
-      return false;
-    }
-  }
-
-  function ensureSelectedUsageFlow() {
-    const key = state.selectedNodeKey;
-    if (!key || !state.nodes[key]) {
-      return;
-    }
-    const entry = normalizeNodeEntry(state.nodes[key], key);
-    if (!Array.isArray(entry.usageFlows) || entry.usageFlows.length === 0 || !isRecord(entry.usageFlows[0]?.tree)) {
-      entry.usageFlows = [{
-        title: "基础用法",
-        description: "",
-        tree: {
-          tagName: "Sequence",
-          attributes: {},
-          children: [
-            {
-              tagName: key,
-              attributes: buildDefaultUsageFlowAttributes(entry),
-              children: []
-            }
-          ]
-        }
-      }];
-      state.nodes[key] = entry;
-      syncUsageFlowJson(entry);
-      markDirty("nodes");
-    }
-  }
-
-  function buildDefaultUsageFlowAttributes(entry) {
-    return Object.fromEntries(
-      Object.entries(entry.mainline?.params || {}).map(([name, param]) => [name, formatParamPreviewValue(name, param)])
-    );
-  }
-
-  function updateUsageFlowNode(path, patch) {
-    const entry = getMutableSelectedUsageFlowEntry();
-    const node = getUsageFlowNodeAtPath(entry.usageFlows[0].tree, path);
-    if (!node) {
-      return;
-    }
-    Object.assign(node, patch);
-    commitUsageFlowEdit(entry);
-  }
-
-  function addUsageFlowChild(path) {
-    const entry = getMutableSelectedUsageFlowEntry();
-    const node = getUsageFlowNodeAtPath(entry.usageFlows[0].tree, path);
-    if (!node) {
-      return;
-    }
-    node.children = Array.isArray(node.children) ? node.children : [];
-    node.children.push({ tagName: state.selectedNodeKey || "Action", attributes: {}, children: [] });
-    commitUsageFlowEdit(entry);
-    renderUsageFlowEditor(entry);
-  }
-
-  function removeUsageFlowNode(path) {
-    if (path.length === 0) {
-      return;
-    }
-    const entry = getMutableSelectedUsageFlowEntry();
-    const parent = getUsageFlowNodeAtPath(entry.usageFlows[0].tree, path.slice(0, -1));
-    if (!parent || !Array.isArray(parent.children)) {
-      return;
-    }
-    parent.children.splice(path[path.length - 1], 1);
-    commitUsageFlowEdit(entry);
-    renderUsageFlowEditor(entry);
-  }
-
-  function getMutableSelectedUsageFlowEntry() {
-    const key = state.selectedNodeKey;
-    const entry = normalizeNodeEntry(state.nodes[key], key);
-    if (!Array.isArray(entry.usageFlows) || entry.usageFlows.length === 0 || !isRecord(entry.usageFlows[0]?.tree)) {
-      ensureSelectedUsageFlow();
-      return normalizeNodeEntry(state.nodes[key], key);
-    }
-    return entry;
-  }
-
-  function getUsageFlowNodeAtPath(root, path) {
-    let node = root;
-    for (const index of path) {
-      if (!node || !Array.isArray(node.children)) {
-        return null;
-      }
-      node = node.children[index];
-    }
-    return node || null;
-  }
-
-  function commitUsageFlowEdit(entry) {
-    const key = state.selectedNodeKey;
-    state.nodes[key] = normalizeNodeEntry(entry, key);
-    syncUsageFlowJson(state.nodes[key]);
-    markDirty("nodes");
-    renderNodePreview();
-  }
-
-  function syncUsageFlowJson(entry) {
-    refs.nodeUsageFlows.value = JSON.stringify(entry.usageFlows || [], null, 2);
-    refs.nodeUsageFlows.classList.remove("is-invalid");
-  }
-
   function updateParamsFromCards() {
     const key = state.selectedNodeKey;
     if (!key || !state.nodes[key]) {
@@ -1032,11 +672,6 @@
         required: card.querySelector(".param-required").checked,
         description: card.querySelector(".param-description").value.trim()
       };
-      const inferred = inferVariableReference(name, card.querySelector(".param-default").value);
-      if (inferred.variable) {
-        param.type = inferred.type || param.type;
-        param.description = inferred.description || param.description;
-      }
       const defaultValue = card.querySelector(".param-default").value;
       if (defaultValue !== "") {
         param.default = defaultValue;
@@ -1059,8 +694,7 @@
       unit: refs.variableUnit.value.trim(),
       description: refs.variableDescription.value.trim(),
       source: refs.variableSource.value.trim(),
-      commonNodes: linesToArray(refs.variableCommonNodes.value),
-      examples: linesToArray(refs.variableExamples.value)
+      default: refs.variableDefault.value
     };
     markDirty("variables");
   }
@@ -1077,10 +711,6 @@
   async function saveSelectedNode() {
     updateSelectedNodeFromForm();
     updateParamsFromCards();
-    if (!updateSelectedNodeUsageFlows()) {
-      refs.statusLine.textContent = "保存失败：usageFlows JSON 格式不正确";
-      return;
-    }
     if (!applySelectedNodeRename()) {
       return;
     }
@@ -1135,7 +765,9 @@
 
   function addVariable() {
     const key = uniqueKey(state.variables, "new_variable");
-    state.variables[key] = normalizeVariableEntry({});
+    state.variables[key] = normalizeVariableEntry({
+      description: createVariableDescriptionTemplate(key)
+    });
     state.selectedVariableKey = key;
     state.view = "variables";
     markDirty("variables");
@@ -1153,19 +785,38 @@
 
   function applySelectedVariableRename() {
     const current = state.selectedVariableKey;
-    const next = refs.variableKey.value.trim();
-    if (!current || !next || current === next) {
-      return true;
+    if (current) {
+      state.pendingVariableKeys[current] = refs.variableKey.value;
     }
-    if (state.variables[next]) {
-      alert(`变量 key 已存在：${next}`);
-      refs.variableKey.value = current;
+    const renameEntries = Object.entries(state.pendingVariableKeys)
+      .filter(([key]) => Object.prototype.hasOwnProperty.call(state.variables, key))
+      .map(([key, value]) => [key, String(value || "").trim()]);
+    const emptyEntry = renameEntries.find(([, next]) => !next);
+    if (emptyEntry) {
+      alert(`变量 key 不能为空：${emptyEntry[0]}`);
       return false;
     }
-    state.variables[next] = state.variables[current];
-    delete state.variables[current];
-    state.variables = sortObjectByKey(state.variables);
-    state.selectedVariableKey = next;
+    const targets = renameEntries.map(([, next]) => next);
+    if (new Set(targets).size !== targets.length) {
+      alert("多个变量不能使用同一个 key。");
+      return false;
+    }
+    const renamedKeys = new Set(renameEntries.map(([key]) => key));
+    const conflict = renameEntries.find(([currentKey, next]) => currentKey !== next
+      && Object.prototype.hasOwnProperty.call(state.variables, next)
+      && !renamedKeys.has(next));
+    if (conflict) {
+      alert(`变量 key 已存在：${conflict[1]}`);
+      return false;
+    }
+    const renameMap = new Map(renameEntries);
+    const variables = {};
+    Object.entries(state.variables).forEach(([key, value]) => {
+      variables[renameMap.get(key) || key] = value;
+    });
+    state.variables = sortObjectByKey(variables);
+    state.selectedVariableKey = renameMap.get(current) || current;
+    state.pendingVariableKeys = {};
     markDirty("variables");
     return true;
   }
@@ -1175,6 +826,7 @@
     if (!key || !confirm(`删除变量 ${key}？`)) {
       return;
     }
+    delete state.pendingVariableKeys[key];
     delete state.variables[key];
     state.selectedVariableKey = Object.keys(state.variables).sort(compareText)[0] || "";
     markDirty("variables");
@@ -1183,6 +835,8 @@
 
   function markDirty(kind) {
     state.dirty[kind] = true;
+    persistCachedDraft();
+    syncDirtyState();
     renderList();
     renderInspector();
     renderStatus();
@@ -1191,6 +845,9 @@
   async function exportJson(kind) {
     if (state.isElectron) {
       await saveElectronAtlasFile(kind);
+      return;
+    }
+    if (!validateBeforeSave()) {
       return;
     }
     const value = getAtlasValue(kind);
@@ -1205,6 +862,10 @@
     link.remove();
     URL.revokeObjectURL(url);
     state.dirty[kind] = false;
+    state.restoredDraft = false;
+    persistCachedDraft();
+    updateWarningBaseline();
+    syncDirtyState();
     renderStatus();
   }
 
@@ -1217,13 +878,27 @@
       return;
     }
     if (!flushCurrentEditor()) {
-      refs.statusLine.textContent = "保存失败：usageFlows JSON 格式不正确";
+      refs.statusLine.textContent = "保存失败：当前表单内容无效";
+      return;
+    }
+    if (!validateBeforeSave()) {
       return;
     }
     try {
       refs.statusLine.textContent = `正在保存 ${kind}.json...`;
-      await window.atlasEditorBridge.saveAtlasFile(kind, getAtlasValue(kind));
+      const result = await window.atlasEditorBridge.saveAtlasFile(
+        kind,
+        getAtlasValue(kind),
+        state.meta,
+        state.hashes
+      );
+      state.meta = result.meta || state.meta;
+      state.hashes = { ...state.hashes, ...(result.hashes || {}) };
       state.dirty[kind] = false;
+      state.restoredDraft = false;
+      persistCachedDraft();
+      updateWarningBaseline();
+      syncDirtyState();
       renderStatus();
     } catch (error) {
       refs.statusLine.textContent = `保存失败：${formatError(error)}`;
@@ -1235,17 +910,32 @@
       return;
     }
     if (!flushCurrentEditor()) {
-      refs.statusLine.textContent = "保存失败：usageFlows JSON 格式不正确";
+      refs.statusLine.textContent = "保存失败：当前表单内容无效";
+      return;
+    }
+    if ((state.view === "variables" || Object.keys(state.pendingVariableKeys).length > 0)
+      && !applySelectedVariableRename()) {
+      return;
+    }
+    if (!validateBeforeSave()) {
       return;
     }
     try {
       refs.statusLine.textContent = "正在保存全部 atlas 文件...";
       await window.atlasEditorBridge.saveAllAtlasFiles({
         nodes: getAtlasValue("nodes"),
-        variables: getAtlasValue("variables")
+        variables: getAtlasValue("variables"),
+        meta: state.meta
+      }, state.hashes).then((result) => {
+        state.meta = result.meta || state.meta;
+        state.hashes = { ...state.hashes, ...(result.hashes || {}) };
       });
       state.dirty.nodes = false;
       state.dirty.variables = false;
+      state.restoredDraft = false;
+      persistCachedDraft();
+      updateWarningBaseline();
+      syncDirtyState();
       renderStatus();
     } catch (error) {
       refs.statusLine.textContent = `保存失败：${formatError(error)}`;
@@ -1271,9 +961,6 @@
         }
         if (state.nodeFilter === "unknownType") {
           return hasUnknownType(entry);
-        }
-        if (state.nodeFilter === "hasVariables") {
-          return collectNodeVariables(entry).length > 0;
         }
         return true;
       })
@@ -1310,70 +997,8 @@
     const entry = normalizeNodeEntry(state.nodes[key], key);
     refs.previewTitle.textContent = `${key}${entry.title && entry.title !== key ? ` - ${entry.title}` : ""}`;
     refs.previewSummary.textContent = [entry.category, entry.department, entry.maintainer].filter(Boolean).join(" / ") || "实时预览当前节点。";
-    refs.previewModeNode.classList.toggle("is-active", state.previewMode === "node");
-    refs.previewModeUsage.classList.toggle("is-active", state.previewMode === "usage");
     refs.previewCanvas.replaceChildren();
-
-    if (state.previewMode === "usage") {
-      renderUsageFlowPreview(key, entry);
-    } else {
-      refs.previewCanvas.appendChild(createAtlasNodeCard(key, entry));
-    }
-  }
-
-  function renderUsageFlowPreview(key, entry) {
-    const flow = (entry.usageFlows || [])[0];
-    const tree = flow?.tree;
-    if (!isRecord(tree)) {
-      refs.previewCanvas.appendChild(createPreviewEmpty("暂无 usageFlows。请在下方 JSON 中维护结构化使用流程。"));
-      return;
-    }
-    const title = document.createElement("div");
-    title.className = "usage-flow-title";
-    title.textContent = flow.title || "使用流程";
-    refs.previewCanvas.appendChild(title);
-    const root = document.createElement("div");
-    root.className = "usage-flow-tree";
-    root.appendChild(createUsageFlowNode(tree, key, entry));
-    refs.previewCanvas.appendChild(root);
-  }
-
-  function createUsageFlowNode(node, selectedKey, selectedEntry) {
-    const tagName = String(node?.tagName || node?.kind || "Action");
-    const wrapper = document.createElement("div");
-    wrapper.className = "usage-flow-node";
-    const card = tagName === selectedKey
-      ? createAtlasNodeCard(selectedKey, selectedEntry, node.attributes || {})
-      : createSimpleFlowCard(tagName, node.attributes || {});
-    wrapper.appendChild(card);
-    const children = Array.isArray(node?.children) ? node.children.filter(isRecord) : [];
-    if (children.length > 0) {
-      const childList = document.createElement("div");
-      childList.className = "usage-flow-children";
-      children.forEach((child) => {
-        childList.appendChild(createUsageFlowNode(child, selectedKey, selectedEntry));
-      });
-      wrapper.appendChild(childList);
-    }
-    return wrapper;
-  }
-
-  function createSimpleFlowCard(tagName, attributes = {}) {
-    const card = document.createElement("article");
-    card.className = "flow-card-preview compact";
-    const heading = document.createElement("div");
-    heading.className = "flow-card-heading-preview";
-    const kind = document.createElement("span");
-    kind.className = "flow-kind";
-    kind.textContent = inferCategoryLabel(tagName);
-    const name = document.createElement("strong");
-    name.textContent = tagName;
-    heading.append(kind, name);
-    card.appendChild(heading);
-    Object.entries(attributes).forEach(([key, value]) => {
-      card.appendChild(createFieldRow(key, String(value ?? ""), "param"));
-    });
-    return card;
+    refs.previewCanvas.appendChild(createAtlasNodeCard(key, entry));
   }
 
   function createAtlasNodeCard(key, entry, overrideAttributes = {}) {
@@ -1452,112 +1077,220 @@
     return row;
   }
 
-  function renderPreviewParams(entry) {
-    const params = Object.entries(entry.mainline.params || {});
-    if (!params.length) {
-      refs.previewParams.appendChild(createPreviewEmpty("暂无参数"));
+  function collectIssues() {
+    return window.BTreeAtlasCore.validateAtlas(state.nodes, state.variables, state.meta)
+      .map((issue) => ({ ...issue, level: issue.level === "warning" ? "warn" : issue.level }));
+  }
+
+  function validateBeforeSave() {
+    const issues = window.BTreeAtlasCore.validateAtlas(state.nodes, state.variables, state.meta);
+    const errors = issues.filter((issue) => issue.level === "error");
+    if (errors.length > 0) {
+      state.view = "audit";
+      render();
+      alert(`图鉴存在 ${errors.length} 个错误，已阻止保存。请先在审计页修复。\n\n${errors.slice(0, 8).map((issue) => `- ${issue.message}`).join("\n")}`);
+      return false;
+    }
+    const baseline = new Set(state.warningBaseline);
+    const newWarnings = issues.filter((issue) => issue.level === "warning" && !baseline.has(issueFingerprint(issue)));
+    if (newWarnings.length > 0 && !confirm(`本次编辑新增了 ${newWarnings.length} 条警告，是否仍然保存？`)) {
+      return false;
+    }
+    return true;
+  }
+
+  async function loadTnmCandidate(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) {
       return;
     }
-    params.forEach(([name, param]) => {
-      const item = document.createElement("section");
-      item.className = "preview-param";
-      const title = document.createElement("strong");
-      title.className = "mono";
-      title.textContent = name;
-      const meta = document.createElement("span");
-      meta.textContent = [param?.role, param?.type, param?.required ? "required" : ""].filter(Boolean).join(" / ") || "param";
-      item.append(title, meta);
-      if (param?.default) {
-        const defaultValue = document.createElement("code");
-        defaultValue.textContent = `default: ${param.default}`;
-        item.appendChild(defaultValue);
-      }
-      if (param?.description) {
-        const description = document.createElement("p");
-        description.textContent = param.description;
-        item.appendChild(description);
-      }
-      refs.previewParams.appendChild(item);
+    try {
+      const candidate = window.BTreeAtlasCore.parseCandidate(await file.text());
+      state.tnmCandidate = { ...candidate, fileName: file.name };
+      state.tnmChanges = window.BTreeAtlasCore.diffCandidate(state.nodes, candidate);
+      renderTnmDialog();
+      refs.tnmDialog.showModal();
+    } catch (error) {
+      alert(`TNM 导入失败：${formatError(error)}`);
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function renderTnmDialog() {
+    const candidate = state.tnmCandidate;
+    refs.tnmSummary.textContent = candidate
+      ? `${candidate.fileName} / atlas_tag=${candidate.atlasTag} / ${state.tnmChanges.length} 项差异`
+      : "尚未读取候选文件";
+    refs.tnmChangeList.replaceChildren();
+    if (state.tnmChanges.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "候选 TNM 与当前图鉴接口一致。";
+      refs.tnmChangeList.appendChild(empty);
+    }
+    state.tnmChanges.forEach((change) => {
+      const label = document.createElement("label");
+      label.className = `tnm-change-item${change.type.endsWith("remove") ? " is-removal" : ""}`;
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = change.id;
+      checkbox.checked = change.defaultSelected === true;
+      checkbox.dataset.recommended = change.defaultSelected ? "true" : "false";
+      const copy = document.createElement("span");
+      copy.className = "tnm-change-copy";
+      const title = document.createElement("code");
+      title.textContent = change.message;
+      const detail = document.createElement("small");
+      detail.textContent = formatTnmChangeDetail(change);
+      copy.append(title, detail);
+      label.append(checkbox, copy);
+      refs.tnmChangeList.appendChild(label);
     });
+    updateTnmSelectionSummary();
   }
 
-  function renderPreviewFunction(entry) {
-    const blocks = [
-      ["功能说明", entry.description],
-      ["规则", entry.mainline.rules],
-      ["示例", entry.mainline.examples],
-      ["来源备注", entry.source_notes]
-    ];
-    let rendered = false;
-    blocks.forEach(([title, value]) => {
-      const lines = Array.isArray(value) ? value.map(formatListItem).filter(Boolean) : [String(value || "").trim()].filter(Boolean);
-      if (!lines.length) {
-        return;
-      }
-      rendered = true;
-      const block = document.createElement("section");
-      block.className = "preview-function-block";
-      const heading = document.createElement("strong");
-      heading.textContent = title;
-      block.appendChild(heading);
-      lines.forEach((line) => {
-        const item = document.createElement("p");
-        item.textContent = line;
-        block.appendChild(item);
-      });
-      refs.previewFunction.appendChild(block);
+  function formatTnmChangeDetail(change) {
+    if (change.type === "node_remove" || change.type === "param_remove") {
+      return "删除项默认不应用；确认已从当前 async 移除后再手动勾选。";
+    }
+    if (change.type === "param_update") {
+      return `当前：${JSON.stringify(change.before)}  候选：${JSON.stringify(change.after)}`;
+    }
+    return change.type.replace(/_/g, " ");
+  }
+
+  function setTnmSelection(mode) {
+    refs.tnmChangeList.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+      checkbox.checked = mode === "all" || (mode === "recommended" && checkbox.dataset.recommended === "true");
     });
-    if (!rendered) {
-      refs.previewFunction.appendChild(createPreviewEmpty("暂无功能介绍"));
+    updateTnmSelectionSummary();
+  }
+
+  function updateTnmSelectionSummary() {
+    const selectedCount = refs.tnmChangeList.querySelectorAll('input[type="checkbox"]:checked').length;
+    refs.tnmSelectionSummary.textContent = `已选择 ${selectedCount} / ${state.tnmChanges.length} 项`;
+    refs.tnmApply.disabled = selectedCount === 0;
+  }
+
+  function applySelectedTnmChanges() {
+    if (!state.tnmCandidate) {
+      return;
+    }
+    const selectedIds = Array.from(
+      refs.tnmChangeList.querySelectorAll('input[type="checkbox"]:checked'),
+      (checkbox) => checkbox.value
+    );
+    state.nodes = window.BTreeAtlasCore.applyCandidateChanges(state.nodes, state.tnmCandidate, selectedIds);
+    state.meta = {
+      ...createDefaultMeta(),
+      ...state.meta,
+      source: {
+        ...(state.meta.source || {}),
+        asyncTag: state.tnmCandidate.atlasTag,
+        candidateFile: state.tnmCandidate.fileName
+      }
+    };
+    state.selectedNodeKey = state.selectedNodeKey && state.nodes[state.selectedNodeKey]
+      ? state.selectedNodeKey
+      : Object.keys(state.nodes)[0] || "";
+    markDirty("nodes");
+    refs.tnmDialog.close();
+    render();
+  }
+
+  function hasDirtyChanges() {
+    return state.dirty.nodes || state.dirty.variables;
+  }
+
+  function syncDirtyState() {
+    window.atlasEditorBridge?.setDirty(hasDirtyChanges());
+  }
+
+  function persistCachedDraft() {
+    if (!hasDirtyChanges()) {
+      clearCachedDraft();
+      return;
+    }
+    const draft = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      hashes: state.hashes,
+      dirty: state.dirty,
+      nodes: state.dirty.nodes ? state.nodes : undefined,
+      variables: state.dirty.variables ? state.variables : undefined,
+      meta: state.meta,
+      view: state.view,
+      selectedNodeKey: state.selectedNodeKey,
+      selectedVariableKey: state.selectedVariableKey,
+      pendingVariableKeys: state.pendingVariableKeys
+    };
+    try {
+      window.localStorage?.setItem(ATLAS_DRAFT_KEY, JSON.stringify(draft));
+    } catch (error) {
+      console.warn("Atlas draft cache failed", error);
     }
   }
 
-  function createPreviewEmpty(text) {
-    const empty = document.createElement("div");
-    empty.className = "preview-empty";
-    empty.textContent = text;
-    return empty;
+  function restoreCachedDraft() {
+    let draft;
+    try {
+      draft = JSON.parse(window.localStorage?.getItem(ATLAS_DRAFT_KEY) || "null");
+    } catch (error) {
+      console.warn("Atlas draft cache is invalid", error);
+      clearCachedDraft();
+      return false;
+    }
+    if (!isRecord(draft) || draft.version !== 1) {
+      return false;
+    }
+    let restored = false;
+    if (draft.dirty?.nodes === true && draft.hashes?.nodes === state.hashes.nodes && isRecord(draft.nodes)) {
+      state.nodes = draft.nodes;
+      state.dirty.nodes = true;
+      restored = true;
+    }
+    if (draft.dirty?.variables === true && draft.hashes?.variables === state.hashes.variables && isRecord(draft.variables)) {
+      state.variables = draft.variables;
+      state.dirty.variables = true;
+      state.pendingVariableKeys = isRecord(draft.pendingVariableKeys) ? draft.pendingVariableKeys : {};
+      restored = true;
+    }
+    if (restored) {
+      state.meta = isRecord(draft.meta) ? draft.meta : state.meta;
+      state.view = draft.view === "variables" || draft.view === "audit" ? draft.view : "nodes";
+      state.selectedNodeKey = typeof draft.selectedNodeKey === "string" ? draft.selectedNodeKey : "";
+      state.selectedVariableKey = typeof draft.selectedVariableKey === "string" ? draft.selectedVariableKey : "";
+      syncDirtyState();
+    }
+    return restored;
   }
 
-  function collectIssues() {
-    const issues = [];
-    for (const [key, rawEntry] of Object.entries(state.nodes)) {
-      const entry = normalizeNodeEntry(rawEntry, key);
-      if (!entry.title) {
-        issues.push({ level: "warn", message: `${key}: 缺少中文名` });
-      }
-      if (!entry.department) {
-        issues.push({ level: "warn", message: `${key}: 缺少部门` });
-      }
-      if (!entry.maintainer) {
-        issues.push({ level: "warn", message: `${key}: 缺少负责人` });
-      }
-      for (const [paramName, param] of Object.entries(entry.mainline.params || {})) {
-        if (!paramName.trim()) {
-          issues.push({ level: "error", message: `${key}: 存在空参数名` });
-        }
-        if (!param.type || param.type === "unknown") {
-          issues.push({ level: "warn", message: `${key}.${paramName}: 参数类型未知，需补充 bool/int/double/string 等具体类型` });
-        }
-      }
-      (entry.usageFlows || []).forEach((flow, index) => {
-        if (!flow.title) {
-          issues.push({ level: "warn", message: `${key}: usageFlows[${index}] 缺少标题` });
-        }
-        if (!isRecord(flow.tree)) {
-          issues.push({ level: "error", message: `${key}: usageFlows[${index}] 缺少 tree` });
-        }
-      });
+  function clearCachedDraft() {
+    try {
+      window.localStorage?.removeItem(ATLAS_DRAFT_KEY);
+    } catch (error) {
+      console.warn("Atlas draft cache cleanup failed", error);
     }
-    for (const [key, variable] of Object.entries(state.variables)) {
-      if (!variable?.title) {
-        issues.push({ level: "warn", message: `${key}: 变量缺少标题` });
-      }
-      if (!variable?.description) {
-        issues.push({ level: "warn", message: `${key}: 变量缺少说明` });
-      }
-    }
-    return issues;
+  }
+
+  function createDefaultMeta() {
+    return {
+      schemaVersion: 1,
+      atlasVersion: "1",
+      updatedAt: "",
+      source: { asyncTag: "unknown" }
+    };
+  }
+
+  function updateWarningBaseline() {
+    state.warningBaseline = window.BTreeAtlasCore.validateAtlas(state.nodes, state.variables, state.meta)
+      .filter((issue) => issue.level === "warning")
+      .map(issueFingerprint);
+  }
+
+  function issueFingerprint(issue) {
+    return `${issue.code || "warning"}:${issue.path || issue.message}`;
   }
 
   function renderStatus() {
@@ -1567,6 +1300,9 @@
     }
     if (state.lastLoaded.variables) {
       parts.push(`variables: ${state.lastLoaded.variables}${state.dirty.variables ? "*" : ""}`);
+    }
+    if (state.restoredDraft) {
+      parts.push("已恢复本地草稿");
     }
     refs.statusLine.textContent = parts.length ? parts.join(" / ") : "未导入文件";
   }
@@ -1589,7 +1325,6 @@
         rules: Array.isArray(mainline.rules) ? mainline.rules.map(normalizeListItem) : [],
         examples: Array.isArray(mainline.examples) ? mainline.examples.map(normalizeListItem) : []
       },
-      usageFlows: Array.isArray(input.usageFlows) ? input.usageFlows.filter(isRecord).map(normalizeUsageFlow) : [],
       custom: isRecord(input.custom) ? input.custom : {}
     };
   }
@@ -1623,9 +1358,12 @@
       unit: typeof input.unit === "string" ? input.unit : "",
       description: typeof input.description === "string" ? input.description : "",
       source: typeof input.source === "string" ? input.source : "",
-      commonNodes: Array.isArray(input.commonNodes) ? input.commonNodes.map(String) : [],
-      examples: Array.isArray(input.examples) ? input.examples.map(String) : []
+      default: input.default === undefined || input.default === null ? "" : String(input.default)
     };
+  }
+
+  function createVariableDescriptionTemplate(key) {
+    return `[${String(key || "变量 key")}] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]`;
   }
 
   function createBadge(text, tone = "") {
@@ -1641,18 +1379,6 @@
 
   function hasUnknownType(entry) {
     return Object.values(entry.mainline?.params || {}).some((param) => !param?.type || param.type === "unknown");
-  }
-
-  function collectNodeVariables(entry) {
-    const variables = new Set();
-    Object.entries(entry.mainline?.params || {}).forEach(([name, param]) => {
-      [name, param?.default, param?.description].filter(Boolean).forEach((value) => {
-        for (const match of String(value).matchAll(/\{([^{}\s]+)\}/g)) {
-          variables.add(match[1]);
-        }
-      });
-    });
-    return Array.from(variables).sort(compareText);
   }
 
   function matchesQuery(values, query) {
@@ -1682,18 +1408,6 @@
     return String(value || "");
   }
 
-  function formatListItem(value) {
-    if (typeof value === "string") {
-      return value.trim();
-    }
-    if (isRecord(value)) {
-      return [value.title, value.message || value.description, value.attributes ? JSON.stringify(value.attributes) : ""]
-        .filter(Boolean)
-        .join(" - ");
-    }
-    return String(value || "").trim();
-  }
-
   function formatListItemForEditor(value) {
     return isRecord(value) ? JSON.stringify(value) : String(value || "");
   }
@@ -1712,43 +1426,8 @@
     return line;
   }
 
-  function normalizeUsageFlow(value) {
-    const input = isRecord(value) ? value : {};
-    return {
-      ...input,
-      title: typeof input.title === "string" ? input.title : "",
-      description: typeof input.description === "string" ? input.description : "",
-      tree: isRecord(input.tree) ? normalizeUsageTree(input.tree) : {}
-    };
-  }
-
-  function normalizeUsageTree(value) {
-    const input = isRecord(value) ? value : {};
-    return {
-      tagName: typeof input.tagName === "string" && input.tagName ? input.tagName : "Sequence",
-      attributes: isRecord(input.attributes) ? Object.fromEntries(Object.entries(input.attributes).map(([key, val]) => [key, String(val ?? "")])) : {},
-      children: Array.isArray(input.children) ? input.children.filter(isRecord).map(normalizeUsageTree) : []
-    };
-  }
-
-  function formatParamPreviewValue(name, param) {
-    if (param?.default) {
-      return param.default;
-    }
-    return name ? `{${name}}` : "";
-  }
-
-  function inferCategoryLabel(tagName) {
-    if (/Sequence|Fallback|Parallel|Switch|TryCatch|While|If/.test(tagName)) {
-      return "Control";
-    }
-    if (/Retry|Repeat|Force|Inverter|Delay|Timeout|Loop|RunOnce|Precondition|Skip|Wait/.test(tagName)) {
-      return "Decorator";
-    }
-    if (/Condition/.test(tagName)) {
-      return "Condition";
-    }
-    return "Action";
+  function formatParamPreviewValue(_name, param) {
+    return param?.default || "";
   }
 
   function normalizeRole(role) {

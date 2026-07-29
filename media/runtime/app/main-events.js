@@ -31,8 +31,10 @@
         runtime.state.hasSharedNodeTemplate = message.payload?.hasNodeTemplate === true;
         if (nodeTemplate) {
           runtime.state.copiedNodeTemplate = nodeTemplate;
+          runtime.state.copiedNodeModels = normalizeNodeClipboardModels(message.payload?.nodeModels);
         } else if (runtime.state.hasSharedNodeTemplate !== true) {
           runtime.state.copiedNodeTemplate = null;
+          runtime.state.copiedNodeModels = [];
         }
         runtime.overlays.syncNodeContextMenu?.();
         return;
@@ -166,6 +168,22 @@
     };
 
     window.addEventListener("keydown", (event) => {
+      if (!isSearchShortcutEvent(event)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (document.body.classList.contains("has-blocking-overlay")) {
+        return;
+      }
+      if (runtime.modeRules?.can?.("openTreeSearch") === false) {
+        return;
+      }
+      runtime.search.openPanel();
+    }, true);
+
+    window.addEventListener("keydown", (event) => {
       if (handleNodeShortcutChord(event, shortcutState)) {
         return;
       }
@@ -190,19 +208,6 @@
         runtime.state.isSpacePressed = true;
         runtime.viewport.syncCanvasInteractionMode();
         event.preventDefault();
-        return;
-      }
-
-      if ((event.metaKey || event.ctrlKey) && String(event.key || "").toLowerCase() === "f") {
-        if (document.body.classList.contains("has-blocking-overlay")) {
-          return;
-        }
-        if (runtime.modeRules?.can?.("openTreeSearch") === false) {
-          event.preventDefault();
-          return;
-        }
-        event.preventDefault();
-        runtime.search.openPanel();
         return;
       }
 
@@ -382,6 +387,15 @@
     return ["c", "v", "z"].includes(String(event.key || "").toLowerCase());
   }
 
+  function isSearchShortcutEvent(event) {
+    if (!event?.metaKey && !event?.ctrlKey) {
+      return false;
+    }
+
+    const key = String(event.key || "").toLowerCase();
+    return key === "f" || event.code === "KeyF";
+  }
+
   function scheduleNodeShortcutChordReset(shortcutState) {
     if (shortcutState.resetHandle) {
       clearTimeout(shortcutState.resetHandle);
@@ -415,6 +429,35 @@
     return children
       .map(normalizeNodeClipboardTemplate)
       .filter(Boolean);
+  }
+
+  function normalizeNodeClipboardModels(models) {
+    if (!Array.isArray(models)) {
+      return [];
+    }
+
+    return models
+      .filter((model) => model && typeof model.id === "string" && model.id && typeof model.modelKind === "string")
+      .map((model) => ({
+        id: model.id,
+        modelKind: model.modelKind,
+        attributes: isRecord(model.attributes) ? { ...model.attributes, ID: model.id } : { ID: model.id },
+        ports: Array.isArray(model.ports)
+          ? model.ports
+              .filter(
+                (port) =>
+                  port &&
+                  ["input_port", "output_port", "inout_port"].includes(port.tagName) &&
+                  isRecord(port.attributes) &&
+                  typeof port.attributes.name === "string" &&
+                  port.attributes.name
+              )
+              .map((port) => ({
+                tagName: port.tagName,
+                attributes: { ...port.attributes }
+              }))
+          : []
+      }));
   }
 
   function isRecord(value) {

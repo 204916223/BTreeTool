@@ -329,6 +329,57 @@ export function replaceNodeModels(document: BtDocumentAst, nextNodeModels: BtNod
   document.topLevelOrder = document.topLevelOrder.filter((item) => item !== "treeNodesModel");
 }
 
+export function mergeCopiedNodeModels(document: BtDocumentAst, copiedModels: BtNodeModel[]): void {
+  if (copiedModels.length === 0) {
+    return;
+  }
+
+  const existingById = new Map(document.nodeModels.map((model) => [model.id, model]));
+
+  for (const copiedModel of copiedModels) {
+    if (!copiedModel.id || !copiedModel.modelKind) {
+      continue;
+    }
+
+    const existingModel = existingById.get(copiedModel.id);
+    if (!existingModel) {
+      const clonedModel = cloneNodeModel(copiedModel);
+      document.nodeModels.push(clonedModel);
+      existingById.set(clonedModel.id, clonedModel);
+      continue;
+    }
+
+    existingModel.modelKind = copiedModel.modelKind;
+    existingModel.attributes = {
+      ...existingModel.attributes,
+      ...copiedModel.attributes,
+      ID: existingModel.id
+    };
+
+    const portIndexByName = new Map(
+      existingModel.ports.map((port, index) => [getPortName(port), index] as const).filter(([name]) => Boolean(name))
+    );
+    for (const copiedPort of copiedModel.ports) {
+      const portName = getPortName(copiedPort);
+      if (!portName) {
+        continue;
+      }
+
+      const existingPortIndex = portIndexByName.get(portName);
+      if (existingPortIndex === undefined) {
+        portIndexByName.set(portName, existingModel.ports.length);
+        existingModel.ports.push(clonePortModel(copiedPort));
+      } else {
+        existingModel.ports[existingPortIndex] = clonePortModel(copiedPort);
+      }
+    }
+  }
+
+  if (!document.topLevelOrder.includes("treeNodesModel")) {
+    document.topLevelOrder.push("treeNodesModel");
+  }
+}
+
 function removeDeletedModelPorts(
   document: BtDocumentAst,
   previousModels: Map<string, BtNodeModel>,

@@ -140,6 +140,7 @@
         ? []
         : cloneNodeTemplateChildren(state.nodeTemplate.children)
     };
+    runtime.state.copiedNodeModels = collectNodeModelsForCopy(runtime.state.copiedNodeTemplate);
     runtime.state.hasSharedNodeTemplate = true;
     runtime.vscode.postMessage({
       type: "copyNodeTemplate",
@@ -148,7 +149,8 @@
           tagName: runtime.state.copiedNodeTemplate.tagName,
           attributes: { ...(runtime.state.copiedNodeTemplate.attributes || {}) },
           children: cloneNodeTemplateChildren(runtime.state.copiedNodeTemplate.children)
-        }
+        },
+        nodeModels: cloneNodeModels(runtime.state.copiedNodeModels)
       }
     });
     return true;
@@ -166,6 +168,48 @@
         attributes: { ...(child.attributes || {}) },
         children: cloneNodeTemplateChildren(child.children)
       }));
+  }
+
+  function collectNodeModelsForCopy(nodeTemplate) {
+    const modelIds = new Set();
+    collectNodeModelIds(nodeTemplate, modelIds);
+    return cloneNodeModels(
+      (runtime.state.currentPreview?.nodeModels || []).filter((model) => modelIds.has(model?.id))
+    );
+  }
+
+  function collectNodeModelIds(nodeTemplate, modelIds) {
+    if (!nodeTemplate?.tagName) {
+      return;
+    }
+
+    if (["Action", "Condition", "Control", "Decorator"].includes(nodeTemplate.tagName)) {
+      if (nodeTemplate.attributes?.ID) {
+        modelIds.add(nodeTemplate.attributes.ID);
+      }
+    } else if (nodeTemplate.tagName !== "SubTree") {
+      modelIds.add(nodeTemplate.tagName);
+    }
+
+    (nodeTemplate.children || []).forEach((child) => collectNodeModelIds(child, modelIds));
+  }
+
+  function cloneNodeModels(models) {
+    if (!Array.isArray(models)) {
+      return [];
+    }
+
+    return models.map((model) => ({
+      id: model.id,
+      modelKind: model.modelKind,
+      attributes: { ...(model.attributes || {}), ID: model.id },
+      ports: Array.isArray(model.ports)
+        ? model.ports.map((port) => ({
+            tagName: port.tagName,
+            attributes: { ...(port.attributes || {}) }
+          }))
+        : []
+    }));
   }
 
   function pasteNodeBefore(state) {
@@ -229,7 +273,8 @@
           tagName: copiedNodeTemplate.tagName,
           attributes: { ...(copiedNodeTemplate.attributes || {}) },
           children: cloneNodeTemplateChildren(copiedNodeTemplate.children)
-        }
+        },
+        nodeModels: cloneNodeModels(runtime.state.copiedNodeModels)
       }
     });
     return true;

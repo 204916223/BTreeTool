@@ -30,7 +30,8 @@ function loadContextMenusRuntime() {
   const runtime = {
     state: {
       currentPreview: {
-        behaviorTrees: [tree]
+        behaviorTrees: [tree],
+        nodeModels: []
       },
       selectedNodePath: "0"
     },
@@ -171,6 +172,60 @@ test("shared node clipboard can paste when the current webview has no local copi
         paneId: null,
         targetParentPath: "0",
         targetIndex: 0
+      }
+    }
+  ]);
+});
+
+test("copying a node includes its matching port model", () => {
+  const runtime = loadContextMenusRuntime();
+  const menus = runtime.overlayRuntime.parts.contextMenus;
+  runtime.overlayRuntime.state.nodeContextMenu = menus.createNodeContextMenu();
+  runtime.overlayRuntime.state.canvasContextMenu = menus.createCanvasContextMenu();
+  const node = runtime.state.currentPreview.behaviorTrees[0].node;
+  node.kind = "Action";
+  node.attributes = { ID: "Calculate", source: "{x}", result: "{y}" };
+  runtime.state.currentPreview.nodeModels = [
+    {
+      id: "Calculate",
+      modelKind: "Action",
+      attributes: { ID: "Calculate" },
+      ports: [
+        { tagName: "input_port", attributes: { name: "source" } },
+        { tagName: "output_port", attributes: { name: "result" } }
+      ]
+    },
+    {
+      id: "Unrelated",
+      modelKind: "Condition",
+      attributes: { ID: "Unrelated" },
+      ports: []
+    }
+  ];
+
+  const handled = menus.executeNodeShortcutAction("copy");
+
+  assert.equal(handled, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(runtime.messages)), [
+    {
+      type: "copyNodeTemplate",
+      payload: {
+        nodeTemplate: {
+          tagName: "Action",
+          attributes: { ID: "Calculate", source: "{x}", result: "{y}" },
+          children: []
+        },
+        nodeModels: [
+          {
+            id: "Calculate",
+            modelKind: "Action",
+            attributes: { ID: "Calculate" },
+            ports: [
+              { tagName: "input_port", attributes: { name: "source" } },
+              { tagName: "output_port", attributes: { name: "result" } }
+            ]
+          }
+        ]
       }
     }
   ]);

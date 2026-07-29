@@ -14,6 +14,10 @@
           <span id="status-line">未导入文件</span>
         </div>
         <div class="file-actions">
+          <label class="btn file-btn primary">
+            导入 TNM 候选
+            <input id="tnm-file" type="file" accept=".btt,.xml,.json,application/xml,text/xml,application/json" />
+          </label>
           <button id="reload-files" class="btn electron-only" type="button">重载磁盘</button>
           <button id="save-all-files" class="btn electron-only" type="button">保存全部</button>
           <button id="open-atlas-dir" class="btn electron-only" type="button">打开目录</button>
@@ -44,7 +48,6 @@
               <option value="all">全部节点</option>
               <option value="missing">缺少人工字段</option>
               <option value="unknownType">含未知参数类型</option>
-              <option value="hasVariables">引用变量</option>
             </select>
             <button id="add-node" class="btn full" type="button">新增节点</button>
           </div>
@@ -73,10 +76,6 @@
                 <div>
                   <strong id="preview-title">节点图鉴</strong>
                   <span id="preview-summary">实时预览当前节点。</span>
-                </div>
-                <div class="segmented">
-                  <button id="preview-mode-node" class="segment is-active" type="button">节点样式</button>
-                  <button id="preview-mode-usage" class="segment" type="button">使用流程</button>
                 </div>
               </div>
               <div id="preview-canvas" class="atlas-canvas"></div>
@@ -179,19 +178,6 @@
                     <textarea id="node-source-notes" class="textarea compact" rows="3"></textarea>
                   </label>
 
-                  <section class="section-block usage-flow-editor">
-                    <div class="section-title-row">
-                      <strong>使用流程</strong>
-                      <button id="add-usage-flow-root" class="btn small" type="button">初始化流程</button>
-                    </div>
-                    <div class="usage-flow-hint">编辑这里会同步中间的“使用流程”预览，并保存为 atlas usageFlows。</div>
-                    <div id="usage-flow-editor" class="usage-flow-editor-body"></div>
-                    <details class="usage-flow-json-details">
-                      <summary>查看结构化 JSON</summary>
-                      <textarea id="node-usage-flows" class="textarea mono" rows="6" spellcheck="false"></textarea>
-                    </details>
-                  </section>
-
                   <section class="section-block param-index-section">
                     <div class="section-title-row">
                       <strong>参数</strong>
@@ -249,16 +235,10 @@
               <span class="field-label">说明</span>
               <textarea id="variable-description" class="textarea" rows="5"></textarea>
             </label>
-            <div class="grid two">
-              <label class="field">
-                <span class="field-label">常见节点</span>
-                <textarea id="variable-common-nodes" class="textarea compact" rows="6"></textarea>
-              </label>
-              <label class="field">
-                <span class="field-label">示例</span>
-                <textarea id="variable-examples" class="textarea compact" rows="6"></textarea>
-              </label>
-            </div>
+            <label class="field">
+              <span class="field-label">默认值</span>
+              <input id="variable-default" class="input" type="text" />
+            </label>
           </form>
 
         </aside>
@@ -274,9 +254,8 @@
           </label>
           <label class="field">
             <span class="field-label">默认/示例值</span>
-            <input class="input param-default" type="text" list="variable-default-options" />
-            <span class="field-help param-variable-help">使用 {变量名} 时会引用变量库里的类型和说明；引用后请到“变量”页修改。</span>
-            <span class="field-help">用于图鉴预览。留空时会使用 {参数名} 作为占位。</span>
+            <input class="input param-default" type="text" />
+            <span class="field-help">仅保存当前填写内容；留空不会自动生成或推断值。</span>
           </label>
           <label class="field">
             <span class="field-label">参数方向</span>
@@ -306,8 +285,30 @@
       </article>
     </template>
 
-    <datalist id="variable-default-options"></datalist>
+    <dialog id="tnm-dialog" class="tnm-dialog">
+      <form method="dialog" class="tnm-dialog-shell">
+        <header class="tnm-dialog-header">
+          <div>
+            <strong>审查 TNM 候选差异</strong>
+            <span id="tnm-summary">尚未读取候选文件</span>
+          </div>
+          <button id="tnm-close" class="btn" value="cancel" type="submit">关闭</button>
+        </header>
+        <div class="tnm-dialog-toolbar">
+          <button id="tnm-select-recommended" class="btn small" type="button">选择推荐项</button>
+          <button id="tnm-select-all" class="btn small" type="button">全选</button>
+          <button id="tnm-select-none" class="btn small" type="button">全不选</button>
+          <span>删除节点和参数默认不选，必须人工确认。</span>
+        </div>
+        <div id="tnm-change-list" class="tnm-change-list"></div>
+        <footer class="tnm-dialog-footer">
+          <span id="tnm-selection-summary">已选择 0 项</span>
+          <button id="tnm-apply" class="btn primary" type="button">应用所选差异</button>
+        </footer>
+      </form>
+    </dialog>
 
+    <script src="./atlas-core.js"></script>
     <script src="./atlas-editor.js"></script>
   </body>
 </html>

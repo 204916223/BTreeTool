@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { BtNodeModel } from "../core/btAst";
 import { NodeLibraryImportConflict } from "../core/nodeLibraryImport";
 import { BtUserSettings, cloneUserSettings } from "../userSettings";
 import { NodeCopyTemplateMessage, NormalizedNodeCopyTemplate } from "./messages";
@@ -16,6 +17,30 @@ export function normalizeNodeCopyChildren(
       tagName: child.tagName!,
       attributes: child.attributes!,
       children: normalizeNodeCopyChildren(child.children)
+    }));
+}
+
+export function normalizeNodeCopyModels(models: BtNodeModel[] | undefined): BtNodeModel[] {
+  if (!Array.isArray(models)) {
+    return [];
+  }
+
+  return models
+    .filter((model) => Boolean(model?.id && model.modelKind && model.attributes && Array.isArray(model.ports)))
+    .map((model) => ({
+      id: model.id,
+      modelKind: model.modelKind,
+      attributes: { ...model.attributes, ID: model.id },
+      ports: model.ports
+        .filter(
+          (port) =>
+            Boolean(port?.attributes?.name) &&
+            (port.tagName === "input_port" || port.tagName === "output_port" || port.tagName === "inout_port")
+        )
+        .map((port) => ({
+          tagName: port.tagName,
+          attributes: { ...port.attributes }
+        }))
     }));
 }
 

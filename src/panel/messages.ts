@@ -93,12 +93,14 @@ export type WebviewMessage =
         targetParentPath?: string;
         targetIndex?: number;
         nodeTemplate?: NodeCopyTemplateMessage;
+        nodeModels?: BtNodeModel[];
       };
     }
   | {
       type: "copyNodeTemplate";
       payload?: {
         nodeTemplate?: NodeCopyTemplateMessage;
+        nodeModels?: BtNodeModel[];
       };
     }
   | {

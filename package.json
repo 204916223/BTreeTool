@@ -75,7 +75,7 @@
         "command": "btreeTool.openSearch",
         "key": "ctrl+f",
         "mac": "cmd+f",
-        "when": "webviewFocus && webviewId == 'btreeTool.preview'"
+        "when": "btreeTool.previewFocus"
       },
       {
         "command": "btreeTool.copyNode",

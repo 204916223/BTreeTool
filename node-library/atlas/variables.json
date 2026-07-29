@@ -1,40 +1,194 @@
 {
-  "errorMsg": {
-    "title": "错误日志",
-    "type": "string",
+  "action": {
+    "title": "动作参数",
+    "type": "json",
+    "unit": "-",
+    "description": "action中保存了行为树动作中相关的参数数据\n通常用于提供给ACTION节点，方便它们在json中解析并使用所需参数。",
+    "source": "carly",
+    "default": ""
+  },
+  "approaching_type": {
+    "title": "",
+    "type": "int",
+    "unit": "-",
+    "description": "",
+    "source": "stations",
+    "default": ""
+  },
+  "async_start_dist": {
+    "title": "异步起始距离",
+    "type": "double",
+    "unit": "m",
+    "description": "[async_start_dist] 对应库区模版中用户配置项 [异步起始距离]\n通常用于与某个距离做比较，根据结果决定是否执行后续节点",
+    "source": "stations",
+    "default": ""
+  },
+  "baffle_enable": {
+    "title": "挡板启用开关",
+    "type": "bool",
+    "unit": "-",
+    "description": "[baffle_enable] 对应库区模版中用户配置项 [是否启用到位挡板]\n通常用于跳过那些在关闭挡板监测功能时不需要执行的节点",
+    "source": "action",
+    "default": ""
+  },
+  "baffle_enable_dist": {
+    "title": "挡板监测忽略距离",
+    "type": "double",
+    "unit": "m",
+    "description": "[baffle_enable] 对应动作参数中用户配置项 [到位挡板开启距离]\n通常用于与某个距离或定值做比较，根据结果决定是否执行后续节点",
+    "source": "action",
+    "default": ""
+  },
+  "blind_move_out_dist": {
+    "title": "",
+    "type": "double",
+    "unit": "m",
+    "description": "",
+    "source": "stations",
+    "default": ""
+  },
+  "bmove_distance": {
+    "title": "盲走距离",
+    "type": "double",
+    "unit": "m",
+    "description": "[bmove_distance] 对应三代机型中用户配置项 [async_bb_init/bmove_distance]\n通常用于BlindMove节点，控制盲走的距离",
+    "source": "adele3",
+    "default": ""
+  },
+  "bmove_speed": {
+    "title": "盲走速度",
+    "type": "double",
+    "unit": "m/s",
+    "description": "[bmove_speed] 对应三代机型中用户配置项 [async_bb_init/bmove_speed]\n通常用于BlindMove节点，控制盲走的速度",
+    "source": "adele3",
+    "default": ""
+  },
+  "cancel_dec_nav": {
+    "title": "取消限速标志",
+    "type": "int",
+    "unit": "-",
+    "description": "[cancel_dec_nav] 对应三代机型中用户配置项 [async_bb_init/cancel_dec_nav]\n通常用于DecelerateNavi节点，控制是否取消当前的限速",
+    "source": "adele3",
+    "default": ""
+  },
+  "cancel_servo": {
+    "title": "取消伺服标志",
+    "type": "double",
+    "unit": "-",
+    "description": "[cancel_servo] 对应三代机型中用户配置项 [async_bb_init/cancel_servo]\n通常用于Servo相关的节点，控制是否取消当前的伺服",
+    "source": "adele3",
+    "default": ""
+  },
+  "check_arrive": {
+    "title": "到点检查标志",
+    "type": "bool",
+    "unit": "-",
+    "description": "[check_arrive] 对应三代机型中用户配置项 [async_bb_init/check_arrive]\n通常用于控制行为树到点后的行为流程",
+    "source": "adele3",
+    "default": ""
+  },
+  "check_bmove": {
+    "title": "盲走完成检查标志",
+    "type": "bool",
+    "unit": "-",
+    "description": "[check_bmove] 对应三代机型中用户配置项 [async_bb_init/check_bmove]\n通常用于控制行为树完成盲走后的行为流程",
+    "source": "adele3",
+    "default": ""
+  },
+  "check_drop_above_leg": {
+    "title": "支腿高度检查",
+    "type": "bool",
+    "unit": "-",
+    "description": "[check_drop_above_leg] 对应三代机型中用户配置项 [async_bb_init/check_drop_above_leg]\n通常用于决定前移车中前移的优先级",
+    "source": "adele3",
+    "default": ""
+  },
+  "check_narrow_shelf": {
+    "title": "窄挡货架标志",
+    "type": "bool",
+    "unit": "-",
+    "description": "[check_narrow_shelf] 对应三代机型中用户配置项 [async_bb_init/check_narrow_shelf]\n通常用于决定前移车中前移的优先级",
+    "source": "adele3",
+    "default": ""
+  },
+  "check_retracted": {
+    "title": "门架归零检查标志",
+    "type": "bool",
+    "unit": "-",
+    "description": "[check_retracted] 对应三代机型中用户配置项 [async_bb_init/check_retracted]\n通常用于控制行为树缩回门架后的行为流程",
+    "source": "adele3",
+    "default": ""
+  },
+  "count_action": {
+    "title": "",
+    "type": "",
     "unit": "",
     "description": "",
     "source": "",
-    "commonNodes": [],
-    "examples": []
+    "default": ""
   },
-  "is_enable": {
-    "title": "功能启用开关",
-    "type": "bool",
+  "count_dec_nav": {
+    "title": "",
+    "type": "",
     "unit": "",
-    "description": "",
-    "source": "blackboard",
-    "commonNodes": [],
-    "examples": []
+    "description": "[count_dec_nav] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]",
+    "source": "",
+    "default": ""
   },
-  "lift_height": {
-    "title": "当前举升高度",
-    "type": "double",
-    "unit": "m",
-    "description": "当前叉齿或载具的实际高度。",
-    "source": "blackboard",
-    "commonNodes": [
-      "Precondition"
-    ],
-    "examples": []
+  "count_step": {
+    "title": "",
+    "type": "",
+    "unit": "",
+    "description": "[count_step] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]",
+    "source": "",
+    "default": ""
   },
-  "walking_height": {
-    "title": "行走高度",
-    "type": "double",
-    "unit": "m",
-    "description": "机器人在主路上移动过程中叉齿应保持的高度。",
-    "source": "actions",
-    "commonNodes": [],
-    "examples": []
+  "createTime": {
+    "title": "",
+    "type": "",
+    "unit": "",
+    "description": "[createTime] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]",
+    "source": "",
+    "default": ""
+  },
+  "current_dist": {
+    "title": "",
+    "type": "",
+    "unit": "",
+    "description": "[current_dist] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]",
+    "source": "",
+    "default": ""
+  },
+  "DIn": {
+    "title": "",
+    "type": "",
+    "unit": "",
+    "description": "[DIn] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]",
+    "source": "",
+    "default": ""
+  },
+  "discrete_QR": {
+    "title": "",
+    "type": "",
+    "unit": "",
+    "description": "[discrete_QR] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]",
+    "source": "",
+    "default": ""
+  },
+  "dist_to_goal": {
+    "title": "",
+    "type": "",
+    "unit": "",
+    "description": "[dist_to_goal] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]",
+    "source": "",
+    "default": ""
+  },
+  "dist_to_obstacle": {
+    "title": "",
+    "type": "",
+    "unit": "",
+    "description": "[dist_to_obstacle] 对应[配置来源]中用户配置项 [配置项名称]\n通常用于[使用场景或判断逻辑]",
+    "source": "",
+    "default": ""
   }
 }

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 
-function loadMainEventsRuntime(mode = "playback") {
+function loadMainEventsRuntime(mode = "playback", blockingOverlay = false) {
   const listeners = {};
   class HTMLElementStub {
     constructor(tagName = "DIV") {
@@ -78,7 +78,15 @@ function loadMainEventsRuntime(mode = "playback") {
     window: {
       BTreeToolRuntime: runtime,
       addEventListener(type, handler) {
-        listeners[type] = handler;
+        const previous = listeners[type];
+        listeners[type] = previous
+          ? (event) => {
+              previous(event);
+              if (!event.propagationStopped) {
+                handler(event);
+              }
+            }
+          : handler;
       }
     },
     document: {
@@ -88,8 +96,8 @@ function loadMainEventsRuntime(mode = "playback") {
       },
       body: {
         classList: {
-          contains() {
-            return false;
+          contains(className) {
+            return className === "has-blocking-overlay" && blockingOverlay;
           }
         }
       }
@@ -113,6 +121,9 @@ function createKeyEvent(HTMLElementStub, options = {}) {
     defaultPrevented: false,
     preventDefault() {
       this.defaultPrevented = true;
+    },
+    stopPropagation() {
+      this.propagationStopped = true;
     }
   };
 }
@@ -172,6 +183,38 @@ test("ctrl f opens tree search in edit mode", () => {
   assert.equal(runtime.search.openCount, 1);
 });
 
+test("key code fallback opens tree search when the browser omits the key value", () => {
+  const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("edit");
+
+  runtime.mainEvents.bindGlobalKeys();
+
+  const event = createKeyEvent(HTMLElementStub, {
+    code: "KeyF",
+    key: "",
+    metaKey: true
+  });
+  listeners.keydown(event);
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(runtime.search.openCount, 1);
+});
+
+test("ctrl f is consumed while a blocking overlay is open", () => {
+  const { runtime, listeners, HTMLElementStub } = loadMainEventsRuntime("edit", true);
+
+  runtime.mainEvents.bindGlobalKeys();
+
+  const event = createKeyEvent(HTMLElementStub, {
+    code: "KeyF",
+    key: "f",
+    ctrlKey: true
+  });
+  listeners.keydown(event);
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(runtime.search.openCount, 0);
+});
+
 test("shortcut action opens tree search from extension keybinding", () => {
   const { runtime, listeners } = loadMainEventsRuntime("edit");
 
@@ -212,7 +255,15 @@ test("node clipboard state refreshes stale local copied node templates", () => {
               children: []
             }
           ]
-        }
+        },
+        nodeModels: [
+          {
+            id: "NewNode",
+            modelKind: "Action",
+            attributes: { ID: "NewNode" },
+            ports: [{ tagName: "output_port", attributes: { name: "next" } }]
+          }
+        ]
       }
     }
   });
@@ -229,6 +280,14 @@ test("node clipboard state refreshes stale local copied node templates", () => {
       }
     ]
   });
+  assert.deepEqual(JSON.parse(JSON.stringify(runtime.state.copiedNodeModels)), [
+    {
+      id: "NewNode",
+      modelKind: "Action",
+      attributes: { ID: "NewNode" },
+      ports: [{ tagName: "output_port", attributes: { name: "next" } }]
+    }
+  ]);
 });
 
 test("ctrl s saves the current XML document", () => {

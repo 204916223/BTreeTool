@@ -256,6 +256,23 @@ def sanitize_output_tag(tag: str) -> str:
     return re.sub(r"[^A-Za-z0-9._+-]+", "_", tag).strip("._") or "unknown"
 
 
+def atlas_type_name(type_text: str) -> str:
+    normalized = type_text.strip()
+    aliases = {
+        "std::string": "string",
+        "string": "string",
+        "uint8_t": "uint8",
+        "uint16_t": "uint16",
+        "uint32_t": "uint32",
+        "uint64_t": "uint64",
+        "int8_t": "int8",
+        "int16_t": "int16",
+        "int32_t": "int32",
+        "int64_t": "int64",
+    }
+    return aliases.get(normalized, normalized or "unknown")
+
+
 def resolve_version_metadata() -> Dict[str, str]:
     tag = (
         os.environ.get("SBT_ATLAS_TAG")
@@ -515,7 +532,10 @@ for class_name, node_id in registrations:
     for port in info.ports:
         attrs = [
             f'name="{escape_xml(port.name)}"',
+            f'type="{escape_xml(atlas_type_name(port.type_text))}"',
         ]
+        if port.tag in {"input_port", "inout_port"} and port.default is None:
+            attrs.append('required="true"')
         special_default = SPECIAL_OUTPUT_DEFAULTS.get(port.name) if port.tag == "output_port" else None
         if special_default is not None:
             attrs.append(f'default="{escape_xml(special_default)}"')
@@ -533,8 +553,5 @@ output_path.parent.mkdir(parents=True, exist_ok=True)
 output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 sys.stdout.write(f'Wrote {len(registrations)} node models to {output_path}\n')
-subprocess.run(
-    [sys.executable, str(script_dir / "update_atlas_from_btt.py"), str(output_path)],
-    check=True,
-)
+sys.stdout.write('Candidate only: the official atlas was not modified. Import this file in Atlas Editor to review changes.\n')
 PY

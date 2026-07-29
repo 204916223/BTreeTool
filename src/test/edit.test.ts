@@ -10,6 +10,7 @@ import {
   findBehaviorTreeReferences,
   insertNode,
   insertNodeCopy,
+  mergeCopiedNodeModels,
   renameBehaviorTree,
   replaceNodeModels
 } from "../core/edit";
@@ -107,6 +108,71 @@ test("insertNodeCopy inserts a copied subtree when children are included", () =>
       }
     ]
   });
+});
+
+test("mergeCopiedNodeModels preserves copied port directions in the target document", () => {
+  const document = createDocument();
+  document.nodeModels = [
+    {
+      id: "Calculate",
+      modelKind: "Action",
+      attributes: { ID: "Calculate" },
+      ports: [
+        { tagName: "input_port", attributes: { name: "result" } },
+        { tagName: "input_port", attributes: { name: "target_only" } }
+      ]
+    }
+  ];
+  document.topLevelOrder.push("treeNodesModel");
+
+  mergeCopiedNodeModels(document, [
+    {
+      id: "Calculate",
+      modelKind: "Action",
+      attributes: { ID: "Calculate" },
+      ports: [
+        { tagName: "input_port", attributes: { name: "source" } },
+        { tagName: "output_port", attributes: { name: "result" } }
+      ]
+    }
+  ]);
+
+  assert.deepEqual(document.nodeModels[0].ports, [
+    { tagName: "output_port", attributes: { name: "result" } },
+    { tagName: "input_port", attributes: { name: "target_only" } },
+    { tagName: "input_port", attributes: { name: "source" } }
+  ]);
+});
+
+test("mergeCopiedNodeModels adds a missing model for cross-document paste", () => {
+  const document = createDocument();
+
+  mergeCopiedNodeModels(document, [
+    {
+      id: "Calculate",
+      modelKind: "Action",
+      attributes: { ID: "Calculate" },
+      ports: [
+        { tagName: "input_port", attributes: { name: "source" } },
+        { tagName: "output_port", attributes: { name: "result" } },
+        { tagName: "inout_port", attributes: { name: "state" } }
+      ]
+    }
+  ]);
+
+  assert.deepEqual(document.nodeModels, [
+    {
+      id: "Calculate",
+      modelKind: "Action",
+      attributes: { ID: "Calculate" },
+      ports: [
+        { tagName: "input_port", attributes: { name: "source" } },
+        { tagName: "output_port", attributes: { name: "result" } },
+        { tagName: "inout_port", attributes: { name: "state" } }
+      ]
+    }
+  ]);
+  assert.equal(document.topLevelOrder.at(-1), "treeNodesModel");
 });
 
 test("createBehaviorTree adds a valid AlwaysSuccess placeholder tree", () => {

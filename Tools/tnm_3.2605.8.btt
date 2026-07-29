@@ -1,0 +1,507 @@
+<TreeNodesModel atlas_tag="3.2605.8">
+  <Action ID="ReturnFail">
+  </Action>
+  <Action ID="StageAndReturn">
+    <input_port name="phase" type="string" default="" description="Stage name." />
+    <input_port name="event" type="string" default="" description="Stage event." />
+    <input_port name="return_status" type="string" default="failure" description="Returns SUCCESS only when set to success." />
+  </Action>
+  <Action ID="RaiseException">
+    <input_port name="error_id" type="string" required="true" />
+    <input_port name="error_level" type="int" required="true" />
+    <input_port name="error_name" type="string" required="true" />
+    <input_port name="error_details" type="string" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="SaySomething">
+    <input_port name="message" type="string" required="true" />
+  </Action>
+  <Action ID="EchoLayer">
+    <input_port name="layer" type="string" required="true" />
+    <input_port name="schedule_report_result" type="string" required="true" />
+    <input_port name="target_height_low_1" type="double" required="true" />
+    <input_port name="target_height_high_1" type="double" required="true" />
+    <input_port name="target_height_low_2" type="double" required="true" />
+    <input_port name="target_height_high_2" type="double" required="true" />
+    <input_port name="target_height_low_3" type="double" required="true" />
+    <input_port name="target_height_high_3" type="double" required="true" />
+  </Action>
+  <Action ID="RobotTask">
+    <input_port name="message" type="string" required="true" />
+  </Action>
+  <Action ID="WaitForMoveState">
+  </Action>
+  <Action ID="RotateControl">
+    <input_port name="message" type="string" required="true" />
+  </Action>
+  <Action ID="PlayVoice">
+    <input_port name="message" type="string" required="true" />
+  </Action>
+  <Action ID="ForkLift">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <input_port name="lift_target_position" type="double" required="true" />
+    <input_port name="lift_speed_max" type="double" required="true" />
+    <input_port name="unload_finish" type="bool" required="true" />
+  </Action>
+  <Action ID="Lift">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <input_port name="cmd" type="string" required="true" />
+    <input_port name="lift_target_position" type="double" required="true" />
+  </Action>
+  <Action ID="ForkPush">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <input_port name="push_target_position" type="double" required="true" />
+  </Action>
+  <Action ID="ForkSlide">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <input_port name="slide_target_position" type="double" required="true" />
+  </Action>
+  <Action ID="CarrierCtrl">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="carrier_id" type="int" required="true" />
+    <input_port name="action_cmd" type="string" required="true" />
+    <input_port name="target_position" type="double" required="true" />
+    <input_port name="velocity_max" type="double" required="true" />
+    <input_port name="stop_action" type="bool" required="true" />
+  </Action>
+  <Action ID="PauseEnable">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="pause_enable" type="uint32" required="true" />
+  </Action>
+  <Action ID="CameraEnable">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="camera_name" type="string" required="true" />
+    <input_port name="camera_enable" type="uint32" required="true" />
+  </Action>
+  <Action ID="PalletServo">
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="station_args" type="string" required="true" />
+    <input_port name="pallet_name" type="string" required="true" />
+    <input_port name="teaching_args" type="string" required="true" />
+    <input_port name="current_dist" type="double" required="true" />
+    <input_port name="servo_cancel_flag" type="bool" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="RegionCheck">
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="station_args" type="string" required="true" />
+    <input_port name="teaching_args" type="string" required="true" />
+    <input_port name="check_height" type="double" required="true" />
+    <input_port name="current_dist" type="double" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="have_obstracle" type="bool" />
+  </Action>
+  <Action ID="GetGoalDist">
+    <output_port name="result" type="double" />
+  </Action>
+  <Action ID="GetStartDist">
+    <output_port name="result" type="double" />
+  </Action>
+  <Action ID="StartDistCheck">
+    <input_port name="min_threshold" type="double" required="true" />
+    <input_port name="max_threshold" type="double" required="true" />
+    <output_port name="current_dist" type="double" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="EndDistCheck">
+    <input_port name="min_threshold" type="double" required="true" />
+    <input_port name="max_threshold" type="double" required="true" />
+    <output_port name="current_dist" type="double" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="BaffleStatus">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+  </Action>
+  <Action ID="LoadStatus">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+  </Action>
+  <Action ID="PhotoSensorStatus">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="DI1" type="bool" />
+    <output_port name="DI2" type="bool" />
+    <output_port name="DI3" type="bool" />
+    <output_port name="DI4" type="bool" />
+    <output_port name="DI5" type="bool" />
+    <output_port name="DI6" type="bool" />
+    <output_port name="DI7" type="bool" />
+    <output_port name="DI8" type="bool" />
+    <output_port name="DI9" type="bool" />
+    <output_port name="DI10" type="bool" />
+    <output_port name="DI11" type="bool" />
+    <output_port name="DI12" type="bool" />
+    <output_port name="DI13" type="bool" />
+    <output_port name="DI14" type="bool" />
+    <output_port name="DI15" type="bool" />
+    <output_port name="DI16" type="bool" />
+  </Action>
+  <Action ID="GetForkHeight">
+    <input_port name="lift_safe_position_low" type="double" required="true" />
+    <input_port name="lift_safe_position_high" type="double" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="fork_height" type="double" />
+  </Action>
+  <Action ID="GetLoadWeight">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="load_weight" type="double" />
+  </Action>
+  <Action ID="SlowDownToStop">
+    <input_port name="obs_dist" type="double" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+  </Action>
+  <Action ID="DecelerateNavi">
+    <input_port name="prepare_dist" type="double" default="0.0" description="The prepare distance before obstacle. &quot;
+                                  &quot;Special: if prepare_dist == -1, force stop immediately." />
+    <input_port name="obs_dist" type="double" default="0.0" description="The distance of obstacle." />
+    <input_port name="decelerate_stop" type="int" default="0" description="Is stop decelerate." />
+    <input_port name="err_obs_dist" type="double" default="0.02" description="obs_dist = 0 if obs_dist &lt;= err_obs_dist else obs_dist." />
+    <input_port name="mode" type="string" default="in" description="Mode: 'in' for inbound (distance to ending), 'out' for &quot;
+                &quot;outbound (distance to starting)." />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+  </Action>
+  <Action ID="TipPhotoelectricCtrl">
+    <input_port name="ignore_enabled" type="bool" required="true" />
+  </Action>
+  <Action ID="SafeLaserCtrl">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="laser_name" type="string" required="true" />
+    <input_port name="command" type="string" required="true" />
+  </Action>
+  <Action ID="NoticeScheduleAndWait">
+    <input_port name="wait_timeout" type="int" default="-1" description="wait sched notice timeout." />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="ScanSafeCtrl">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="config_topic" type="string" required="true" />
+    <input_port name="open_scan" type="bool" required="true" />
+  </Action>
+  <Action ID="LoadTemplate">
+    <input_port name="station_args" type="string" required="true" />
+    <input_port name="shelf_name_by_dispatch" type="string" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="NavStop">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="NavStatus">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+  </Action>
+  <Action ID="BaffleStop">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <input_port name="baffle_stop_enable" type="bool" required="true" />
+  </Action>
+  <Action ID="ShelfServo">
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="current_dist" type="double" required="true" />
+    <input_port name="shelf_servo_teaching_result" type="string" required="true" />
+    <input_port name="station_args" type="string" required="true" />
+    <input_port name="servo_cancel_flag" type="bool" required="true" />
+    <input_port name="shelf_name_by_dispatch" type="string" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="SpeedManager">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="lowest_priority_speed" type="string" required="true" />
+    <input_port name="reset_priority" type="bool" required="true" />
+  </Action>
+  <Action ID="LiftHeightCheck">
+    <input_port name="high_threshold" type="double" required="true" />
+    <input_port name="low_threshold" type="double" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="lift_height" type="double" />
+  </Action>
+  <Action ID="ReportSchedule">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="schedule_report_result" type="string" />
+    <input_port name="schedule_report_action" type="string" required="true" />
+    <input_port name="schedule_report_extra_data" type="string" required="true" />
+  </Action>
+  <Action ID="ScanCode">
+    <output_port name="scan_success" type="bool" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="scan_result" type="string" />
+  </Action>
+  <Action ID="MultiFloorPalletDetect">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="lift_height" type="double" />
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="teaching_args" type="string" required="true" />
+    <input_port name="pallet_args" type="string" required="true" />
+    <input_port name="pallet_mode" type="string" required="true" />
+  </Action>
+  <Action ID="GetTinesDistance">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="tines_distance" type="double" />
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="teaching_args" type="string" required="true" />
+    <input_port name="pallet_args" type="string" required="true" />
+    <input_port name="pallet_mode" type="string" required="true" />
+  </Action>
+  <Action ID="UnloadingProcess">
+    <input_port name="weighing_result" type="double" required="true" />
+    <input_port name="landing_speed" type="double" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="CheckMcsApproval">
+    <input_port name="timeout_sec" type="int" required="true" />
+    <input_port name="prepare_dist" type="double" required="true" />
+    <output_port name="mcs_approval" type="bool" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+  </Action>
+  <Action ID="CancelServoTask">
+    <input_port name="servo_status" type="int" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="servo_cancel_flag" type="bool" />
+  </Action>
+  <Action ID="NavSafePreCheck">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="teaching_args" type="string" required="true" />
+    <input_port name="pallet_args" type="string" required="true" />
+    <input_port name="pallet_mode" type="string" required="true" />
+  </Action>
+  <Action ID="BlindMove">
+    <input_port name="move_distance" type="double" required="true" />
+    <input_port name="move_trans_speed" type="double" required="true" />
+    <input_port name="servo_cancel_flag" type="bool" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="VisualServo">
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="station_args" type="string" required="true" />
+    <input_port name="current_dist" type="double" required="true" />
+    <input_port name="servo_cancel_flag" type="bool" required="true" />
+    <input_port name="target_position_type" type="string" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="ServoStatus">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <output_port name="servo_status" type="int" />
+  </Action>
+  <Action ID="DoubleToString">
+    <output_port name="output_param" type="string" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <input_port name="input_param" type="double" required="true" />
+  </Action>
+  <Action ID="ResetEStopStatusCheck">
+    <input_port name="dist_to_target" type="double" required="true" />
+    <input_port name="station_args" type="string" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="SetLoadingStatus">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="status" type="bool" required="true" />
+  </Action>
+  <Action ID="BackSafeLaserEnable">
+    <input_port name="isEnable" type="bool" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+  </Action>
+  <Action ID="UnloadTemplate">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="Mute">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="config_topic" type="string" required="true" />
+    <input_port name="mute" type="string" required="true" />
+  </Action>
+  <Action ID="HeadFixedNavigator">
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+    <input_port name="set_heading" type="bool" required="true" />
+  </Action>
+  <Action ID="SelectServoMode">
+    <input_port name="action_args" type="string" required="true" />
+    <output_port name="servo_mode" type="string" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="LaserServo">
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="station_args" type="string" required="true" />
+    <input_port name="current_dist" type="double" required="true" />
+    <input_port name="servo_cancel_flag" type="bool" required="true" />
+    <input_port name="teaching_args" type="string" required="true" />
+    <input_port name="shelf_name_by_dispatch" type="string" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="DiscreteServo">
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="station_args" type="string" required="true" />
+    <input_port name="current_dist" type="double" required="true" />
+    <input_port name="servo_cancel_flag" type="bool" required="true" />
+    <input_port name="stage" type="string" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="ForkHeightServo">
+    <input_port name="action_args" type="string" required="true" />
+    <input_port name="teaching_args" type="string" required="true" />
+    <input_port name="servo_cancel_flag" type="bool" required="true" />
+    <input_port name="pallet_args" type="string" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="PalletStack">
+    <input_port name="lift_down_speed" type="double" required="true" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+  <Action ID="GetMultiLayerPalletInfo">
+    <input_port name="station_args" type="string" required="true" />
+    <input_port name="layer" type="string" required="true" />
+    <input_port name="multi_layer_teach_args" type="string" required="true" />
+    <output_port name="pallet_name" type="string" />
+    <output_port name="target_height_low" type="double" />
+    <output_port name="target_height_high" type="double" />
+    <output_port name="ref_layer_teach_args" type="string" />
+    <output_port name="errorMsg" type="string" default="{errorMsg}" />
+    <output_port name="out_error_id" type="string" default="{out_error_id}" />
+    <output_port name="out_error_level" type="int" default="{out_error_level}" />
+    <output_port name="out_error_name" type="string" default="{out_error_name}" />
+    <output_port name="out_error_details" type="string" default="{out_error_details}" />
+  </Action>
+</TreeNodesModel>

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { BtNodeModel } from "./core/btAst";
 import { BtPlaybackLog } from "./core/btlog";
 import {
   BtUserSettings,
@@ -16,7 +17,13 @@ import {
 } from "./panel/messages";
 import { routeWebviewMessage } from "./panel/messageRouter";
 import { getPanelCopy } from "./panel/panelCopy";
-import { mergePresetNodeSets, normalizeNodeCopyChildren, toBaseName } from "./panel/panelUtils";
+import { ShortcutActionQueue } from "./panel/shortcutActionQueue";
+import {
+  mergePresetNodeSets,
+  normalizeNodeCopyChildren,
+  normalizeNodeCopyModels,
+  toBaseName
+} from "./panel/panelUtils";
 import {
   handleChoosePlaybackLogFileAction,
   handleImportPlaybackLogFileAction
@@ -71,10 +78,12 @@ type InitialPanelState = {
 };
 
 export class BehaviorTreePreviewPanel {
+  private static readonly searchKeybindingContext = "btreeTool.previewFocus";
   private static readonly panelsByDocument = new Map<string, Set<BehaviorTreePreviewPanel>>();
   private static readonly noDocumentPanels = new Set<BehaviorTreePreviewPanel>();
   private static activePanel: BehaviorTreePreviewPanel | null = null;
   private static copiedNodeTemplate: NodeCopyTemplateMessage | null = null;
+  private static copiedNodeModels: BtNodeModel[] = [];
   private static readonly invalidDocumentMessage = "当前文件不符合规则";
   private static readonly invalidDocumentConfirm = "确定";
   static async createOrShow(
@@ -164,6 +173,15 @@ export class BehaviorTreePreviewPanel {
     return BehaviorTreePreviewPanel.activePanel;
   }
 
+  private static setActivePanel(panel: BehaviorTreePreviewPanel | null): void {
+    BehaviorTreePreviewPanel.activePanel = panel;
+    void vscode.commands.executeCommand(
+      "setContext",
+      BehaviorTreePreviewPanel.searchKeybindingContext,
+      Boolean(panel)
+    );
+  }
+
   static disposeAll(): void {
     const panels = new Set<BehaviorTreePreviewPanel>(BehaviorTreePreviewPanel.noDocumentPanels);
     for (const documentPanels of BehaviorTreePreviewPanel.panelsByDocument.values()) {
@@ -175,7 +193,7 @@ export class BehaviorTreePreviewPanel {
     }
     BehaviorTreePreviewPanel.panelsByDocument.clear();
     BehaviorTreePreviewPanel.noDocumentPanels.clear();
-    BehaviorTreePreviewPanel.activePanel = null;
+    BehaviorTreePreviewPanel.setActivePanel(null);
   }
 
   private static broadcastNodeClipboardState(): void {
@@ -193,6 +211,10 @@ export class BehaviorTreePreviewPanel {
       attributes: { ...(nodeTemplate.attributes || {}) },
       children: normalizeNodeCopyChildren(nodeTemplate.children)
     };
+  }
+
+  private static cloneNodeModels(nodeModels: BtNodeModel[]): BtNodeModel[] {
+    return normalizeNodeCopyModels(nodeModels);
   }
 
   private static addPanelForDocument(uri: vscode.Uri, panel: BehaviorTreePreviewPanel): void {
@@ -273,6 +295,12 @@ export class BehaviorTreePreviewPanel {
   private currentSettings: BtUserSettings = cloneUserSettings(EMPTY_PREVIEW_PAYLOAD.settings);
   private nodeLibraryPresets: BtUserSettings["presetNodes"] = [];
   private webviewReady = false;
+  private readonly shortcutActions = new ShortcutActionQueue((action) => {
+    this.panel.webview.postMessage({
+      type: "shortcutAction",
+      payload: { action }
+    });
+  });
   private invalidDocumentPrompt: Promise<void> | null = null;
   private getCopy() {
     return getPanelCopy(this.currentSettings.language);
@@ -371,7 +399,7 @@ export class BehaviorTreePreviewPanel {
     }
     this.latestDocumentUri = document?.uri || null;
     this.latestPayload = this.toPayload(document);
-    BehaviorTreePreviewPanel.activePanel = this;
+    BehaviorTreePreviewPanel.setActivePanel(this);
 
     this.panel.webview.html = getWebviewHtml({
       webview: this.panel.webview,
@@ -389,7 +417,9 @@ export class BehaviorTreePreviewPanel {
     this.panel.onDidDispose(() => this.cleanup(), null, this.disposables);
     this.panel.onDidChangeViewState(() => {
       if (this.panel.active) {
-        BehaviorTreePreviewPanel.activePanel = this;
+        BehaviorTreePreviewPanel.setActivePanel(this);
+      } else if (BehaviorTreePreviewPanel.activePanel === this) {
+        BehaviorTreePreviewPanel.setActivePanel(null);
       }
       this.panel.webview.postMessage({
         type: "panelVisibility",
@@ -416,6 +446,7 @@ export class BehaviorTreePreviewPanel {
       onReady: () => {
         this.webviewReady = true;
         this.postLatestPayload();
+        this.shortcutActions.markReady();
         void this.postTraceConfigState();
         void this.consumePendingPlaybackLogFile();
       },
@@ -631,10 +662,7 @@ export class BehaviorTreePreviewPanel {
   }
 
   postShortcutAction(action: ShortcutAction): void {
-    this.panel.webview.postMessage({
-      type: "shortcutAction",
-      payload: { action }
-    });
+    this.shortcutActions.dispatch(action);
   }
 
   private postLatestPayload(): void {
@@ -684,7 +712,8 @@ export class BehaviorTreePreviewPanel {
       type: "nodeClipboardState",
       payload: {
         hasNodeTemplate: Boolean(nodeTemplate),
-        nodeTemplate: nodeTemplate ? BehaviorTreePreviewPanel.cloneNodeTemplate(nodeTemplate) : null
+        nodeTemplate: nodeTemplate ? BehaviorTreePreviewPanel.cloneNodeTemplate(nodeTemplate) : null,
+        nodeModels: nodeTemplate ? BehaviorTreePreviewPanel.cloneNodeModels(BehaviorTreePreviewPanel.copiedNodeModels) : []
       }
     });
   }
@@ -730,7 +759,7 @@ export class BehaviorTreePreviewPanel {
     this.latestPayload = this.toPayload(document);
     this.updatePanelTitle(document.fileName);
     BehaviorTreePreviewPanel.addPanelForDocument(document.uri, this);
-    BehaviorTreePreviewPanel.activePanel = this;
+    BehaviorTreePreviewPanel.setActivePanel(this);
     if (this.webviewReady) {
       this.postLatestPayload();
     }
@@ -746,7 +775,7 @@ export class BehaviorTreePreviewPanel {
     this.xmlMutations.clearUndoStack();
     this.latestPayload = this.toPayload(undefined);
     this.panel.title = "BTreeTool";
-    BehaviorTreePreviewPanel.activePanel = this;
+    BehaviorTreePreviewPanel.setActivePanel(this);
     if (this.webviewReady) {
       this.postLatestPayload();
     }
@@ -875,7 +904,9 @@ export class BehaviorTreePreviewPanel {
     await handleCreateNodeCopyAction(payload, this.getEditActionContext());
   }
 
-  private handleCopyNodeTemplate(payload: { nodeTemplate?: NodeCopyTemplateMessage } | undefined): void {
+  private handleCopyNodeTemplate(
+    payload: { nodeTemplate?: NodeCopyTemplateMessage; nodeModels?: BtNodeModel[] } | undefined
+  ): void {
     const nodeTemplate = payload?.nodeTemplate;
     if (!nodeTemplate?.tagName || !nodeTemplate.attributes) {
       return;
@@ -886,6 +917,7 @@ export class BehaviorTreePreviewPanel {
       attributes: { ...nodeTemplate.attributes },
       children: normalizeNodeCopyChildren(nodeTemplate.children)
     };
+    BehaviorTreePreviewPanel.copiedNodeModels = normalizeNodeCopyModels(payload?.nodeModels);
     BehaviorTreePreviewPanel.broadcastNodeClipboardState();
   }
 
@@ -906,7 +938,8 @@ export class BehaviorTreePreviewPanel {
 
     await this.handleCreateNodeCopy({
       ...payload,
-      nodeTemplate: BehaviorTreePreviewPanel.cloneNodeTemplate(nodeTemplate)
+      nodeTemplate: BehaviorTreePreviewPanel.cloneNodeTemplate(nodeTemplate),
+      nodeModels: BehaviorTreePreviewPanel.cloneNodeModels(BehaviorTreePreviewPanel.copiedNodeModels)
     });
   }
 
@@ -1147,7 +1180,7 @@ export class BehaviorTreePreviewPanel {
     }
 
     if (BehaviorTreePreviewPanel.activePanel === this) {
-      BehaviorTreePreviewPanel.activePanel = null;
+      BehaviorTreePreviewPanel.setActivePanel(null);
     }
 
     while (this.disposables.length > 0) {

@@ -9,7 +9,7 @@
         "errorMsg": {
           "role": "output",
           "type": "string",
-          "required": true,
+          "required": false,
           "description": "错误日志",
           "default": "{errorMsg}"
         },
@@ -18,7 +18,7 @@
           "type": "bool",
           "required": true,
           "description": "功能启用开关",
-          "default": "{is_enable}"
+          "default": "true / false"
         }
       },
       "rules": [],
@@ -39,7 +39,7 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
@@ -63,16 +63,17 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "baffle_stop_enable": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
-          "description": ""
+          "type": "bool",
+          "required": true,
+          "description": "",
+          "default": "true / false"
         }
       },
       "rules": [],
@@ -92,53 +93,53 @@
       "params": {
         "move_distance": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "move_trans_speed": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "servo_cancel_flag": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -152,18 +153,6 @@
     "maintainer": "芦韩",
     "source_notes": []
   },
-  "BlockingNode": {
-    "title": "阻塞算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "芦韩",
-    "description": "阻塞算子"
-  },
   "CameraEnable": {
     "title": "相机使能算子",
     "category": "Action",
@@ -173,49 +162,49 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "camera_name": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "camera_enable": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "uint32",
+          "required": true,
           "description": ""
         }
       },
@@ -236,48 +225,48 @@
       "params": {
         "servo_status": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "int",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "servo_cancel_flag": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         }
@@ -299,7 +288,7 @@
       "params": {
         "carrier_id": {
           "role": "input",
-          "type": "uint16",
+          "type": "int",
           "required": true,
           "description": "载具编号 id。",
           "options": {
@@ -313,7 +302,7 @@
         },
         "action_cmd": {
           "role": "input",
-          "type": "enum",
+          "type": "string",
           "required": true,
           "description": "动作指令。",
           "options": {
@@ -326,21 +315,21 @@
         "target_position": {
           "role": "input",
           "type": "double",
-          "required": false,
+          "required": true,
           "unit": "m",
           "description": "目标位置。执行 position 指令时必须填写。"
         },
         "velocity_max": {
           "role": "input",
           "type": "double",
-          "required": false,
+          "required": true,
           "unit": "m/s",
           "description": "载具限速。可根据实际需要填写或不填写。"
         },
         "stop_action": {
           "role": "input",
           "type": "bool",
-          "required": false,
+          "required": true,
           "description": "停止当前动作。用于外部逻辑停止载具，例如卸货完成时停止叉齿下降。",
           "options": {
             "true": "停止动作",
@@ -468,59 +457,62 @@
   "CheckMcsApproval": {
     "title": "CheckMcsApproval",
     "category": "Action",
-    "description": "",
+    "description": "MCS检测算子",
     "mainline": {
       "status": "draft",
       "params": {
-        "timeout_sec": {
-          "role": "input",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
-        "prepare_dist": {
-          "role": "input",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
         "mcs_approval": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
-          "description": ""
+          "description": "",
+          "default": "{mcs_approval"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
+        "prepare_dist": {
+          "role": "input",
+          "type": "double",
+          "required": true,
+          "description": "",
+          "default": "{prepare_dist}"
+        },
+        "timeout_sec": {
+          "role": "input",
+          "type": "int",
+          "required": true,
+          "description": "",
+          "default": "50"
+        },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
@@ -530,21 +522,9 @@
       "examples": []
     },
     "custom": {},
-    "department": "",
-    "maintainer": "",
-    "source_notes": []
-  },
-  "checkMcsApproval": {
-    "title": "MCS信号检测算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
+    "department": "软件",
     "maintainer": "芦韩",
-    "description": "MCS信号检测算子"
+    "source_notes": []
   },
   "DecelerateNavi": {
     "title": "缓慢停车算子",
@@ -555,42 +535,42 @@
       "params": {
         "prepare_dist": {
           "role": "input",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": "The prepare distance before obstacle. \"                                   \"Special: if prepare_dist == -1, force stop immediately.",
           "default": "0.0"
         },
         "obs_dist": {
           "role": "input",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": "The distance of obstacle.",
           "default": "0.0"
         },
         "decelerate_stop": {
           "role": "input",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "Is stop decelerate.",
           "default": "0"
         },
         "err_obs_dist": {
           "role": "input",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": "obs_dist = 0 if obs_dist <= err_obs_dist else obs_dist.",
           "default": "0.02"
         },
         "mode": {
           "role": "input",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "Mode: 'in' for inbound (distance to ending), 'out' for \"                 \"outbound (distance to starting).",
           "default": "in"
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
@@ -613,65 +593,65 @@
       "params": {
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "station_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "current_dist": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "servo_cancel_flag": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         },
         "stage": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -694,21 +674,21 @@
       "params": {
         "output_param": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "input_param": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         }
       },
@@ -729,50 +709,50 @@
       "params": {
         "layer": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "schedule_report_result": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "target_height_low_1": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "target_height_high_1": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "target_height_low_2": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "target_height_high_2": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "target_height_low_3": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "target_height_high_3": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         }
       },
@@ -793,53 +773,53 @@
       "params": {
         "min_threshold": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "max_threshold": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "current_dist": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -850,20 +830,8 @@
     },
     "custom": {},
     "department": "导航",
-    "maintainer": "何鸿献",
+    "maintainer": "何鸿颉",
     "source_notes": []
-  },
-  "FileIO": {
-    "title": "文件读写算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "文件读写算子"
   },
   "ForkHeightServo": {
     "title": "高度伺服算子",
@@ -874,59 +842,59 @@
       "params": {
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "teaching_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "servo_cancel_flag": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         },
         "pallet_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -949,27 +917,27 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "lift_target_position": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "lift_speed_max": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "unload_finish": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         }
       },
@@ -990,15 +958,15 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "push_target_position": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         }
       },
@@ -1019,15 +987,15 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "slide_target_position": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         }
       },
@@ -1039,30 +1007,6 @@
     "maintainer": "骆江波",
     "source_notes": []
   },
-  "ForkTipControl": {
-    "title": "叉尖光电控制算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "梁宗",
-    "description": "叉尖光电控制算子"
-  },
-  "GetCircleRadius": {
-    "title": "获取圆形半径算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "获取圆形半径算子"
-  },
   "GetForkHeight": {
     "title": "叉臂高度控制算子",
     "category": "Action",
@@ -1072,54 +1016,54 @@
       "params": {
         "lift_safe_position_low": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "lift_safe_position_high": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "fork_height": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         }
@@ -1141,7 +1085,7 @@
       "params": {
         "result": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         }
@@ -1154,18 +1098,6 @@
     "maintainer": "何鸿献",
     "source_notes": []
   },
-  "GetGroundDistance": {
-    "title": "获取地面距离算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "获取地面距离算子"
-  },
   "GetLoadWeight": {
     "title": "载货重量算子",
     "category": "Action",
@@ -1175,42 +1107,42 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "load_weight": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         }
@@ -1226,93 +1158,93 @@
   "GetMultiLayerPalletInfo": {
     "title": "多层板模板解析算子",
     "category": "Action",
-    "description": "",
+    "description": "多层板模板解析算子",
     "mainline": {
       "status": "draft",
       "params": {
-        "station_args": {
-          "role": "input",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
         "layer": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "multi_layer_teach_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
-        "pallet_name": {
+        "out_error_details": {
           "role": "output",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
-        "target_height_low": {
-          "role": "output",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
-        "target_height_high": {
-          "role": "output",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
-        "ref_layer_teach_args": {
-          "role": "output",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
-        "errorMsg": {
-          "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
-          "default": "{errorMsg}"
+          "default": "{out_error_details}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
-        "out_error_details": {
+        "pallet_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        "ref_layer_teach_args": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        "station_args": {
+          "role": "input",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        "target_height_high": {
+          "role": "output",
+          "type": "double",
+          "required": false,
+          "description": ""
+        },
+        "target_height_low": {
+          "role": "output",
+          "type": "double",
+          "required": false,
+          "description": ""
+        },
+        "errorMsg": {
+          "role": "output",
+          "type": "string",
           "required": false,
           "description": "",
-          "default": "{out_error_details}"
+          "default": "{errorMsg}"
         }
       },
       "rules": [],
       "examples": []
     },
     "custom": {},
-    "department": "对接",
+    "department": "软件",
     "maintainer": "芦韩",
     "source_notes": []
   },
@@ -1325,7 +1257,7 @@
       "params": {
         "result": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         }
@@ -1347,67 +1279,67 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "tines_distance": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         },
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "teaching_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "pallet_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "pallet_mode": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -1419,30 +1351,6 @@
     "maintainer": "刁怀锐",
     "source_notes": []
   },
-  "GlobalServo": {
-    "title": "全局伺服算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "全局伺服算子"
-  },
-  "GoodsReadyCheck": {
-    "title": "取货队员算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "取货队员算子"
-  },
   "HeadFixedNavigator": {
     "title": "导航首走子",
     "category": "Action",
@@ -1452,43 +1360,43 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "set_heading": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         }
       },
@@ -1509,71 +1417,71 @@
       "params": {
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "station_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "current_dist": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "servo_cancel_flag": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         },
         "teaching_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "shelf_name_by_dispatch": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -1596,21 +1504,21 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "cmd": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "lift_target_position": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         }
       },
@@ -1631,54 +1539,54 @@
       "params": {
         "high_threshold": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "low_threshold": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "lift_height": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         }
@@ -1691,30 +1599,6 @@
     "maintainer": "骆江波",
     "source_notes": []
   },
-  "LoadingCheckControl": {
-    "title": "载货一致性检测算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "陈凯伦",
-    "description": "载货一致性检测算子"
-  },
-  "LoadRelease": {
-    "title": "载货释放算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "刁怀锐",
-    "description": "载货释放算子"
-  },
   "LoadStatus": {
     "title": "载货状态检测算子",
     "category": "Action",
@@ -1724,7 +1608,7 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
@@ -1747,47 +1631,47 @@
       "params": {
         "station_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "shelf_name_by_dispatch": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -1810,67 +1694,67 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "lift_height": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         },
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "teaching_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "pallet_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "pallet_mode": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -1891,49 +1775,49 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "config_topic": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "mute": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -1945,18 +1829,6 @@
     "maintainer": "李然",
     "source_notes": []
   },
-  "NavCompensate": {
-    "title": "导航目标点补偿算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "导航",
-    "maintainer": "何鸿献",
-    "description": "导航目标点补偿算子"
-  },
   "NavSafePreCheck": {
     "title": "导航防呆检测算子",
     "category": "Action",
@@ -1966,61 +1838,61 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "teaching_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "pallet_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "pallet_mode": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -2041,7 +1913,7 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
@@ -2064,35 +1936,35 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -2115,42 +1987,42 @@
       "params": {
         "wait_timeout": {
           "role": "input",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "wait sched notice timeout.",
           "default": "-1"
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -2164,30 +2036,6 @@
     "maintainer": "刘万隆",
     "source_notes": []
   },
-  "OffsetCheck": {
-    "title": "偏移检查算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "郭本涛",
-    "description": "偏移检查算子"
-  },
-  "PalletInfoUpload": {
-    "title": "栈板信息上传算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "芦韩",
-    "description": "栈板信息上传算子"
-  },
   "PalletServo": {
     "title": "栈板伺服算子",
     "category": "Action",
@@ -2197,71 +2045,71 @@
       "params": {
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "station_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "pallet_name": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "teaching_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "current_dist": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "servo_cancel_flag": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -2284,41 +2132,41 @@
       "params": {
         "lift_down_speed": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -2341,43 +2189,43 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "pause_enable": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "uint32",
+          "required": true,
           "description": ""
         }
       },
@@ -2398,132 +2246,132 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "DI1": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI2": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI3": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI4": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI5": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI6": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI7": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI8": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI9": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI10": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI11": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI12": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI13": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI14": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI15": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "DI16": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         }
@@ -2545,8 +2393,8 @@
       "params": {
         "message": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -2567,59 +2415,59 @@
       "params": {
         "error_id": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "error_level": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "int",
+          "required": true,
           "description": ""
         },
         "error_name": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "error_details": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -2642,72 +2490,72 @@
       "params": {
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "station_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "teaching_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "check_height": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "current_dist": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "have_obstracle": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         }
@@ -2729,27 +2577,27 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "schedule_report_result": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": ""
         },
         "schedule_report_action": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "schedule_report_extra_data": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -2770,47 +2618,47 @@
       "params": {
         "dist_to_target": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "station_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -2848,8 +2696,8 @@
       "params": {
         "message": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -2870,8 +2718,8 @@
       "params": {
         "message": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -2883,18 +2731,6 @@
     "maintainer": "刘万隆",
     "source_notes": []
   },
-  "RotateControlNew": {
-    "title": "新转盘控制算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "导航",
-    "maintainer": "梁宗",
-    "description": "新转盘控制算子"
-  },
   "SafeLaserCtrl": {
     "title": "安全激光控制算子",
     "category": "Action",
@@ -2904,49 +2740,49 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "laser_name": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "command": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -2967,8 +2803,8 @@
       "params": {
         "message": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         }
       },
@@ -2989,20 +2825,20 @@
       "params": {
         "scan_success": {
           "role": "output",
-          "type": "unknown",
+          "type": "bool",
           "required": false,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "scan_result": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": ""
         }
@@ -3024,49 +2860,49 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "config_topic": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "open_scan": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         }
       },
@@ -3087,50 +2923,50 @@
       "params": {
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
-        "servo_mode": {
+        "out_error_details": {
           "role": "output",
-          "type": "unknown",
-          "required": false,
-          "description": ""
-        },
-        "errorMsg": {
-          "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
-          "default": "{errorMsg}"
+          "default": "{out_error_details}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
-        "out_error_details": {
+        "servo_mode": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        "errorMsg": {
+          "role": "output",
+          "type": "string",
           "required": false,
           "description": "",
-          "default": "{out_error_details}"
+          "default": "{errorMsg}"
         }
       },
       "rules": [],
@@ -3138,7 +2974,7 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "",
+    "maintainer": "芦韩",
     "source_notes": []
   },
   "ServoStatus": {
@@ -3150,42 +2986,42 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "servo_status": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": ""
         }
@@ -3207,21 +3043,21 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "status": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         }
       },
@@ -3242,71 +3078,71 @@
       "params": {
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "current_dist": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "shelf_servo_teaching_result": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "station_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "servo_cancel_flag": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         },
         "shelf_name_by_dispatch": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -3320,34 +3156,22 @@
     "maintainer": "刁怀锐",
     "source_notes": []
   },
-  "SimpleLift": {
-    "title": "简单举升节点",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "基线",
-    "maintainer": "刘万隆",
-    "description": "简单举升节点"
-  },
   "SlowDownToStop": {
-    "title": "虚拟阀码物算子",
+    "title": "虚拟停障算子",
     "category": "Action",
-    "description": "虚拟阀码物算子",
+    "description": "虚拟停障算子",
     "mainline": {
       "status": "draft",
       "params": {
         "obs_dist": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
@@ -3358,7 +3182,7 @@
     },
     "custom": {},
     "department": "安全",
-    "maintainer": "",
+    "maintainer": "1",
     "source_notes": []
   },
   "SpeedManager": {
@@ -3370,49 +3194,49 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
         },
         "lowest_priority_speed": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "reset_priority": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         }
       },
@@ -3424,43 +3248,6 @@
     "maintainer": "刘怀锐",
     "source_notes": []
   },
-  "StageAndReturn": {
-    "title": "StageAndReturn",
-    "category": "Action",
-    "description": "",
-    "mainline": {
-      "status": "draft",
-      "params": {
-        "phase": {
-          "role": "input",
-          "type": "unknown",
-          "required": false,
-          "description": "Stage name.",
-          "default": ""
-        },
-        "event": {
-          "role": "input",
-          "type": "unknown",
-          "required": false,
-          "description": "Stage event.",
-          "default": ""
-        },
-        "return_status": {
-          "role": "input",
-          "type": "unknown",
-          "required": false,
-          "description": "Returns SUCCESS only when set to success.",
-          "default": "failure"
-        }
-      },
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "",
-    "maintainer": "",
-    "source_notes": []
-  },
   "StartDistCheck": {
     "title": "起始距离有效性判断算子",
     "category": "Action",
@@ -3470,53 +3257,53 @@
       "params": {
         "min_threshold": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "max_threshold": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "current_dist": {
           "role": "output",
-          "type": "unknown",
+          "type": "double",
           "required": false,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -3530,18 +3317,6 @@
     "maintainer": "何鸿献",
     "source_notes": []
   },
-  "StationOffset": {
-    "title": "站点偏移算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "邹本善",
-    "description": "站点偏移算子"
-  },
   "TipPhotoelectricCtrl": {
     "title": "TipPhotoelectricCtrl",
     "category": "Action",
@@ -3551,8 +3326,8 @@
       "params": {
         "ignore_enabled": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         }
       },
@@ -3564,18 +3339,6 @@
     "maintainer": "",
     "source_notes": []
   },
-  "tipPhotoelectricCtrl": {
-    "title": "齿尖光电屏蔽算子",
-    "category": "Action",
-    "mainline": {
-      "status": "draft",
-      "params": {}
-    },
-    "custom": {},
-    "department": "安全",
-    "maintainer": "芦韩",
-    "description": "齿尖光电屏蔽算子"
-  },
   "UnloadingProcess": {
     "title": "放货+称重检测算子",
     "category": "Action",
@@ -3585,47 +3348,47 @@
       "params": {
         "weighing_result": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "landing_speed": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -3648,35 +3411,35 @@
       "params": {
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
@@ -3699,65 +3462,65 @@
       "params": {
         "action_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "station_args": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "current_dist": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "double",
+          "required": true,
           "description": ""
         },
         "servo_cancel_flag": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "bool",
+          "required": true,
           "description": ""
         },
         "target_position_type": {
           "role": "input",
-          "type": "unknown",
-          "required": false,
+          "type": "string",
+          "required": true,
           "description": ""
         },
         "errorMsg": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_id}"
         },
         "out_error_level": {
           "role": "output",
-          "type": "unknown",
+          "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
         },
         "out_error_name": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
         },
         "out_error_details": {
           "role": "output",
-          "type": "unknown",
+          "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
