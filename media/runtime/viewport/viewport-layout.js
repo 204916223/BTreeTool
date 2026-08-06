@@ -9,6 +9,7 @@
   const DRAG_PREVIEW_ZOOM_FACTOR = 0.85;
   const DRAG_AUTO_PAN_EDGE = 20;
   const DRAG_AUTO_PAN_SPEED = 14;
+  const DRAG_AUTO_PAN_STALE_MS = 180;
   const DROP_TARGET_REFERENCE_SIZE = {
     width: 230,
     height: 250
@@ -698,6 +699,36 @@
       runtime.canvas?.clearDragState?.({ cancelled: true });
     }, true);
 
+    const finishNodeDragOnPrimaryRelease = (event) => {
+      if (
+        event?.button !== 0 ||
+        !runtime.state.currentDragState ||
+        runtime.state.currentCanvasState !== shell.__btreeCanvasState
+      ) {
+        return;
+      }
+
+      const pendingDragState = runtime.state.currentDragState;
+      window.setTimeout(() => {
+        // Native dragend can be lost when the pointer crosses the app window.
+        // A valid drop or normal dragend clears this state before the fallback.
+        if (runtime.state.currentDragState === pendingDragState) {
+          runtime.canvas?.clearDragState?.({ cancelled: true });
+        }
+      }, 0);
+    };
+    shell.addEventListener("mouseup", finishNodeDragOnPrimaryRelease, true);
+    window.addEventListener("mouseup", finishNodeDragOnPrimaryRelease, true);
+
+    window.addEventListener("blur", () => {
+      if (
+        runtime.state.currentDragState &&
+        runtime.state.currentCanvasState === shell.__btreeCanvasState
+      ) {
+        runtime.canvas?.clearDragState?.({ cancelled: true });
+      }
+    }, true);
+
     const handleNodeDrag = (event) => {
       if (!runtime.state.currentDragState || runtime.state.currentCanvasState !== shell.__btreeCanvasState) {
         return;
@@ -723,6 +754,8 @@
     window.addEventListener("dragover", handleNodeDrag, true);
     window.addEventListener("dragenter", handleNodeDrag, true);
     window.addEventListener("drag", handleNodeDrag, true);
+    window.addEventListener("mousemove", handleNodeDrag, true);
+    window.addEventListener("pointermove", handleNodeDrag, true);
 
     shell.addEventListener("dragleave", (event) => {
       if (!event.relatedTarget || !(event.relatedTarget instanceof Element) || !shell.contains?.(event.relatedTarget)) {
@@ -1097,13 +1130,37 @@
       return;
     }
 
-    dragAutoPan = dragAutoPan || { frame: null, canvasState, velocityX: 0, velocityY: 0 };
+    dragAutoPan = dragAutoPan || {
+      frame: null,
+      staleTimer: null,
+      canvasState,
+      velocityX: 0,
+      velocityY: 0
+    };
     dragAutoPan.canvasState = canvasState;
     dragAutoPan.velocityX = velocityX;
     dragAutoPan.velocityY = velocityY;
+    refreshDragAutoPanTimeout(dragAutoPan);
     if (dragAutoPan.frame === null) {
       dragAutoPan.frame = requestAnimationFrame(runDragAutoPan);
     }
+  }
+
+  function refreshDragAutoPanTimeout(panState) {
+    if (!panState) {
+      return;
+    }
+    if (panState.staleTimer !== null && typeof window.clearTimeout === "function") {
+      window.clearTimeout(panState.staleTimer);
+    }
+    if (typeof window.setTimeout !== "function") {
+      return;
+    }
+    panState.staleTimer = window.setTimeout(() => {
+      if (dragAutoPan === panState) {
+        stopDragAutoPan();
+      }
+    }, DRAG_AUTO_PAN_STALE_MS);
   }
 
   function runDragAutoPan() {
@@ -1125,6 +1182,9 @@
   function stopDragAutoPan() {
     if (dragAutoPan && dragAutoPan.frame !== null && typeof cancelAnimationFrame === "function") {
       cancelAnimationFrame(dragAutoPan.frame);
+    }
+    if (dragAutoPan && dragAutoPan.staleTimer !== null && typeof window.clearTimeout === "function") {
+      window.clearTimeout(dragAutoPan.staleTimer);
     }
     dragAutoPan = null;
   }

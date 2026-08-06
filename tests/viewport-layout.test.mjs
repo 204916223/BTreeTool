@@ -5,6 +5,7 @@ import path from "node:path";
 import vm from "node:vm";
 
 function loadViewportRuntime(options = {}) {
+  const windowListeners = {};
   const runtime = {
     state: {
       currentZoom: 1,
@@ -30,8 +31,12 @@ function loadViewportRuntime(options = {}) {
   const context = {
     window: {
       BTreeToolRuntime: runtime,
-      addEventListener() {},
-      setTimeout() {},
+      addEventListener(type, handler) {
+        windowListeners[type] = windowListeners[type] || [];
+        windowListeners[type].push(handler);
+      },
+      setTimeout: options.setTimeout || (() => {}),
+      clearTimeout: options.clearTimeout || (() => {}),
       requestAnimationFrame: options.requestAnimationFrame || ((callback) => callback())
     },
     document: {
@@ -51,6 +56,7 @@ function loadViewportRuntime(options = {}) {
   };
   const scriptPath = path.resolve("media/runtime/viewport/viewport-layout.js");
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
+  runtime.__windowListeners = windowListeners;
   return runtime;
 }
 
@@ -488,6 +494,130 @@ test("right mouse button reported by dragover cancels the active node drag", () 
 
   assert.equal(cancelled, true);
   assert.equal(runtime.state.currentDragState, null);
+});
+
+test("primary mouse release clears a drag when native dragend was lost outside the window", () => {
+  const timers = [];
+  let cancelled = false;
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    setTimeout(callback) {
+      timers.push(callback);
+      return timers.length;
+    },
+    canvas: {
+      clearDragState(options) {
+        cancelled = options?.cancelled === true;
+        runtime.state.currentDragState = null;
+      }
+    }
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  runtime.state.currentCanvasState = shell.__btreeCanvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+  timers.length = 0;
+
+  runtime.__windowListeners.mouseup.forEach((handler) => handler({ button: 0 }));
+  assert.equal(cancelled, false);
+  timers.shift()();
+  assert.equal(cancelled, true);
+  assert.equal(runtime.state.currentDragState, null);
+});
+
+test("window blur cancels an active drag before it can remain stuck on re-entry", () => {
+  let cancelled = false;
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    canvas: {
+      clearDragState(options) {
+        cancelled = options?.cancelled === true;
+        runtime.state.currentDragState = null;
+      }
+    }
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  runtime.state.currentCanvasState = shell.__btreeCanvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+
+  runtime.__windowListeners.blur.forEach((handler) => handler({}));
+
+  assert.equal(cancelled, true);
+  assert.equal(runtime.state.currentDragState, null);
+});
+
+test("mouse movement after window re-entry releases stale edge auto-pan", () => {
+  const frames = [];
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelAnimationFrame() {}
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  runtime.state.currentCanvasState = shell.__btreeCanvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+  frames.length = 0;
+
+  shell.listeners.dragover({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
+  const panBeforeEdgeFrame = shell.__btreeCanvasState.panX;
+  frames.shift()();
+  assert.ok(shell.__btreeCanvasState.panX > panBeforeEdgeFrame);
+
+  runtime.__windowListeners.mousemove.forEach((handler) => handler({
+    clientX: 400,
+    clientY: 350,
+    button: 0,
+    buttons: 1
+  }));
+  const panAfterReturn = shell.__btreeCanvasState.panX;
+  frames.shift()();
+  assert.equal(shell.__btreeCanvasState.panX, panAfterReturn);
+});
+
+test("edge auto-pan stops when drag events are lost outside the webview", () => {
+  const frames = [];
+  const timers = new Map();
+  let nextTimerId = 0;
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelAnimationFrame() {},
+    setTimeout(callback) {
+      nextTimerId += 1;
+      timers.set(nextTimerId, callback);
+      return nextTimerId;
+    },
+    clearTimeout(timerId) {
+      timers.delete(timerId);
+    }
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  runtime.state.currentCanvasState = shell.__btreeCanvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+  frames.length = 0;
+  timers.clear();
+
+  shell.listeners.dragover({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
+  frames.shift()();
+  const panAfterEdgeFrame = shell.__btreeCanvasState.panX;
+  const staleTimer = Array.from(timers.values()).at(-1);
+  staleTimer();
+
+  frames.shift()();
+  assert.equal(shell.__btreeCanvasState.panX, panAfterEdgeFrame);
 });
 
 test("tree layout reuses base measurements for expanded drop target sizing", () => {
