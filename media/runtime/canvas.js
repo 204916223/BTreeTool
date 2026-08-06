@@ -259,6 +259,7 @@
       "--drop-target-source-left",
       `${(entry.dropTargetX ?? entry.x) + ((entry.dropTargetWidth || entry.width) - entry.width) / 2}px`
     );
+    wrapper.style.setProperty("--drop-target-source-top", `${entry.dropTargetY ?? entry.y}px`);
     if (entry.expandForDropTarget) {
       wrapper.classList.add("is-drop-target-expandable");
     }
@@ -486,10 +487,20 @@
             targetParentPath: null,
             targetIndex: null
           };
+          const dragSource = card.closest(".canvas-node");
+          const dragSourceRect = dragSource?.getBoundingClientRect?.();
+          const dragViewportOrigin = dragSourceRect
+            ? {
+                screenX: dragSourceRect.left + dragSourceRect.width / 2,
+                screenY: dragSourceRect.top + dragSourceRect.height / 2,
+                nodePath: node.nodePath,
+                treeId: options.currentTreeId
+              }
+            : null;
           document.body.classList.add("is-reordering-nodes");
           card.classList.add("is-dragging-node");
-          card.closest(".canvas-node")?.classList.add("is-drag-source");
-          runtime.viewport.beginDragPreviewViewport();
+          dragSource?.classList.add("is-drag-source");
+          runtime.viewport.beginDragPreviewViewport(dragViewportOrigin);
           runtime.viewport.refreshDropTargetVisibility();
           runtime.catalog.syncDeleteTargetIndicator?.();
           event.dataTransfer.effectAllowed = "move";
@@ -498,7 +509,9 @@
         });
 
         heading.addEventListener("dragend", () => {
-          clearDragState();
+          if (runtime.state.currentDragState) {
+            clearDragState({ cancelled: true });
+          }
         });
       }
     }
@@ -732,10 +745,18 @@
     return targetIndex;
   }
 
-  function clearDragState() {
+  function clearDragState(options = {}) {
+    const wasDragging =
+      Boolean(runtime.state.currentDragState) ||
+      document.body.classList.contains?.("is-reordering-nodes") === true;
+    if (wasDragging) {
+      // Every drag completion restores the drop-target layout and viewport in the
+      // same frame. Suppress node transitions for both cancellation and commits.
+      document.body.classList.add("is-ending-node-drag");
+    }
     runtime.state.currentDragState = null;
     document.body.classList.remove("is-reordering-nodes");
-    runtime.viewport.endDragPreviewViewport();
+    runtime.viewport.endDragPreviewViewport(options);
     runtime.viewport.refreshDropTargetVisibility();
     clearDropMarkers();
     runtime.catalog.clearCatalogDeleteTarget();
@@ -750,6 +771,9 @@
     document.querySelectorAll(".catalog-item.is-dragging-palette").forEach((node) => {
       node.classList.remove("is-dragging-palette");
     });
+    if (wasDragging) {
+      document.body.classList.remove("is-ending-node-drag");
+    }
   }
 
   function clearDropMarkers() {
@@ -886,7 +910,7 @@
         nextIndex === dragState.sourceIndex &&
         dropTarget.targetParentPath === dragState.sourceParentPath
       ) {
-        clearDragState();
+        clearDragState({ cancelled: true });
         return;
       }
 
@@ -912,7 +936,7 @@
         });
       } else {
         if (targetTreeId !== dragState.treeId) {
-          clearDragState();
+          clearDragState({ cancelled: true });
           return;
         }
         runtime.vscode.postMessage({

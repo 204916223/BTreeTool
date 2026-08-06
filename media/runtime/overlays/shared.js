@@ -137,6 +137,7 @@
     let currentOptions = normalizeChoiceOptions(options.options || []);
     let currentValue = options.value ?? currentOptions[0]?.value ?? "";
     let disabled = options.disabled === true;
+    let menuPositionListenersBound = false;
 
     Object.defineProperty(element, "value", {
       get() {
@@ -219,6 +220,7 @@
       });
       menu.hidden = false;
       positionMenu();
+      bindMenuPositionListeners();
       element.classList.add("is-open");
       button.setAttribute("aria-expanded", "true");
       setArrowIcon("chevronUp");
@@ -229,6 +231,7 @@
 
     function closeMenu() {
       menu.hidden = true;
+      unbindMenuPositionListeners();
       element.classList.remove("is-open");
       button.setAttribute("aria-expanded", "false");
       setArrowIcon("chevronDown");
@@ -258,15 +261,39 @@
       const menuWidth = Math.max(rect.width, Math.min(menu.offsetWidth || rect.width, 320));
       const left = Math.min(Math.max(12, rect.left), Math.max(12, viewportWidth - menuWidth - 12));
       const belowTop = rect.bottom + 4;
-      const belowSpace = viewportHeight - belowTop - 12;
-      const aboveSpace = rect.top - 12;
-      const openAbove = belowSpace < 120 && aboveSpace > belowSpace;
-      const maxHeight = Math.max(120, openAbove ? aboveSpace : belowSpace);
-      const top = openAbove ? Math.max(12, rect.top - Math.min(260, maxHeight) - 4) : belowTop;
+      const belowSpace = Math.max(0, viewportHeight - belowTop - 12);
+      const aboveSpace = Math.max(0, rect.top - 16);
+
+      menu.style.maxHeight = "";
+      const naturalHeight = menu.offsetHeight || menu.scrollHeight || 120;
+      const openAbove = belowSpace < Math.min(260, naturalHeight) && aboveSpace > belowSpace;
+      const availableSpace = openAbove ? aboveSpace : belowSpace;
+      const maxHeight = Math.min(260, availableSpace);
+      menu.style.maxHeight = `${maxHeight}px`;
+
+      const renderedHeight = Math.min(naturalHeight, maxHeight);
+      const top = openAbove ? Math.max(12, rect.top - renderedHeight - 4) : belowTop;
       menu.style.minWidth = `${Math.max(0, rect.width)}px`;
       menu.style.left = `${left}px`;
       menu.style.top = `${top}px`;
-      menu.style.maxHeight = `${Math.min(260, maxHeight)}px`;
+    }
+
+    function bindMenuPositionListeners() {
+      if (menuPositionListenersBound) {
+        return;
+      }
+      menuPositionListenersBound = true;
+      window.addEventListener("resize", positionMenu);
+      window.addEventListener("scroll", positionMenu, true);
+    }
+
+    function unbindMenuPositionListeners() {
+      if (!menuPositionListenersBound) {
+        return;
+      }
+      menuPositionListenersBound = false;
+      window.removeEventListener("resize", positionMenu);
+      window.removeEventListener("scroll", positionMenu, true);
     }
 
     function renderOptions() {

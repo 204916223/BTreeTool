@@ -3,10 +3,12 @@
 
   let measureHost = null;
   let dragPreviewViewport = null;
+  let dragPreviewAnimationFrame = null;
   let dragPreviewTransitionTimer = null;
-  const DRAG_PREVIEW_ZOOM_FACTOR = 0.86;
-  const DRAG_PREVIEW_ZOOM_MARGIN = 72;
-  const DRAG_PREVIEW_MIN_ZOOM = 0.28;
+  let dragAutoPan = null;
+  const DRAG_PREVIEW_ZOOM_FACTOR = 0.85;
+  const DRAG_AUTO_PAN_EDGE = 20;
+  const DRAG_AUTO_PAN_SPEED = 14;
   const DROP_TARGET_REFERENCE_SIZE = {
     width: 230,
     height: 250
@@ -653,6 +655,83 @@
       activateCanvasState(shell.__btreeCanvasState);
     });
 
+    shell.addEventListener("contextmenu", (event) => {
+      if (!runtime.state.currentDragState) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") {
+        event.stopImmediatePropagation();
+      }
+      runtime.canvas?.clearDragState?.({ cancelled: true });
+    }, true);
+
+    const cancelNodeDrag = (event) => {
+      if (!isSecondaryButtonDown(event) || !runtime.state.currentDragState) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") {
+        event.stopImmediatePropagation();
+      }
+      runtime.canvas?.clearDragState?.({ cancelled: true });
+    };
+    shell.addEventListener("pointerdown", cancelNodeDrag, true);
+    window.addEventListener("pointerdown", cancelNodeDrag, true);
+    window.addEventListener("mousedown", cancelNodeDrag, true);
+    window.addEventListener("mouseup", cancelNodeDrag, true);
+    window.addEventListener("auxclick", cancelNodeDrag, true);
+    window.addEventListener("contextmenu", (event) => {
+      if (!runtime.state.currentDragState) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") {
+        event.stopImmediatePropagation();
+      }
+      runtime.canvas?.clearDragState?.({ cancelled: true });
+    }, true);
+
+    const handleNodeDrag = (event) => {
+      if (!runtime.state.currentDragState || runtime.state.currentCanvasState !== shell.__btreeCanvasState) {
+        return;
+      }
+
+      if (isSecondaryButtonDown(event)) {
+        event.preventDefault();
+        runtime.canvas?.clearDragState?.({ cancelled: true });
+        return;
+      }
+
+      const rect = shell.getBoundingClientRect();
+      const visibleBounds = getCanvasVisibleBounds(shell.__btreeCanvasState);
+      updateDragAutoPan(
+        shell.__btreeCanvasState,
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+        visibleBounds
+      );
+    };
+    shell.addEventListener("dragover", handleNodeDrag);
+    shell.addEventListener("dragenter", handleNodeDrag);
+    window.addEventListener("dragover", handleNodeDrag, true);
+    window.addEventListener("dragenter", handleNodeDrag, true);
+    window.addEventListener("drag", handleNodeDrag, true);
+
+    shell.addEventListener("dragleave", (event) => {
+      if (!event.relatedTarget || !(event.relatedTarget instanceof Element) || !shell.contains?.(event.relatedTarget)) {
+        // Keep the last edge velocity while the pointer is outside the visible
+        // canvas. Re-entry events will update or stop it using real coordinates.
+        return;
+      }
+    });
+
     shell.addEventListener("pointerdown", (event) => {
       activateCanvasState(shell.__btreeCanvasState);
       const target = event.target;
@@ -827,28 +906,47 @@
     syncCanvasInteractionMode();
   }
 
-  function beginDragPreviewViewport() {
+  function beginDragPreviewViewport(anchor = null) {
     if (!runtime.state.currentCanvasState || dragPreviewViewport) {
       return;
     }
 
     const canvasState = runtime.state.currentCanvasState;
-    const { shell, panX, panY } = canvasState;
+    const { panX, panY } = canvasState;
     dragPreviewViewport = {
       canvasState,
       zoom: canvasState.zoom || runtime.state.currentZoom || 1,
       panX,
-      panY
+      panY,
+      didAutoPan: false
     };
-    enableDragPreviewTransition(shell);
-
     const nextZoom = getDragPreviewZoom();
     if (nextZoom < (canvasState.zoom || runtime.state.currentZoom || 1) - 0.01) {
-      applyZoom(nextZoom, true, null, canvasState);
+      const currentZoom = canvasState.zoom || runtime.state.currentZoom || 1;
+
+      // The drop-target layout is applied by the drag CSS before this call. First
+      // compensate its world-position shift at the current zoom, then animate the
+      // actual zoom on the next frame so the dragged node stays visually anchored.
+      applyDragPreviewZoom(currentZoom, anchor, canvasState);
+      canvasState.stage?.getBoundingClientRect?.();
+      startDragPreviewTransition(canvasState.shell);
+      if (typeof requestAnimationFrame === "function") {
+        dragPreviewAnimationFrame = requestAnimationFrame(() => {
+          dragPreviewAnimationFrame = null;
+          if (!dragPreviewViewport || dragPreviewViewport.canvasState !== canvasState) {
+            return;
+          }
+          applyDragPreviewZoom(nextZoom, anchor, canvasState);
+          scheduleDragPreviewTransitionEnd(canvasState.shell);
+        });
+      } else {
+        applyDragPreviewZoom(nextZoom, anchor, canvasState);
+        scheduleDragPreviewTransitionEnd(canvasState.shell);
+      }
     }
   }
 
-  function endDragPreviewViewport() {
+  function endDragPreviewViewport(options = {}) {
     if (!dragPreviewViewport) {
       return;
     }
@@ -859,15 +957,16 @@
       return;
     }
 
-    const { shell } = snapshot.canvasState;
+    stopDragAutoPan();
+    stopDragPreviewTransition(snapshot.canvasState.shell);
     activateCanvasState(snapshot.canvasState);
-    enableDragPreviewTransition(shell);
     snapshot.canvasState.zoom = snapshot.zoom;
-    setCanvasPan(snapshot.panX, snapshot.panY, snapshot.canvasState);
+    if (options.cancelled || !snapshot.didAutoPan) {
+      setCanvasPan(snapshot.panX, snapshot.panY, snapshot.canvasState);
+    } else {
+      applyZoom(snapshot.zoom, true, null, snapshot.canvasState);
+    }
     activateCanvasState(snapshot.canvasState);
-    dragPreviewTransitionTimer = window.setTimeout(() => {
-      shell.classList.remove("is-drag-preview-zooming");
-    }, 160);
   }
 
   function getDragPreviewZoom() {
@@ -876,25 +975,158 @@
       return runtime.state.currentZoom;
     }
 
-    const { shell, layout } = canvasState;
-    const availableWidth = Math.max(shell.clientWidth - DRAG_PREVIEW_ZOOM_MARGIN, 1);
-    const availableHeight = Math.max(shell.clientHeight - DRAG_PREVIEW_ZOOM_MARGIN, 1);
-    const fittedZoom = Math.min(availableWidth / layout.width, availableHeight / layout.height, 1);
     const currentZoom = canvasState.zoom || runtime.state.currentZoom || 1;
-    const targetZoom = Math.min(
-      currentZoom * DRAG_PREVIEW_ZOOM_FACTOR,
-      fittedZoom * 0.98,
+    return clamp(
+      Number((currentZoom * DRAG_PREVIEW_ZOOM_FACTOR).toFixed(2)),
+      runtime.state.MIN_ZOOM,
       currentZoom
     );
-    return clamp(Number(targetZoom.toFixed(2)), DRAG_PREVIEW_MIN_ZOOM, currentZoom);
   }
 
-  function enableDragPreviewTransition(shell) {
-    if (dragPreviewTransitionTimer) {
-      window.clearTimeout(dragPreviewTransitionTimer);
-      dragPreviewTransitionTimer = null;
+  function startDragPreviewTransition(shell) {
+    if (!shell?.classList) {
+      return;
     }
     shell.classList.add("is-drag-preview-zooming");
+  }
+
+  function scheduleDragPreviewTransitionEnd(shell) {
+    if (dragPreviewTransitionTimer !== null && typeof window.clearTimeout === "function") {
+      window.clearTimeout(dragPreviewTransitionTimer);
+    }
+    if (typeof window.setTimeout !== "function") {
+      return;
+    }
+    dragPreviewTransitionTimer = window.setTimeout(() => {
+      dragPreviewTransitionTimer = null;
+      shell?.classList?.remove("is-drag-preview-zooming");
+    }, 240);
+  }
+
+  function stopDragPreviewTransition(shell) {
+    if (dragPreviewAnimationFrame !== null && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(dragPreviewAnimationFrame);
+    }
+    dragPreviewAnimationFrame = null;
+    if (dragPreviewTransitionTimer !== null && typeof window.clearTimeout === "function") {
+      window.clearTimeout(dragPreviewTransitionTimer);
+    }
+    dragPreviewTransitionTimer = null;
+    shell?.classList?.remove("is-drag-preview-zooming");
+  }
+
+  function applyDragPreviewZoom(nextZoom, anchor, canvasState) {
+    const entry = canvasState.layout?.nodes?.find((item) => (
+      item.node?.nodePath === anchor?.nodePath &&
+      (!anchor?.treeId || !item.node?.sourceTreeId || item.node.sourceTreeId === anchor.treeId)
+    ));
+    if (!entry || !Number.isFinite(anchor?.screenX) || !Number.isFinite(anchor?.screenY)) {
+      applyZoom(nextZoom, true, null, canvasState);
+      return;
+    }
+
+    const rect = canvasState.shell.getBoundingClientRect();
+    const sourceWorldX = (entry.dropTargetX ?? entry.x) + (entry.dropTargetWidth || entry.width) / 2;
+    const sourceWorldY = (entry.dropTargetY ?? entry.y) + entry.height / 2;
+    canvasState.zoom = nextZoom;
+    if (runtime.state.currentCanvasState === canvasState) {
+      runtime.state.currentZoom = nextZoom;
+      updateZoomLabel();
+    }
+    setCanvasPan(
+      anchor.screenX - rect.left - sourceWorldX * nextZoom,
+      anchor.screenY - rect.top - sourceWorldY * nextZoom,
+      canvasState
+    );
+  }
+
+  function getCanvasVisibleBounds(canvasState) {
+    const shell = canvasState.shell;
+    const catalogWidth = getVisiblePanelWidth(
+      runtime.refs.catalogPanel,
+      runtime.state.showCatalog,
+      runtime.state.catalogWidth
+    );
+    const assistantWidth = getVisiblePanelWidth(
+      runtime.refs.editAssistantPanel,
+      runtime.state.editAssistantVisible,
+      runtime.state.editAssistantWidth
+    );
+    const left = clamp(catalogWidth, 0, shell.clientWidth);
+    const right = clamp(shell.clientWidth - assistantWidth, left, shell.clientWidth);
+    return { left, right, top: 0, bottom: shell.clientHeight };
+  }
+
+  function isSecondaryButtonDown(event) {
+    return event?.button === 2 || (typeof event?.buttons === "number" && (event.buttons & 2) !== 0);
+  }
+
+  function getVisiblePanelWidth(panel, visible, fallbackWidth) {
+    if (!visible || panel?.hidden === true) {
+      return 0;
+    }
+
+    const measuredWidth = panel?.getBoundingClientRect?.().width;
+    if (Number.isFinite(measuredWidth) && measuredWidth > 0) {
+      return measuredWidth;
+    }
+    return Math.max(Number(fallbackWidth) || 0, 0);
+  }
+
+  function updateDragAutoPan(canvasState, localX, localY, visibleBounds = null) {
+    if (!canvasState || !runtime.state.currentDragState) {
+      stopDragAutoPan();
+      return;
+    }
+
+    const shell = canvasState.shell;
+    const bounds = visibleBounds || { left: 0, right: shell.clientWidth, top: 0, bottom: shell.clientHeight };
+    const velocityX = localX <= bounds.left + DRAG_AUTO_PAN_EDGE
+      ? DRAG_AUTO_PAN_SPEED
+      : localX >= bounds.right - DRAG_AUTO_PAN_EDGE
+        ? -DRAG_AUTO_PAN_SPEED
+        : 0;
+    const velocityY = localY <= bounds.top + DRAG_AUTO_PAN_EDGE
+      ? DRAG_AUTO_PAN_SPEED
+      : localY >= bounds.bottom - DRAG_AUTO_PAN_EDGE
+        ? -DRAG_AUTO_PAN_SPEED
+        : 0;
+
+    if (!velocityX && !velocityY) {
+      stopDragAutoPan();
+      return;
+    }
+
+    dragAutoPan = dragAutoPan || { frame: null, canvasState, velocityX: 0, velocityY: 0 };
+    dragAutoPan.canvasState = canvasState;
+    dragAutoPan.velocityX = velocityX;
+    dragAutoPan.velocityY = velocityY;
+    if (dragAutoPan.frame === null) {
+      dragAutoPan.frame = requestAnimationFrame(runDragAutoPan);
+    }
+  }
+
+  function runDragAutoPan() {
+    if (!dragAutoPan || !runtime.state.currentDragState) {
+      stopDragAutoPan();
+      return;
+    }
+
+    const { canvasState, velocityX, velocityY } = dragAutoPan;
+    const beforeX = canvasState.panX;
+    const beforeY = canvasState.panY;
+    setCanvasPan(beforeX + velocityX, beforeY + velocityY, canvasState);
+    if (canvasState.panX !== beforeX || canvasState.panY !== beforeY) {
+      dragPreviewViewport && (dragPreviewViewport.didAutoPan = true);
+    }
+    dragAutoPan.frame = requestAnimationFrame(runDragAutoPan);
+  }
+
+  function stopDragAutoPan() {
+    if (dragAutoPan && dragAutoPan.frame !== null && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(dragAutoPan.frame);
+    }
+    dragAutoPan = null;
   }
 
   function fitCanvas(canvasState = runtime.state.currentCanvasState) {

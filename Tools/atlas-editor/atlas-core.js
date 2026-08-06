@@ -266,6 +266,22 @@
     return sortObject(next);
   }
 
+  function reorderObjectEntry(value, sourceKey, targetKey, placement = "before") {
+    if (!isRecord(value) || sourceKey === targetKey
+      || !Object.prototype.hasOwnProperty.call(value, sourceKey)
+      || !Object.prototype.hasOwnProperty.call(value, targetKey)) {
+      return clone(value || {});
+    }
+
+    const entries = Object.entries(value);
+    const sourceEntry = entries.find(([key]) => key === sourceKey);
+    const remaining = entries.filter(([key]) => key !== sourceKey);
+    const targetIndex = remaining.findIndex(([key]) => key === targetKey);
+    const insertIndex = targetIndex + (placement === "after" ? 1 : 0);
+    remaining.splice(insertIndex, 0, sourceEntry);
+    return Object.fromEntries(remaining);
+  }
+
   function createNodeEntry(nodeId, incoming) {
     return {
       title: nodeId,
@@ -346,6 +362,7 @@
     isRecord,
     parseCandidate,
     parseTreeNodesModel,
+    reorderObjectEntry,
     validateAtlas
   };
 });

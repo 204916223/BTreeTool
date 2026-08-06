@@ -33,6 +33,8 @@
   };
 
   const refs = {};
+  let nextParamCardId = 1;
+  let draggedParam = null;
 
   document.addEventListener("DOMContentLoaded", init);
 
@@ -467,7 +469,7 @@
     refs.paramIndex.replaceChildren();
     refs.paramDetail.replaceChildren();
     const params = entry.mainline.params || {};
-    const names = Object.keys(params).sort(compareText);
+    const names = Object.keys(params);
     if (!names.includes(state.selectedParamName)) {
       state.selectedParamName = names[0] || "";
     }
@@ -493,6 +495,7 @@
     };
     fields.name.value = name;
     card.dataset.paramName = name;
+    card.dataset.paramId = `param-${nextParamCardId++}`;
     fields.role.value = normalizeRole(param?.role);
     fields.type.value = param?.type || "";
     fields.required.checked = param?.required === true;
@@ -537,8 +540,8 @@
   }
 
   function syncParamIndex() {
+    const cards = getParamCardsInOrder();
     refs.paramIndex.replaceChildren();
-    const cards = getAllParamCards();
     if (cards.length === 0) {
       const empty = document.createElement("div");
       empty.className = "param-index-empty";
@@ -548,25 +551,57 @@
       refs.paramDetailEmpty.classList.remove("hidden");
       return;
     }
-    cards.forEach((card) => {
-      const name = card.querySelector(".param-name")?.value.trim() || "未命名参数";
-      const role = normalizeRole(card.querySelector(".param-role")?.value || "input");
-      const type = card.querySelector(".param-type")?.value.trim() || "unknown";
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "param-index-button";
-      button.dataset.paramName = card.dataset.paramName || "";
-      button.classList.toggle("is-active", card.dataset.paramName === state.selectedParamName);
-      button.addEventListener("click", () => selectParamCard(card.dataset.paramName || name, { focus: true }));
+    const lanes = [
+      { key: "input", label: "输入" },
+      { key: "inout", label: "读写" },
+      { key: "param", label: "配置项" },
+      { key: "output", label: "输出" }
+    ];
+    lanes.forEach((lane) => {
+      const laneCards = cards.filter((card) => getParamIndexLane(
+        normalizeRole(card.querySelector(".param-role")?.value || "input")
+      ) === lane.key);
+      if (laneCards.length === 0) {
+        return;
+      }
+      const section = document.createElement("section");
+      section.className = `param-index-group lane-${lane.key}`;
+      const heading = document.createElement("div");
+      heading.className = "param-index-group-label";
+      heading.textContent = lane.label;
+      section.appendChild(heading);
 
-      const title = document.createElement("span");
-      title.className = "param-index-name mono";
-      title.textContent = name;
-      const meta = document.createElement("span");
-      meta.className = "param-index-meta";
-      meta.textContent = `${role} / ${type}`;
-      button.append(title, meta);
-      refs.paramIndex.appendChild(button);
+      laneCards.forEach((card) => {
+        const name = card.querySelector(".param-name")?.value.trim() || "未命名参数";
+        const role = normalizeRole(card.querySelector(".param-role")?.value || "input");
+        const type = card.querySelector(".param-type")?.value.trim() || "unknown";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "param-index-button";
+        button.dataset.paramId = card.dataset.paramId || "";
+        button.dataset.paramName = card.dataset.paramName || "";
+        button.classList.toggle("is-active", card.dataset.paramName === state.selectedParamName);
+        button.addEventListener("click", () => selectParamCard(card.dataset.paramName || name, { focus: true }));
+        bindParamDrag(button, card.dataset.paramName || name, lane.key);
+
+        const handle = document.createElement("span");
+        handle.className = "param-drag-handle";
+        handle.textContent = "⠿";
+        handle.draggable = true;
+        handle.setAttribute("aria-hidden", "true");
+        const copy = document.createElement("span");
+        copy.className = "param-index-copy";
+        const title = document.createElement("span");
+        title.className = "param-index-name mono";
+        title.textContent = name;
+        const meta = document.createElement("span");
+        meta.className = "param-index-meta";
+        meta.textContent = `${role} / ${type}`;
+        copy.append(title, meta);
+        button.append(handle, copy);
+        section.appendChild(button);
+      });
+      refs.paramIndex.appendChild(section);
     });
   }
 
@@ -606,6 +641,21 @@
 
   function getAllParamCards() {
     return Array.from(refs.nodeForm.querySelectorAll(".param-card"));
+  }
+
+  function getParamCardsInOrder() {
+    const cards = getAllParamCards();
+    const cardsById = new Map(cards.map((card) => [card.dataset.paramId, card]));
+    const ordered = Array.from(refs.paramIndex.querySelectorAll(".param-index-button"))
+      .map((button) => cardsById.get(button.dataset.paramId))
+      .filter(Boolean);
+    const orderedIds = new Set(ordered.map((card) => card.dataset.paramId));
+    cards.forEach((card) => {
+      if (!orderedIds.has(card.dataset.paramId)) {
+        ordered.push(card);
+      }
+    });
+    return ordered;
   }
 
   function syncParamCardState(card) {
@@ -661,7 +711,7 @@
     }
     const entry = normalizeNodeEntry(state.nodes[key], key);
     const params = {};
-    getAllParamCards().forEach((card) => {
+    getParamCardsInOrder().forEach((card) => {
       const name = card.querySelector(".param-name").value.trim();
       if (!name) {
         return;
@@ -1022,15 +1072,15 @@
     };
     params.forEach(([name, param]) => {
       const role = normalizeRole(param?.role);
-      const row = createFieldRow(name, overrideAttributes[name] ?? formatParamPreviewValue(name, param), role);
+      const value = overrideAttributes[name] ?? formatParamPreviewValue(name, param);
       if (role === "input" || role === "inout") {
-        groups.input.push(row);
+        groups.input.push(createFieldRow(name, value, role, role));
       }
       if (role === "output" || role === "inout") {
-        groups.output.push(createFieldRow(name, overrideAttributes[name] ?? formatParamPreviewValue(name, param), role));
+        groups.output.push(createFieldRow(name, value, role, role));
       }
       if (role === "param") {
-        groups.param.push(row);
+        groups.param.push(createFieldRow(name, value, role, role));
       }
     });
     appendFieldGroup(card, "INPUT", groups.input);
@@ -1053,11 +1103,19 @@
     card.appendChild(section);
   }
 
-  function createFieldRow(name, value, role) {
+  function createFieldRow(name, value, role, lane) {
     const row = document.createElement("div");
     row.className = `field-row-preview role-${normalizeRole(role)}`;
     row.dataset.paramName = name;
     row.tabIndex = 0;
+    bindParamDrag(row, name, lane);
+    const keyLine = document.createElement("span");
+    keyLine.className = "field-key-line-preview";
+    const handle = document.createElement("span");
+    handle.className = "param-drag-handle";
+    handle.textContent = "⠿";
+    handle.draggable = true;
+    handle.setAttribute("aria-hidden", "true");
     const key = document.createElement("span");
     key.className = "field-key-preview mono";
     key.textContent = name;
@@ -1073,8 +1131,85 @@
     row.addEventListener("focusin", selectPreviewParam);
     row.addEventListener("pointerdown", selectPreviewParam);
     row.addEventListener("click", selectPreviewParam);
-    row.append(key, input);
+    keyLine.append(handle, key);
+    row.append(keyLine, input);
     return row;
+  }
+
+  function bindParamDrag(element, name, lane) {
+    element.draggable = true;
+    element.title = "拖动调整同组参数顺序";
+    element.addEventListener("dragstart", (event) => {
+      draggedParam = { name, lane };
+      element.classList.add("is-dragging-param");
+      document.body.classList.add("is-reordering-params");
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", name);
+      }
+    });
+    element.addEventListener("dragover", (event) => {
+      if (!draggedParam || draggedParam.lane !== lane || draggedParam.name === name) {
+        return;
+      }
+      event.preventDefault();
+      const placement = getDropPlacement(element, event.clientY);
+      clearParamDropIndicators();
+      element.classList.add(placement === "after" ? "is-drop-after" : "is-drop-before");
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+    });
+    element.addEventListener("drop", (event) => {
+      if (!draggedParam || draggedParam.lane !== lane || draggedParam.name === name) {
+        return;
+      }
+      event.preventDefault();
+      const sourceName = draggedParam.name;
+      const placement = getDropPlacement(element, event.clientY);
+      clearParamDragState();
+      reorderSelectedNodeParam(sourceName, name, placement);
+    });
+    element.addEventListener("dragend", clearParamDragState);
+  }
+
+  function getDropPlacement(element, clientY) {
+    const rect = element.getBoundingClientRect();
+    return clientY >= rect.top + rect.height / 2 ? "after" : "before";
+  }
+
+  function clearParamDropIndicators() {
+    document.querySelectorAll(".is-drop-before, .is-drop-after").forEach((element) => {
+      element.classList.remove("is-drop-before", "is-drop-after");
+    });
+  }
+
+  function clearParamDragState() {
+    draggedParam = null;
+    document.body.classList.remove("is-reordering-params");
+    document.querySelectorAll(".is-dragging-param").forEach((element) => {
+      element.classList.remove("is-dragging-param");
+    });
+    clearParamDropIndicators();
+  }
+
+  function reorderSelectedNodeParam(sourceName, targetName, placement) {
+    const key = state.selectedNodeKey;
+    if (!key || !state.nodes[key] || sourceName === targetName) {
+      return;
+    }
+    updateParamsFromCards();
+    const entry = normalizeNodeEntry(state.nodes[key], key);
+    entry.mainline.params = window.BTreeAtlasCore.reorderObjectEntry(
+      entry.mainline.params,
+      sourceName,
+      targetName,
+      placement
+    );
+    state.nodes[key] = entry;
+    markDirty("nodes");
+    renderParams(entry);
+    renderNodePreview();
   }
 
   function collectIssues() {
@@ -1432,6 +1567,10 @@
 
   function normalizeRole(role) {
     return role === "input" || role === "output" || role === "inout" || role === "param" ? role : "param";
+  }
+
+  function getParamIndexLane(role) {
+    return normalizeRole(role);
   }
 
   function uniqueParamName() {

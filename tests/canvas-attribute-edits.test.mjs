@@ -589,3 +589,44 @@ test("readonly attribute preview is anchored to playback canvas pane in playback
   assert.equal(previewHost.hidden, false);
   assert.equal(previewHost.children[0].textContent, "dist_to_target < baffle_enable_dist");
 });
+
+test("releasing a moved node without a committed drop uses cancellation cleanup", () => {
+  const { runtime, document } = loadCanvasRuntime();
+  document.body = new ElementStub("body");
+  let cleanupOptions = null;
+  let endingClassWasActive = false;
+  runtime.viewport.endDragPreviewViewport = (options) => {
+    cleanupOptions = options;
+    endingClassWasActive = document.body.classList.contains("is-ending-node-drag");
+  };
+  runtime.viewport.refreshDropTargetVisibility = () => {};
+  runtime.catalog.clearCatalogDeleteTarget = () => {};
+  runtime.catalog.syncDeleteTargetIndicator = () => {};
+  runtime.overlays.hideNodeContextMenu = () => {};
+
+  const card = runtime.canvas.buildNodeCard({
+    nodePath: "0.1",
+    title: "Sleep",
+    kind: "Sleep",
+    category: "Action",
+    attributes: {},
+    children: [],
+    warnings: [],
+    warningCount: 0,
+    hasError: false
+  }, { behaviorTrees: [] }, {
+    interactive: true,
+    currentTreeId: "MainTree"
+  });
+  const heading = findByClass(card, "flow-card-heading")[0];
+  runtime.state.currentDragState = { kind: "move", sourceNodePath: "0.1" };
+  document.body.classList.add("is-reordering-nodes");
+
+  heading.dispatch("dragend");
+
+  assert.equal(cleanupOptions?.cancelled, true);
+  assert.equal(endingClassWasActive, true);
+  assert.equal(runtime.state.currentDragState, null);
+  assert.equal(document.body.classList.contains("is-reordering-nodes"), false);
+  assert.equal(document.body.classList.contains("is-ending-node-drag"), false);
+});

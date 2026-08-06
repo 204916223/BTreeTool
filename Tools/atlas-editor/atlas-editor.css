@@ -583,6 +583,15 @@ body[data-view="audit"] .editor-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 4px;
+  border-radius: 6px;
+  cursor: grab;
+}
+
+.field-key-line-preview {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .field-key-preview {
@@ -849,13 +858,27 @@ body[data-view="audit"] .editor-panel {
 
 .param-index {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+}
+
+.param-index-group {
+  display: grid;
+  gap: 6px;
+}
+
+.param-index-group-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
 }
 
 .param-index-button {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--line);
@@ -864,6 +887,45 @@ body[data-view="audit"] .editor-panel {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+.param-index-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.param-drag-handle {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--muted) 72%, transparent);
+  cursor: grab;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+.param-index-button:hover .param-drag-handle,
+.field-row-preview:hover .param-drag-handle {
+  color: var(--accent-strong);
+}
+
+body.is-reordering-params,
+body.is-reordering-params * {
+  cursor: grabbing !important;
+}
+
+.is-dragging-param {
+  opacity: 0.42;
+}
+
+.param-index-button.is-drop-before,
+.field-row-preview.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--accent-strong);
+}
+
+.param-index-button.is-drop-after,
+.field-row-preview.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent-strong);
 }
 
 .param-index-button:hover,

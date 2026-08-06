@@ -2,38 +2,38 @@
   "BackSafeLaserEnable": {
     "title": "后安全激光屏蔽算子",
     "category": "Action",
-    "description": "后安全激光屏蔽算子",
+    "description": "用于使能后向安全激光",
     "mainline": {
       "status": "draft",
       "params": {
-        "errorMsg": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "错误日志",
-          "default": "{errorMsg}"
-        },
         "isEnable": {
           "role": "input",
           "type": "bool",
           "required": true,
           "description": "功能启用开关",
           "default": "true / false"
+        },
+        "errorMsg": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "错误日志",
+          "default": "{errorMsg}"
         }
       },
       "rules": [],
       "examples": []
     },
     "custom": {},
-    "department": "对接",
+    "department": "软件",
     "maintainer": "陈凯伦",
     "source_notes": [],
     "usageFlows": []
   },
   "BaffleStatus": {
-    "title": "挡板状态检测子",
+    "title": "挡板状态检测算子",
     "category": "Action",
-    "description": "挡板状态检测子",
+    "description": "用于获取挡板状态",
     "mainline": {
       "status": "draft",
       "params": {
@@ -57,7 +57,7 @@
   "BaffleStop": {
     "title": "挡板启用算子",
     "category": "Action",
-    "description": "挡板启用算子",
+    "description": "用于挡板停止",
     "mainline": {
       "status": "draft",
       "params": {
@@ -87,7 +87,7 @@
   "BlindMove": {
     "title": "盲走算子",
     "category": "Action",
-    "description": "盲走算子",
+    "description": "用于控制车辆盲走",
     "mainline": {
       "status": "draft",
       "params": {
@@ -95,19 +95,22 @@
           "role": "input",
           "type": "double",
           "required": true,
-          "description": ""
+          "description": "",
+          "default": "{bmove_distance}"
         },
         "move_trans_speed": {
           "role": "input",
           "type": "double",
           "required": true,
-          "description": ""
+          "description": "",
+          "default": "{bmove_speed}"
         },
         "servo_cancel_flag": {
           "role": "input",
           "type": "bool",
           "required": true,
-          "description": ""
+          "description": "",
+          "default": "{servo_cancel_flag}"
         },
         "errorMsg": {
           "role": "output",
@@ -123,19 +126,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -149,17 +152,30 @@
       "examples": []
     },
     "custom": {},
-    "department": "对接",
+    "department": "软件",
     "maintainer": "芦韩",
     "source_notes": []
   },
   "CameraEnable": {
     "title": "相机使能算子",
     "category": "Action",
-    "description": "相机使能算子",
+    "description": "用于开启或关闭相机",
     "mainline": {
       "status": "draft",
       "params": {
+        "camera_name": {
+          "role": "input",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        "camera_enable": {
+          "role": "input",
+          "type": "uint32",
+          "required": true,
+          "description": "",
+          "default": "true / false"
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -174,13 +190,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -188,24 +197,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "camera_name": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        },
-        "camera_enable": {
-          "role": "input",
-          "type": "uint32",
-          "required": true,
-          "description": ""
         }
       },
       "rules": [],
@@ -219,7 +223,7 @@
   "CancelServoTask": {
     "title": "伺服任务取消算子",
     "category": "Action",
-    "description": "伺服任务取消算子",
+    "description": "用于取消伺服任务",
     "mainline": {
       "status": "draft",
       "params": {
@@ -227,6 +231,12 @@
           "role": "input",
           "type": "int",
           "required": true,
+          "description": ""
+        },
+        "servo_cancel_flag": {
+          "role": "output",
+          "type": "bool",
+          "required": false,
           "description": ""
         },
         "errorMsg": {
@@ -243,13 +253,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -257,18 +260,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "servo_cancel_flag": {
-          "role": "output",
-          "type": "bool",
-          "required": false,
-          "description": ""
         }
       },
       "rules": [],
@@ -276,65 +280,45 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "CarrierCtrl": {
     "title": "载具控制算子",
     "category": "Action",
-    "description": "载具控制算子",
+    "description": "用于控制载具动作",
     "mainline": {
       "status": "stable",
       "params": {
-        "carrier_id": {
-          "role": "input",
-          "type": "int",
-          "required": true,
-          "description": "载具编号 id。",
-          "options": {
-            "1": "举升机构",
-            "40": "夹抱机构",
-            "50": "门架移动机构",
-            "51": "调叉齿间距",
-            "52": "侧移机构",
-            "53": "前后倾机构"
-          }
-        },
         "action_cmd": {
           "role": "input",
           "type": "string",
           "required": true,
-          "description": "动作指令。",
-          "options": {
-            "stop": "停止运行",
-            "to_plimit": "去往正限位",
-            "to_nlimit": "去往负限位",
-            "position": "移动到指定位置"
-          }
+          "description": "动作指令。"
+        },
+        "carrier_id": {
+          "role": "input",
+          "type": "int",
+          "required": true,
+          "description": "载具编号 id。"
+        },
+        "stop_action": {
+          "role": "input",
+          "type": "bool",
+          "required": true,
+          "description": "停止当前动作。用于外部逻辑停止载具，例如卸货完成时停止叉齿下降。"
         },
         "target_position": {
           "role": "input",
           "type": "double",
           "required": true,
-          "unit": "m",
           "description": "目标位置。执行 position 指令时必须填写。"
         },
         "velocity_max": {
           "role": "input",
           "type": "double",
           "required": true,
-          "unit": "m/s",
           "description": "载具限速。可根据实际需要填写或不填写。"
-        },
-        "stop_action": {
-          "role": "input",
-          "type": "bool",
-          "required": true,
-          "description": "停止当前动作。用于外部逻辑停止载具，例如卸货完成时停止叉齿下降。",
-          "options": {
-            "true": "停止动作",
-            "false": "不停止动作"
-          }
         },
         "errorMsg": {
           "role": "output",
@@ -455,47 +439,12 @@
     ]
   },
   "CheckMcsApproval": {
-    "title": "CheckMcsApproval",
+    "title": "MCS信号检测算子",
     "category": "Action",
-    "description": "MCS检测算子",
+    "description": "用于检测MCS信号",
     "mainline": {
       "status": "draft",
       "params": {
-        "mcs_approval": {
-          "role": "output",
-          "type": "bool",
-          "required": false,
-          "description": "",
-          "default": "{mcs_approval"
-        },
-        "out_error_details": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_details}"
-        },
-        "out_error_id": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_id}"
-        },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
-        "out_error_name": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_name}"
-        },
         "prepare_dist": {
           "role": "input",
           "type": "double",
@@ -510,12 +459,47 @@
           "description": "",
           "default": "50"
         },
+        "mcs_approval": {
+          "role": "output",
+          "type": "bool",
+          "required": false,
+          "description": "",
+          "default": "{mcs_approval"
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
+        },
+        "out_error_id": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_id}"
+        },
+        "out_error_name": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
+        "out_error_details": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_details}"
         }
       },
       "rules": [],
@@ -529,7 +513,7 @@
   "DecelerateNavi": {
     "title": "缓慢停车算子",
     "category": "Action",
-    "description": "缓慢停车算子",
+    "description": "用于导航减速",
     "mainline": {
       "status": "draft",
       "params": {
@@ -585,9 +569,9 @@
     "source_notes": []
   },
   "DiscreteServo": {
-    "title": "离散二值码伺服算子",
+    "title": "离散二维码伺服算子",
     "category": "Action",
-    "description": "离散二值码伺服算子",
+    "description": "用于执行离散二维码伺服",
     "mainline": {
       "status": "draft",
       "params": {
@@ -635,19 +619,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -662,13 +646,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "DoubleToString": {
     "title": "类型转换算子",
     "category": "Action",
-    "description": "类型转换算子",
+    "description": "用于数值转字符串",
     "mainline": {
       "status": "draft",
       "params": {
@@ -696,78 +680,14 @@
       "examples": []
     },
     "custom": {},
-    "department": "对接",
+    "department": "软件",
     "maintainer": "芦韩",
-    "source_notes": []
-  },
-  "EchoLayer": {
-    "title": "回显层级节点",
-    "category": "Action",
-    "description": "回显层级节点",
-    "mainline": {
-      "status": "draft",
-      "params": {
-        "layer": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        },
-        "schedule_report_result": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        },
-        "target_height_low_1": {
-          "role": "input",
-          "type": "double",
-          "required": true,
-          "description": ""
-        },
-        "target_height_high_1": {
-          "role": "input",
-          "type": "double",
-          "required": true,
-          "description": ""
-        },
-        "target_height_low_2": {
-          "role": "input",
-          "type": "double",
-          "required": true,
-          "description": ""
-        },
-        "target_height_high_2": {
-          "role": "input",
-          "type": "double",
-          "required": true,
-          "description": ""
-        },
-        "target_height_low_3": {
-          "role": "input",
-          "type": "double",
-          "required": true,
-          "description": ""
-        },
-        "target_height_high_3": {
-          "role": "input",
-          "type": "double",
-          "required": true,
-          "description": ""
-        }
-      },
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "内部",
-    "maintainer": "刘万隆",
     "source_notes": []
   },
   "EndDistCheck": {
     "title": "终点距离有效性判断算子",
     "category": "Action",
-    "description": "终点距离有效性判断算子",
+    "description": "用于检查终点距离有效性",
     "mainline": {
       "status": "draft",
       "params": {
@@ -836,7 +756,7 @@
   "ForkHeightServo": {
     "title": "高度伺服算子",
     "category": "Action",
-    "description": "高度伺服算子",
+    "description": "用于执行叉齿高度伺服",
     "mainline": {
       "status": "draft",
       "params": {
@@ -905,13 +825,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "ForkLift": {
-    "title": "叉臂举升控制算子",
+    "title": "叉齿举升控制算子",
     "category": "Action",
-    "description": "叉臂举升控制算子",
+    "description": "用于执行叉齿举升动作",
     "mainline": {
       "status": "draft",
       "params": {
@@ -950,9 +870,9 @@
     "source_notes": []
   },
   "ForkPush": {
-    "title": "叉臂前移控制算子",
+    "title": "叉齿前移控制算子",
     "category": "Action",
-    "description": "叉臂前移控制算子",
+    "description": "用于执行叉齿前伸动作",
     "mainline": {
       "status": "draft",
       "params": {
@@ -979,9 +899,9 @@
     "source_notes": []
   },
   "ForkSlide": {
-    "title": "叉臂平移控制算子",
+    "title": "叉齿平移控制算子",
     "category": "Action",
-    "description": "叉臂平移控制算子",
+    "description": "用于执行叉齿平移动作",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1008,9 +928,9 @@
     "source_notes": []
   },
   "GetForkHeight": {
-    "title": "叉臂高度控制算子",
+    "title": "叉齿高度算子",
     "category": "Action",
-    "description": "叉臂高度控制算子",
+    "description": "用于获取叉齿高度",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1026,6 +946,12 @@
           "required": true,
           "description": ""
         },
+        "fork_height": {
+          "role": "output",
+          "type": "double",
+          "required": false,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -1040,13 +966,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -1054,18 +973,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "fork_height": {
-          "role": "output",
-          "type": "double",
-          "required": false,
-          "description": ""
         }
       },
       "rules": [],
@@ -1079,7 +999,7 @@
   "GetGoalDist": {
     "title": "获取距离终点距离算子",
     "category": "Action",
-    "description": "获取距离终点距离算子",
+    "description": "用于获取终点距离",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1095,16 +1015,22 @@
     },
     "custom": {},
     "department": "导航",
-    "maintainer": "何鸿献",
+    "maintainer": "何鸿颉",
     "source_notes": []
   },
   "GetLoadWeight": {
     "title": "载货重量算子",
     "category": "Action",
-    "description": "载货重量算子",
+    "description": "用于获取载货重量",
     "mainline": {
       "status": "draft",
       "params": {
+        "load_weight": {
+          "role": "output",
+          "type": "double",
+          "required": false,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -1119,13 +1045,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -1133,18 +1052,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "load_weight": {
-          "role": "output",
-          "type": "double",
-          "required": false,
-          "description": ""
         }
       },
       "rules": [],
@@ -1156,9 +1076,9 @@
     "source_notes": []
   },
   "GetMultiLayerPalletInfo": {
-    "title": "多层板模板解析算子",
+    "title": "多层栈板模板解析算子",
     "category": "Action",
-    "description": "多层板模板解析算子",
+    "description": "用于获取多层托盘信息",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1174,55 +1094,15 @@
           "required": true,
           "description": ""
         },
-        "out_error_details": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_details}"
-        },
-        "out_error_id": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_id}"
-        },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
-        "out_error_name": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_name}"
-        },
-        "pallet_name": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": ""
-        },
-        "ref_layer_teach_args": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": ""
-        },
         "station_args": {
           "role": "input",
           "type": "string",
           "required": true,
           "description": ""
         },
-        "target_height_high": {
+        "pallet_name": {
           "role": "output",
-          "type": "double",
+          "type": "string",
           "required": false,
           "description": ""
         },
@@ -1232,12 +1112,52 @@
           "required": false,
           "description": ""
         },
+        "target_height_high": {
+          "role": "output",
+          "type": "double",
+          "required": false,
+          "description": ""
+        },
+        "ref_layer_teach_args": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
+        },
+        "out_error_id": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_id}"
+        },
+        "out_error_name": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
+        "out_error_details": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_details}"
         }
       },
       "rules": [],
@@ -1251,7 +1171,7 @@
   "GetStartDist": {
     "title": "获取距离起点距离算子",
     "category": "Action",
-    "description": "获取距离起点距离算子",
+    "description": "用于获取起点距离",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1267,57 +1187,16 @@
     },
     "custom": {},
     "department": "导航",
-    "maintainer": "何鸿献",
+    "maintainer": "何鸿颉",
     "source_notes": []
   },
   "GetTinesDistance": {
-    "title": "叉背间距检测算子",
+    "title": "叉臂间距检测算子",
     "category": "Action",
-    "description": "叉背间距检测算子",
+    "description": "用于获取叉齿距离",
     "mainline": {
       "status": "draft",
       "params": {
-        "errorMsg": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{errorMsg}"
-        },
-        "out_error_id": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_id}"
-        },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
-        "out_error_name": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_name}"
-        },
-        "out_error_details": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_details}"
-        },
-        "tines_distance": {
-          "role": "output",
-          "type": "double",
-          "required": false,
-          "description": ""
-        },
         "action_args": {
           "role": "input",
           "type": "string",
@@ -1341,23 +1220,13 @@
           "type": "string",
           "required": true,
           "description": ""
-        }
-      },
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "刁怀锐",
-    "source_notes": []
-  },
-  "HeadFixedNavigator": {
-    "title": "导航首走子",
-    "category": "Action",
-    "description": "导航首走子",
-    "mainline": {
-      "status": "draft",
-      "params": {
+        },
+        "tines_distance": {
+          "role": "output",
+          "type": "double",
+          "required": false,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -1372,12 +1241,62 @@
           "description": "",
           "default": "{out_error_id}"
         },
+        "out_error_name": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_name}"
+        },
         "out_error_level": {
           "role": "output",
           "type": "int",
           "required": false,
           "description": "",
           "default": "{out_error_level}"
+        },
+        "out_error_details": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_details}"
+        }
+      },
+      "rules": [],
+      "examples": []
+    },
+    "custom": {},
+    "department": "对接",
+    "maintainer": "戴宇庆",
+    "source_notes": []
+  },
+  "HeadFixedNavigator": {
+    "title": "导航盲走算子",
+    "category": "Action",
+    "description": "用于固定车头导航",
+    "mainline": {
+      "status": "draft",
+      "params": {
+        "set_heading": {
+          "role": "input",
+          "type": "bool",
+          "required": true,
+          "description": ""
+        },
+        "errorMsg": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{errorMsg}"
+        },
+        "out_error_id": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_id}"
         },
         "out_error_name": {
           "role": "output",
@@ -1386,18 +1305,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "set_heading": {
-          "role": "input",
-          "type": "bool",
-          "required": true,
-          "description": ""
         }
       },
       "rules": [],
@@ -1405,13 +1325,13 @@
     },
     "custom": {},
     "department": "导航",
-    "maintainer": "何鸿献",
+    "maintainer": "何鸿颉",
     "source_notes": []
   },
   "LaserServo": {
     "title": "激光伺服算子",
     "category": "Action",
-    "description": "激光伺服算子",
+    "description": "用于执行激光伺服",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1465,19 +1385,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -1492,13 +1412,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "Lift": {
     "title": "通用举升算子",
     "category": "Action",
-    "description": "通用举升算子",
+    "description": "用于控制小车举升",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1533,7 +1453,7 @@
   "LiftHeightCheck": {
     "title": "通用举升位置判断算子",
     "category": "Action",
-    "description": "通用举升位置判断算子",
+    "description": "用于获取又齿高度并判断是否满足设定的区间",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1547,6 +1467,12 @@
           "role": "input",
           "type": "double",
           "required": true,
+          "description": ""
+        },
+        "lift_height": {
+          "role": "output",
+          "type": "double",
+          "required": false,
           "description": ""
         },
         "errorMsg": {
@@ -1563,13 +1489,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -1577,18 +1496,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "lift_height": {
-          "role": "output",
-          "type": "double",
-          "required": false,
-          "description": ""
         }
       },
       "rules": [],
@@ -1602,7 +1522,7 @@
   "LoadStatus": {
     "title": "载货状态检测算子",
     "category": "Action",
-    "description": "载货状态检测算子",
+    "description": "用于获取载货状态",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1625,7 +1545,7 @@
   "LoadTemplate": {
     "title": "载货算子",
     "category": "Action",
-    "description": "载货算子",
+    "description": "用于开启载货状态",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1655,19 +1575,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -1682,132 +1602,16 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
-    "source_notes": []
-  },
-  "MultiFloorPalletDetect": {
-    "title": "多层板检测算子",
-    "category": "Action",
-    "description": "多层板检测算子",
-    "mainline": {
-      "status": "draft",
-      "params": {
-        "errorMsg": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{errorMsg}"
-        },
-        "out_error_id": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_id}"
-        },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
-        "out_error_name": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_name}"
-        },
-        "out_error_details": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_details}"
-        },
-        "lift_height": {
-          "role": "output",
-          "type": "double",
-          "required": false,
-          "description": ""
-        },
-        "action_args": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        },
-        "teaching_args": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        },
-        "pallet_args": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        },
-        "pallet_mode": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        }
-      },
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "Mute": {
     "title": "安全策略算子",
     "category": "Action",
-    "description": "安全策略算子",
+    "description": "用于开启CE车的安全策略mute模式",
     "mainline": {
       "status": "draft",
       "params": {
-        "errorMsg": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{errorMsg}"
-        },
-        "out_error_id": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_id}"
-        },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
-        "out_error_name": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_name}"
-        },
-        "out_error_details": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_details}"
-        },
         "config_topic": {
           "role": "input",
           "type": "string",
@@ -1819,23 +1623,7 @@
           "type": "string",
           "required": true,
           "description": ""
-        }
-      },
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "安全",
-    "maintainer": "李然",
-    "source_notes": []
-  },
-  "NavSafePreCheck": {
-    "title": "导航防呆检测算子",
-    "category": "Action",
-    "description": "导航防呆检测算子",
-    "mainline": {
-      "status": "draft",
-      "params": {
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -1850,13 +1638,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -1864,13 +1645,36 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
+        }
+      },
+      "rules": [],
+      "examples": []
+    },
+    "custom": {},
+    "department": "安全",
+    "maintainer": "李赫",
+    "source_notes": []
+  },
+  "NavSafePreCheck": {
+    "title": "导航防呆检测算子",
+    "category": "Action",
+    "description": "用于导航安全预检",
+    "mainline": {
+      "status": "draft",
+      "params": {
         "action_args": {
           "role": "input",
           "type": "string",
@@ -1894,6 +1698,41 @@
           "type": "string",
           "required": true,
           "description": ""
+        },
+        "errorMsg": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{errorMsg}"
+        },
+        "out_error_id": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_id}"
+        },
+        "out_error_name": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
+        "out_error_details": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_details}"
         }
       },
       "rules": [],
@@ -1901,13 +1740,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "NavStatus": {
     "title": "导航状态算子",
     "category": "Action",
-    "description": "导航状态算子",
+    "description": "用于获取导航状态",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1924,13 +1763,13 @@
     },
     "custom": {},
     "department": "导航",
-    "maintainer": "何鸿献",
+    "maintainer": "何鸿颉",
     "source_notes": []
   },
   "NavStop": {
     "title": "取消导航算子",
     "category": "Action",
-    "description": "取消导航算子",
+    "description": "用于取消导航任务",
     "mainline": {
       "status": "draft",
       "params": {
@@ -1948,19 +1787,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -1981,7 +1820,7 @@
   "NoticeScheduleAndWait": {
     "title": "等待调度任务算子",
     "category": "Action",
-    "description": "等待调度任务算子",
+    "description": "用于通知调度并等待",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2006,19 +1845,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -2039,7 +1878,7 @@
   "PalletServo": {
     "title": "栈板伺服算子",
     "category": "Action",
-    "description": "栈板伺服算子",
+    "description": "用于执行栈板伺服",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2093,19 +1932,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -2120,13 +1959,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "PalletStack": {
     "title": "堆叠算子",
     "category": "Action",
-    "description": "堆叠算子",
+    "description": "用于托盘堆叠",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2150,19 +1989,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -2176,17 +2015,23 @@
       "examples": []
     },
     "custom": {},
-    "department": "对接",
-    "maintainer": "刁怀锐",
+    "department": "软件",
+    "maintainer": "芦韩",
     "source_notes": []
   },
   "PauseEnable": {
-    "title": "使能光电触发停算子",
+    "title": "使能光电触发停车算子",
     "category": "Action",
-    "description": "使能光电触发停算子",
+    "description": "用于开启或关闭失光电",
     "mainline": {
       "status": "draft",
       "params": {
+        "pause_enable": {
+          "role": "input",
+          "type": "uint32",
+          "required": true,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -2201,13 +2046,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -2215,18 +2053,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "pause_enable": {
-          "role": "input",
-          "type": "uint32",
-          "required": true,
-          "description": ""
         }
       },
       "rules": [],
@@ -2240,45 +2079,10 @@
   "PhotoSensorStatus": {
     "title": "光电传感器状态算子",
     "category": "Action",
-    "description": "光电传感器状态算子",
+    "description": "用于获取各个光电的状态",
     "mainline": {
       "status": "draft",
       "params": {
-        "errorMsg": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{errorMsg}"
-        },
-        "out_error_id": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_id}"
-        },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
-        "out_error_name": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_name}"
-        },
-        "out_error_details": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_details}"
-        },
         "DI1": {
           "role": "output",
           "type": "bool",
@@ -2374,6 +2178,41 @@
           "type": "bool",
           "required": false,
           "description": ""
+        },
+        "errorMsg": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{errorMsg}"
+        },
+        "out_error_id": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_id}"
+        },
+        "out_error_name": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
+        "out_error_details": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_details}"
         }
       },
       "rules": [],
@@ -2387,7 +2226,7 @@
   "PlayVoice": {
     "title": "播放语音节点",
     "category": "Action",
-    "description": "播放语音节点",
+    "description": "用于播放语音提示",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2409,7 +2248,7 @@
   "RaiseException": {
     "title": "抛出异常节点",
     "category": "Action",
-    "description": "抛出异常节点",
+    "description": "用于测试和调试，抛出异常",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2451,19 +2290,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -2477,14 +2316,14 @@
       "examples": []
     },
     "custom": {},
-    "department": "内部",
+    "department": "基线",
     "maintainer": "刘万隆",
     "source_notes": []
   },
   "RegionCheck": {
     "title": "区域检测算子",
     "category": "Action",
-    "description": "区域检测算子",
+    "description": "用于检测指定区域内是否有货物",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2518,6 +2357,12 @@
           "required": true,
           "description": ""
         },
+        "have_obstracle": {
+          "role": "output",
+          "type": "bool",
+          "required": false,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -2532,13 +2377,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -2546,18 +2384,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "have_obstracle": {
-          "role": "output",
-          "type": "bool",
-          "required": false,
-          "description": ""
         }
       },
       "rules": [],
@@ -2565,29 +2404,16 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "ReportSchedule": {
     "title": "汇报调度算子",
     "category": "Action",
-    "description": "汇报调度算子",
+    "description": "用于上报调度",
     "mainline": {
       "status": "draft",
       "params": {
-        "errorMsg": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{errorMsg}"
-        },
-        "schedule_report_result": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": ""
-        },
         "schedule_report_action": {
           "role": "input",
           "type": "string",
@@ -2599,6 +2425,19 @@
           "type": "string",
           "required": true,
           "description": ""
+        },
+        "schedule_report_result": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        "errorMsg": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{errorMsg}"
         }
       },
       "rules": [],
@@ -2606,13 +2445,13 @@
     },
     "custom": {},
     "department": "基线",
-    "maintainer": "陈雨伦",
+    "maintainer": "刘万隆",
     "source_notes": []
   },
   "ResetEStopStatusCheck": {
     "title": "急停状态检测算子",
     "category": "Action",
-    "description": "急停状态检测算子",
+    "description": "用于复位急停状态检查",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2642,19 +2481,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -2668,51 +2507,14 @@
       "examples": []
     },
     "custom": {},
-    "department": "对接",
-    "maintainer": "郭本鹏",
-    "source_notes": []
-  },
-  "ReturnFail": {
-    "title": "返回失败节点",
-    "category": "Action",
-    "description": "返回失败节点",
-    "mainline": {
-      "status": "draft",
-      "params": {},
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "内部",
-    "maintainer": "刘万隆",
-    "source_notes": []
-  },
-  "RobotTask": {
-    "title": "机器人任务节点",
-    "category": "Action",
-    "description": "机器人任务节点",
-    "mainline": {
-      "status": "draft",
-      "params": {
-        "message": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        }
-      },
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "基线",
-    "maintainer": "刘万隆",
+    "department": "软件",
+    "maintainer": "陈凯伦",
     "source_notes": []
   },
   "RotateControl": {
     "title": "旋转控制节点",
     "category": "Action",
-    "description": "旋转控制节点",
+    "description": "用于控制机器人旋转",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2734,10 +2536,22 @@
   "SafeLaserCtrl": {
     "title": "安全激光控制算子",
     "category": "Action",
-    "description": "安全激光控制算子",
+    "description": "用于控制安全激光",
     "mainline": {
       "status": "draft",
       "params": {
+        "laser_name": {
+          "role": "input",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        "command": {
+          "role": "input",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -2752,13 +2566,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -2766,38 +2573,33 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "laser_name": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        },
-        "command": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
         }
       },
       "rules": [],
       "examples": []
     },
     "custom": {},
-    "department": "对接",
-    "maintainer": "芦韩",
+    "department": "软件",
+    "maintainer": "陈凯伦",
     "source_notes": []
   },
   "SaySomething": {
     "title": "输出信息节点",
     "category": "Action",
-    "description": "输出信息节点",
+    "description": "用于调试输出信息",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2812,14 +2614,14 @@
       "examples": []
     },
     "custom": {},
-    "department": "内部",
+    "department": "基线",
     "maintainer": "刘万隆",
     "source_notes": []
   },
   "ScanCode": {
-    "title": "康耐扫码相机算子",
+    "title": "康耐视扫码相机算子",
     "category": "Action",
-    "description": "康耐扫码相机算子",
+    "description": "用于扫码识别",
     "mainline": {
       "status": "draft",
       "params": {
@@ -2829,70 +2631,35 @@
           "required": false,
           "description": ""
         },
+        "scan_result": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{errorMsg}"
-        },
-        "scan_result": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": ""
         }
       },
       "rules": [],
       "examples": []
     },
     "custom": {},
-    "department": "对接",
+    "department": "软件",
     "maintainer": "芦韩",
     "source_notes": []
   },
   "ScanSafeCtrl": {
-    "title": "安全光控制算子",
+    "title": "安全激光控制算子",
     "category": "Action",
-    "description": "安全光控制算子",
+    "description": "用于开启或关闭激光",
     "mainline": {
       "status": "draft",
       "params": {
-        "errorMsg": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{errorMsg}"
-        },
-        "out_error_id": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_id}"
-        },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
-        "out_error_name": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_name}"
-        },
-        "out_error_details": {
-          "role": "output",
-          "type": "string",
-          "required": false,
-          "description": "",
-          "default": "{out_error_details}"
-        },
         "config_topic": {
           "role": "input",
           "type": "string",
@@ -2904,35 +2671,13 @@
           "type": "bool",
           "required": true,
           "description": ""
-        }
-      },
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "对接",
-    "maintainer": "芦韩",
-    "source_notes": []
-  },
-  "SelectServoMode": {
-    "title": "获取伺服类型算子",
-    "category": "Action",
-    "description": "获取伺服类型算子",
-    "mainline": {
-      "status": "draft",
-      "params": {
-        "action_args": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
         },
-        "out_error_details": {
+        "errorMsg": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
-          "default": "{out_error_details}"
+          "default": "{errorMsg}"
         },
         "out_error_id": {
           "role": "output",
@@ -2941,6 +2686,13 @@
           "description": "",
           "default": "{out_error_id}"
         },
+        "out_error_name": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_name}"
+        },
         "out_error_level": {
           "role": "output",
           "type": "int",
@@ -2948,12 +2700,34 @@
           "description": "",
           "default": "{out_error_level}"
         },
-        "out_error_name": {
+        "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
-          "default": "{out_error_name}"
+          "default": "{out_error_details}"
+        }
+      },
+      "rules": [],
+      "examples": []
+    },
+    "custom": {},
+    "department": "软件",
+    "maintainer": "陈凯伦",
+    "source_notes": []
+  },
+  "SelectServoMode": {
+    "title": "获取伺服类型算子",
+    "category": "Action",
+    "description": "用于选择伺服模式",
+    "mainline": {
+      "status": "draft",
+      "params": {
+        "action_args": {
+          "role": "input",
+          "type": "string",
+          "required": true,
+          "description": ""
         },
         "servo_mode": {
           "role": "output",
@@ -2967,23 +2741,57 @@
           "required": false,
           "description": "",
           "default": "{errorMsg}"
+        },
+        "out_error_id": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_id}"
+        },
+        "out_error_name": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
+        "out_error_details": {
+          "role": "output",
+          "type": "string",
+          "required": false,
+          "description": "",
+          "default": "{out_error_details}"
         }
       },
       "rules": [],
       "examples": []
     },
     "custom": {},
-    "department": "对接",
+    "department": "软件",
     "maintainer": "芦韩",
     "source_notes": []
   },
   "ServoStatus": {
     "title": "伺服状态算子",
     "category": "Action",
-    "description": "伺服状态算子",
+    "description": "用于获取当前伺服状态",
     "mainline": {
       "status": "draft",
       "params": {
+        "servo_status": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -2998,13 +2806,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -3012,18 +2813,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "servo_status": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": ""
         }
       },
       "rules": [],
@@ -3031,13 +2833,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "SetLoadingStatus": {
     "title": "设置载货状态算子",
     "category": "Action",
-    "description": "设置载货状态算子",
+    "description": "用于设置载货状态",
     "mainline": {
       "status": "draft",
       "params": {
@@ -3065,14 +2867,14 @@
       "examples": []
     },
     "custom": {},
-    "department": "对接",
-    "maintainer": "陈雨伦",
+    "department": "软件",
+    "maintainer": "陈凯伦",
     "source_notes": []
   },
   "ShelfServo": {
     "title": "货架伺服算子",
     "category": "Action",
-    "description": "货架伺服算子",
+    "description": "用于执行货架伺服",
     "mainline": {
       "status": "draft",
       "params": {
@@ -3126,19 +2928,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -3153,13 +2955,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "SlowDownToStop": {
-    "title": "虚拟停障算子",
+    "title": "虚拟障碍物算子",
     "category": "Action",
-    "description": "虚拟停障算子",
+    "description": "用于减速停止",
     "mainline": {
       "status": "draft",
       "params": {
@@ -3181,17 +2983,29 @@
       "examples": []
     },
     "custom": {},
-    "department": "安全",
-    "maintainer": "1",
+    "department": "基线",
+    "maintainer": "刘万隆",
     "source_notes": []
   },
   "SpeedManager": {
     "title": "速度管理算子",
     "category": "Action",
-    "description": "速度管理算子",
+    "description": "用于切换或清除速度优先级",
     "mainline": {
       "status": "draft",
       "params": {
+        "lowest_priority_speed": {
+          "role": "input",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        "reset_priority": {
+          "role": "input",
+          "type": "bool",
+          "required": true,
+          "description": ""
+        },
         "errorMsg": {
           "role": "output",
           "type": "string",
@@ -3206,13 +3020,6 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
@@ -3220,24 +3027,19 @@
           "description": "",
           "default": "{out_error_name}"
         },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
+        },
         "out_error_details": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_details}"
-        },
-        "lowest_priority_speed": {
-          "role": "input",
-          "type": "string",
-          "required": true,
-          "description": ""
-        },
-        "reset_priority": {
-          "role": "input",
-          "type": "bool",
-          "required": true,
-          "description": ""
         }
       },
       "rules": [],
@@ -3245,13 +3047,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刘怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "StartDistCheck": {
     "title": "起始距离有效性判断算子",
     "category": "Action",
-    "description": "起始距离有效性判断算子",
+    "description": "用于检查起点距离有效性",
     "mainline": {
       "status": "draft",
       "params": {
@@ -3287,19 +3089,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -3314,13 +3116,13 @@
     },
     "custom": {},
     "department": "导航",
-    "maintainer": "何鸿献",
+    "maintainer": "何鸿颉",
     "source_notes": []
   },
   "TipPhotoelectricCtrl": {
-    "title": "TipPhotoelectricCtrl",
+    "title": "齿尖光电屏蔽算子",
     "category": "Action",
-    "description": "",
+    "description": "用于控制齿尖光电屏蔽",
     "mainline": {
       "status": "draft",
       "params": {
@@ -3335,14 +3137,14 @@
       "examples": []
     },
     "custom": {},
-    "department": "",
-    "maintainer": "",
+    "department": "软件",
+    "maintainer": "芦韩",
     "source_notes": []
   },
   "UnloadingProcess": {
     "title": "放货+称重检测算子",
     "category": "Action",
-    "description": "放货+称重检测算子",
+    "description": "用于卸货流程处理",
     "mainline": {
       "status": "draft",
       "params": {
@@ -3372,19 +3174,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -3399,13 +3201,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "UnloadTemplate": {
-    "title": "取消货盘算子",
+    "title": "取消载货算子",
     "category": "Action",
-    "description": "取消货盘算子",
+    "description": "用于关闭载货状态，执行失败报错",
     "mainline": {
       "status": "draft",
       "params": {
@@ -3423,19 +3225,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -3450,13 +3252,13 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
+    "maintainer": "戴宇庆",
     "source_notes": []
   },
   "VisualServo": {
     "title": "视觉伺服算子",
     "category": "Action",
-    "description": "视觉伺服算子",
+    "description": "用于执行视觉伺服",
     "mainline": {
       "status": "draft",
       "params": {
@@ -3504,19 +3306,19 @@
           "description": "",
           "default": "{out_error_id}"
         },
-        "out_error_level": {
-          "role": "output",
-          "type": "int",
-          "required": false,
-          "description": "",
-          "default": "{out_error_level}"
-        },
         "out_error_name": {
           "role": "output",
           "type": "string",
           "required": false,
           "description": "",
           "default": "{out_error_name}"
+        },
+        "out_error_level": {
+          "role": "output",
+          "type": "int",
+          "required": false,
+          "description": "",
+          "default": "{out_error_level}"
         },
         "out_error_details": {
           "role": "output",
@@ -3531,22 +3333,7 @@
     },
     "custom": {},
     "department": "对接",
-    "maintainer": "刁怀锐",
-    "source_notes": []
-  },
-  "WaitForMoveState": {
-    "title": "等待移动状态节点",
-    "category": "Action",
-    "description": "等待移动状态节点",
-    "mainline": {
-      "status": "draft",
-      "params": {},
-      "rules": [],
-      "examples": []
-    },
-    "custom": {},
-    "department": "基线",
-    "maintainer": "刘万隆",
+    "maintainer": "戴宇庆",
     "source_notes": []
   }
 }

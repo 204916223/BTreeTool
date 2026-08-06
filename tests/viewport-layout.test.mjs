@@ -31,7 +31,8 @@ function loadViewportRuntime(options = {}) {
     window: {
       BTreeToolRuntime: runtime,
       addEventListener() {},
-      setTimeout() {}
+      setTimeout() {},
+      requestAnimationFrame: options.requestAnimationFrame || ((callback) => callback())
     },
     document: {
       body: createElementStub("body"),
@@ -40,10 +41,12 @@ function loadViewportRuntime(options = {}) {
       },
       querySelectorAll() {
         return [];
-      }
+      },
+      hidden: false
     },
     Element: ElementClass,
     HTMLElement: ElementClass,
+    cancelAnimationFrame: options.cancelAnimationFrame || (() => {}),
     requestAnimationFrame: options.requestAnimationFrame || ((callback) => callback())
   };
   const scriptPath = path.resolve("media/runtime/viewport/viewport-layout.js");
@@ -235,6 +238,256 @@ test("canvas pan stops when pointer returns after primary button was released", 
 
   assert.equal(shell.__btreeCanvasState.panX, initialPanX);
   assert.equal(shell.__btreeCanvasState.panY, initialPanY);
+});
+
+test("drag preview only zooms out one step instead of fitting a large tree", () => {
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub
+  });
+  const shell = new InteractiveElementStub("section");
+  const canvasState = createCanvasState(null, {
+    shell,
+    layout: {
+      width: 12000,
+      height: 8000,
+      nodes: []
+    },
+    panX: -300,
+    panY: -120,
+    zoom: 1
+  });
+  runtime.state.currentCanvasState = canvasState;
+
+  runtime.viewport.beginDragPreviewViewport();
+
+  assert.equal(canvasState.zoom, 0.85);
+  assert.equal(runtime.state.currentZoom, 0.85);
+});
+
+test("drag preview keeps the dragged node centered while zooming", () => {
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub
+  });
+  const shell = new InteractiveElementStub("section");
+  const canvasState = createCanvasState(null, {
+    shell,
+    layout: {
+      width: 2000,
+      height: 1400,
+      nodes: [{
+        x: 500,
+        y: 260,
+        width: 220,
+        height: 120,
+        centerX: 610,
+        dropTargetX: 880,
+        dropTargetY: 400,
+        dropTargetWidth: 300,
+        dropTargetHeight: 250,
+        node: { nodePath: "0.1", sourceTreeId: "MainTree" }
+      }]
+    },
+    panX: -300,
+    panY: -120,
+    zoom: 1
+  });
+  runtime.state.currentCanvasState = canvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+
+  const before = {
+    x: 610 * canvasState.zoom + canvasState.panX,
+    y: 320 * canvasState.zoom + canvasState.panY
+  };
+  runtime.viewport.beginDragPreviewViewport({
+    screenX: shell.getBoundingClientRect().left + before.x,
+    screenY: shell.getBoundingClientRect().top + before.y,
+    nodePath: "0.1",
+    treeId: "MainTree"
+  });
+  const after = {
+    x: (880 + 300 / 2) * canvasState.zoom + canvasState.panX,
+    y: (400 + 120 / 2) * canvasState.zoom + canvasState.panY
+  };
+
+  assert.ok(Math.abs(after.x - before.x) <= 1);
+  assert.ok(Math.abs(after.y - before.y) <= 1);
+});
+
+test("drag preview animates from a compensated layout before applying the zoom", () => {
+  const frames = [];
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+      return frames.length;
+    }
+  });
+  const shell = new InteractiveElementStub("section");
+  const canvasState = createCanvasState({
+    x: 500,
+    y: 260,
+    width: 220,
+    height: 120,
+    centerX: 610,
+    dropTargetX: 880,
+    dropTargetY: 400,
+    dropTargetWidth: 300,
+    dropTargetHeight: 250,
+    node: { nodePath: "0.1", sourceTreeId: "MainTree" }
+  }, { shell, zoom: 1 });
+  runtime.state.currentCanvasState = canvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+
+  runtime.viewport.beginDragPreviewViewport({
+    screenX: 300,
+    screenY: 250,
+    nodePath: "0.1",
+    treeId: "MainTree"
+  });
+
+  assert.equal(canvasState.zoom, 1);
+  assert.equal(shell.hasClass("is-drag-preview-zooming"), true);
+  assert.equal(frames.length, 1);
+
+  frames.shift()();
+  assert.equal(canvasState.zoom, 0.85);
+  assert.equal(shell.hasClass("is-drag-preview-zooming"), true);
+
+  runtime.viewport.endDragPreviewViewport({ cancelled: true });
+  assert.equal(shell.hasClass("is-drag-preview-zooming"), false);
+  assert.equal(canvasState.zoom, 1);
+});
+
+test("drag edge auto-pan keeps moving and cancellation restores the original viewport", () => {
+  const frames = [];
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelAnimationFrame() {}
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  const layout = { width: 2000, height: 1400, nodes: [] };
+  runtime.viewport.setupCanvas(shell, stage, layout, null, { active: false });
+  const canvasState = shell.__btreeCanvasState;
+  runtime.state.currentCanvasState = canvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+  const originalPanX = canvasState.panX;
+  runtime.viewport.beginDragPreviewViewport();
+  frames.length = 0;
+
+  shell.listeners.dragover({ clientX: 5, clientY: 350 });
+  assert.equal(frames.length, 1);
+  frames.shift()();
+  assert.ok(canvasState.panX > originalPanX);
+
+  runtime.viewport.endDragPreviewViewport({ cancelled: true });
+  assert.equal(canvasState.panX, originalPanX);
+});
+
+test("drag edge auto-pan follows the visible edges beside expanded side panels", () => {
+  let scheduledFrames = 0;
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    requestAnimationFrame() {
+      scheduledFrames += 1;
+      return scheduledFrames;
+    },
+    cancelAnimationFrame() {}
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.state.showCatalog = true;
+  runtime.state.catalogWidth = 280;
+  runtime.state.editAssistantVisible = true;
+  runtime.state.editAssistantWidth = 320;
+  runtime.refs.catalogPanel = {
+    hidden: false,
+    getBoundingClientRect() {
+      return { width: 280 };
+    }
+  };
+  runtime.refs.editAssistantPanel = {
+    hidden: false,
+    getBoundingClientRect() {
+      return { width: 320 };
+    }
+  };
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  runtime.state.currentCanvasState = shell.__btreeCanvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+  runtime.viewport.beginDragPreviewViewport();
+  scheduledFrames = 0;
+
+  shell.listeners.dragover({ clientX: 285, clientY: 350, button: 0, buttons: 1 });
+  assert.equal(scheduledFrames, 1);
+  shell.listeners.dragover({ clientX: 400, clientY: 350, button: 0, buttons: 1 });
+  shell.listeners.dragover({ clientX: 475, clientY: 350, button: 0, buttons: 1 });
+  assert.equal(scheduledFrames, 2);
+});
+
+test("drag edge auto-pan keeps its direction outside the canvas and updates on re-entry", () => {
+  const frames = [];
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelAnimationFrame() {}
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.state.showCatalog = true;
+  runtime.state.catalogWidth = 280;
+  runtime.refs.catalogPanel = {
+    hidden: false,
+    getBoundingClientRect() {
+      return { width: 280 };
+    }
+  };
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  runtime.state.currentCanvasState = shell.__btreeCanvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+  frames.length = 0;
+
+  shell.listeners.dragover({ clientX: 285, clientY: 350, button: 0, buttons: 1 });
+  assert.equal(frames.length, 1);
+  const panBeforeLeaving = shell.__btreeCanvasState.panX;
+  shell.listeners.dragleave({ relatedTarget: null });
+  frames.shift()();
+  assert.ok(shell.__btreeCanvasState.panX > panBeforeLeaving);
+
+  shell.listeners.dragenter({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
+  const panBeforeReentry = shell.__btreeCanvasState.panX;
+  frames.shift()();
+  assert.ok(shell.__btreeCanvasState.panX > panBeforeReentry);
+});
+
+test("right mouse button reported by dragover cancels the active node drag", () => {
+  let cancelled = false;
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    canvas: {
+      clearDragState(options) {
+        cancelled = options?.cancelled === true;
+        runtime.state.currentDragState = null;
+      }
+    }
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  runtime.state.currentCanvasState = shell.__btreeCanvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+
+  shell.listeners.dragover({ clientX: 400, clientY: 300, button: 2, buttons: 3, preventDefault() {} });
+
+  assert.equal(cancelled, true);
+  assert.equal(runtime.state.currentDragState, null);
 });
 
 test("tree layout reuses base measurements for expanded drop target sizing", () => {

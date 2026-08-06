@@ -82,7 +82,8 @@ body.has-blocking-overlay .settings-dialog {
 }
 
 .canvas-shell.is-drag-preview-zooming .canvas-stage {
-  transition: transform 140ms ease;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
 }
 
 .canvas-edges {
@@ -161,6 +162,11 @@ body.is-reordering-nodes .canvas-edge-path-drop {
 body.is-reordering-nodes .canvas-node {
   left: var(--drop-target-left) !important;
   top: var(--drop-target-top) !important;
+  transition: none;
+}
+
+body.is-ending-node-drag .canvas-node {
+  transition: none !important;
 }
 
 body.is-reordering-nodes .canvas-node.is-drop-target-expandable:not(.is-drag-source) {
@@ -171,6 +177,7 @@ body.is-reordering-nodes .canvas-node.is-drop-target-expandable:not(.is-drag-sou
 
 body.is-reordering-nodes .canvas-node.is-drag-source {
   left: var(--drop-target-source-left) !important;
+  top: var(--drop-target-source-top) !important;
   width: var(--node-base-width) !important;
   height: var(--node-base-height) !important;
 }

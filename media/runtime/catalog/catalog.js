@@ -378,7 +378,9 @@
           runtime.setNeutralDragImage?.(event);
         });
         row.addEventListener("dragend", () => {
-          runtime.canvas.clearDragState();
+          if (state.currentDragState) {
+            runtime.canvas.clearDragState({ cancelled: true });
+          }
         });
         list.appendChild(row);
       });
@@ -576,7 +578,7 @@
         nodeTitle: state.currentDragState.nodeTitle
       });
       catalogPanel.classList.remove("is-delete-target-active");
-      canvas.clearDragState();
+      canvas.clearDragState({ cancelled: true });
     });
   }
 

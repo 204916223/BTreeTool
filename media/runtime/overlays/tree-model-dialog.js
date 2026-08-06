@@ -57,7 +57,11 @@
     addPortButton.className = "canvas-btn subtle";
     addPortButton.innerHTML = runtime.icons.iconHtml("add");
     addPortButton.addEventListener("click", () => {
-      appendTreeNodePortRow(createBlankPortModel());
+      const row = appendTreeNodePortRow(createBlankPortModel());
+      requestAnimationFrame(() => {
+        row?.scrollIntoView({ block: "nearest" });
+        row?.querySelector(".tree-model-port-name")?.focus();
+      });
     });
 
     const deleteModelButton = document.createElement("button");
@@ -116,6 +120,11 @@
     const actions = document.createElement("div");
     actions.className = "settings-actions";
 
+    const content = document.createElement("div");
+    content.className = "tree-model-content";
+    content.appendChild(status);
+    content.appendChild(tableWrap);
+
     const saveButton = document.createElement("button");
     saveButton.type = "button";
     saveButton.className = "canvas-btn accent";
@@ -127,8 +136,7 @@
     actions.appendChild(saveButton);
     dialog.appendChild(meta);
     dialog.appendChild(toolbar);
-    dialog.appendChild(status);
-    dialog.appendChild(tableWrap);
+    dialog.appendChild(content);
     dialog.appendChild(actions);
     return {
       element,
@@ -353,6 +361,7 @@
     row.appendChild(descriptionCell);
     row.appendChild(actionCell);
     overlayState.treeNodesModelDialog.tableBody.appendChild(row);
+    return row;
   }
 
   function appendTreeNodePortEmptyState(message) {

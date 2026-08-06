@@ -9,6 +9,7 @@ const {
   diffCandidate,
   parseCandidate,
   parseTreeNodesModel,
+  reorderObjectEntry,
   validateAtlas
 } = require("../Tools/atlas-editor/atlas-core.js");
 
@@ -111,6 +112,26 @@ test("atlas candidate JSON can be reviewed by the same importer", () => {
   assert.equal(candidate.nodes.Demo.params.value.type, "double");
 });
 
+test("atlas parameter ordering can move one entry without changing its data", () => {
+  const params = {
+    first: { role: "input", type: "int" },
+    second: { role: "input", type: "string" },
+    result: { role: "output", type: "bool" }
+  };
+
+  const before = reorderObjectEntry(params, "second", "first", "before");
+  assert.deepEqual(Object.keys(before), ["second", "first", "result"]);
+  assert.deepEqual(before.second, params.second);
+
+  const after = reorderObjectEntry(before, "second", "first", "after");
+  assert.deepEqual(Object.keys(after), ["first", "second", "result"]);
+  assert.deepEqual(params, {
+    first: { role: "input", type: "int" },
+    second: { role: "input", type: "string" },
+    result: { role: "output", type: "bool" }
+  });
+});
+
 test("TNM build no longer invokes the atlas mutation script", () => {
   const source = readFileSync(new URL("../Tools/buildtnm.sh", import.meta.url), "utf8");
   assert.equal(source.includes("update_atlas_from_btt.py"), false);
@@ -127,6 +148,10 @@ test("atlas editor keeps parameter editing explicit and contains no inference or
   assert.doesNotMatch(source, /field\.addEventListener\("focus"[^\n]*selectParamCard/);
   assert.equal(html.includes("usage-flow-editor"), false);
   assert.equal(html.includes("param-variable-help"), false);
+  assert.match(source, /bindParamDrag\(button, card\.dataset\.paramName \|\| name, lane\.key\)/);
+  assert.match(source, /bindParamDrag\(row, name, lane\)/);
+  assert.match(source, /BTreeAtlasCore\.reorderObjectEntry/);
+  assert.doesNotMatch(source, /Object\.keys\(params\)\.sort\(compareText\)/);
 });
 
 test("atlas variable editor writes a default value without legacy common-node or example fields", () => {
