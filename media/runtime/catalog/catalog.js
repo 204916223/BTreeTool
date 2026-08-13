@@ -375,7 +375,7 @@
           runtime.viewport.beginDragPreviewViewport();
           event.dataTransfer.effectAllowed = "copyMove";
           event.dataTransfer.setData("text/plain", item.key);
-          runtime.setNeutralDragImage?.(event);
+          runtime.setVisibleDragImage?.(event, row);
         });
         row.addEventListener("dragend", () => {
           if (state.currentDragState) {

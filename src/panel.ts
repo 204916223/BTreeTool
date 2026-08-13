@@ -91,6 +91,14 @@ export class BehaviorTreePreviewPanel {
     globalStorageUri: vscode.Uri,
     document?: vscode.TextDocument
   ): Promise<void> {
+    const existingPanel = document
+      ? BehaviorTreePreviewPanel.panelsByDocument.get(document.uri.toString())?.values().next().value
+      : undefined;
+    if (existingPanel) {
+      existingPanel.panel.reveal(vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One, false);
+      return;
+    }
+
     if (document && isXmlWithoutBehaviorTrees(document)) {
       await BehaviorTreePreviewPanel.showInvalidDocumentMessage();
       await BehaviorTreePreviewPanel.createOrShow(extensionUri, globalStorageUri, undefined);

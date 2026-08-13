@@ -75,6 +75,28 @@ function createElementStub(tagName = "div") {
   };
 }
 
+function createTimerHarness() {
+  let nextId = 0;
+  const timers = new Map();
+  return {
+    timers,
+    setTimeout(callback, delay) {
+      nextId += 1;
+      timers.set(nextId, { callback, delay });
+      return nextId;
+    },
+    clearTimeout(timerId) {
+      timers.delete(timerId);
+    },
+    run(delay) {
+      const entry = Array.from(timers.entries()).find(([, timer]) => timer.delay === delay);
+      assert.ok(entry, `Expected a ${delay}ms timer`);
+      timers.delete(entry[0]);
+      entry[1].callback();
+    }
+  };
+}
+
 class InteractiveElementStub {
   constructor(tagName = "div") {
     this.tagName = tagName.toUpperCase();
@@ -366,13 +388,16 @@ test("drag preview animates from a compensated layout before applying the zoom",
 
 test("drag edge auto-pan keeps moving and cancellation restores the original viewport", () => {
   const frames = [];
+  const timerHarness = createTimerHarness();
   const runtime = loadViewportRuntime({
     Element: InteractiveElementStub,
     requestAnimationFrame(callback) {
       frames.push(callback);
       return frames.length;
     },
-    cancelAnimationFrame() {}
+    cancelAnimationFrame() {},
+    setTimeout: timerHarness.setTimeout,
+    clearTimeout: timerHarness.clearTimeout
   });
   const shell = new InteractiveElementStub("section");
   const stage = new InteractiveElementStub("div");
@@ -384,11 +409,15 @@ test("drag edge auto-pan keeps moving and cancellation restores the original vie
   const originalPanX = canvasState.panX;
   runtime.viewport.beginDragPreviewViewport();
   frames.length = 0;
+  timerHarness.timers.clear();
 
-  shell.listeners.dragover({ clientX: 5, clientY: 350 });
+  shell.listeners.dragover({ clientX: 50, clientY: 350 });
+  assert.equal(frames.length, 0);
+  assert.equal(canvasState.panX, originalPanX);
+  timerHarness.run(1000);
   assert.equal(frames.length, 1);
   frames.shift()();
-  assert.ok(canvasState.panX > originalPanX);
+  assert.equal(canvasState.panX, originalPanX + 11);
 
   runtime.viewport.endDragPreviewViewport({ cancelled: true });
   assert.equal(canvasState.panX, originalPanX);
@@ -396,13 +425,16 @@ test("drag edge auto-pan keeps moving and cancellation restores the original vie
 
 test("drag edge auto-pan follows the visible edges beside expanded side panels", () => {
   let scheduledFrames = 0;
+  const timerHarness = createTimerHarness();
   const runtime = loadViewportRuntime({
     Element: InteractiveElementStub,
     requestAnimationFrame() {
       scheduledFrames += 1;
       return scheduledFrames;
     },
-    cancelAnimationFrame() {}
+    cancelAnimationFrame() {},
+    setTimeout: timerHarness.setTimeout,
+    clearTimeout: timerHarness.clearTimeout
   });
   const shell = new InteractiveElementStub("section");
   const stage = new InteractiveElementStub("div");
@@ -427,23 +459,34 @@ test("drag edge auto-pan follows the visible edges beside expanded side panels",
   runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
   runtime.viewport.beginDragPreviewViewport();
   scheduledFrames = 0;
+  timerHarness.timers.clear();
 
-  shell.listeners.dragover({ clientX: 285, clientY: 350, button: 0, buttons: 1 });
+  shell.listeners.dragover({ clientX: 331, clientY: 350, button: 0, buttons: 1 });
+  assert.equal(timerHarness.timers.size, 0);
+  shell.listeners.dragover({ clientX: 330, clientY: 350, button: 0, buttons: 1 });
+  assert.equal(scheduledFrames, 0);
+  timerHarness.run(1000);
   assert.equal(scheduledFrames, 1);
-  shell.listeners.dragover({ clientX: 400, clientY: 350, button: 0, buttons: 1 });
-  shell.listeners.dragover({ clientX: 475, clientY: 350, button: 0, buttons: 1 });
+
+  shell.listeners.dragover({ clientX: 429, clientY: 350, button: 0, buttons: 1 });
+  assert.equal(timerHarness.timers.size, 0);
+  shell.listeners.dragover({ clientX: 430, clientY: 350, button: 0, buttons: 1 });
+  timerHarness.run(1000);
   assert.equal(scheduledFrames, 2);
 });
 
 test("drag edge auto-pan keeps its direction outside the canvas and updates on re-entry", () => {
   const frames = [];
+  const timerHarness = createTimerHarness();
   const runtime = loadViewportRuntime({
     Element: InteractiveElementStub,
     requestAnimationFrame(callback) {
       frames.push(callback);
       return frames.length;
     },
-    cancelAnimationFrame() {}
+    cancelAnimationFrame() {},
+    setTimeout: timerHarness.setTimeout,
+    clearTimeout: timerHarness.clearTimeout
   });
   const shell = new InteractiveElementStub("section");
   const stage = new InteractiveElementStub("div");
@@ -459,8 +502,10 @@ test("drag edge auto-pan keeps its direction outside the canvas and updates on r
   runtime.state.currentCanvasState = shell.__btreeCanvasState;
   runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
   frames.length = 0;
+  timerHarness.timers.clear();
 
   shell.listeners.dragover({ clientX: 285, clientY: 350, button: 0, buttons: 1 });
+  timerHarness.run(1000);
   assert.equal(frames.length, 1);
   const panBeforeLeaving = shell.__btreeCanvasState.panX;
   shell.listeners.dragleave({ relatedTarget: null });
@@ -551,13 +596,16 @@ test("window blur cancels an active drag before it can remain stuck on re-entry"
 
 test("mouse movement after window re-entry releases stale edge auto-pan", () => {
   const frames = [];
+  const timerHarness = createTimerHarness();
   const runtime = loadViewportRuntime({
     Element: InteractiveElementStub,
     requestAnimationFrame(callback) {
       frames.push(callback);
       return frames.length;
     },
-    cancelAnimationFrame() {}
+    cancelAnimationFrame() {},
+    setTimeout: timerHarness.setTimeout,
+    clearTimeout: timerHarness.clearTimeout
   });
   const shell = new InteractiveElementStub("section");
   const stage = new InteractiveElementStub("div");
@@ -565,8 +613,10 @@ test("mouse movement after window re-entry releases stale edge auto-pan", () => 
   runtime.state.currentCanvasState = shell.__btreeCanvasState;
   runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
   frames.length = 0;
+  timerHarness.timers.clear();
 
   shell.listeners.dragover({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
+  timerHarness.run(1000);
   const panBeforeEdgeFrame = shell.__btreeCanvasState.panX;
   frames.shift()();
   assert.ok(shell.__btreeCanvasState.panX > panBeforeEdgeFrame);
@@ -584,8 +634,7 @@ test("mouse movement after window re-entry releases stale edge auto-pan", () => 
 
 test("edge auto-pan stops when drag events are lost outside the webview", () => {
   const frames = [];
-  const timers = new Map();
-  let nextTimerId = 0;
+  const timerHarness = createTimerHarness();
   const runtime = loadViewportRuntime({
     Element: InteractiveElementStub,
     requestAnimationFrame(callback) {
@@ -593,14 +642,8 @@ test("edge auto-pan stops when drag events are lost outside the webview", () => 
       return frames.length;
     },
     cancelAnimationFrame() {},
-    setTimeout(callback) {
-      nextTimerId += 1;
-      timers.set(nextTimerId, callback);
-      return nextTimerId;
-    },
-    clearTimeout(timerId) {
-      timers.delete(timerId);
-    }
+    setTimeout: timerHarness.setTimeout,
+    clearTimeout: timerHarness.clearTimeout
   });
   const shell = new InteractiveElementStub("section");
   const stage = new InteractiveElementStub("div");
@@ -608,13 +651,13 @@ test("edge auto-pan stops when drag events are lost outside the webview", () => 
   runtime.state.currentCanvasState = shell.__btreeCanvasState;
   runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
   frames.length = 0;
-  timers.clear();
+  timerHarness.timers.clear();
 
   shell.listeners.dragover({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
+  timerHarness.run(1000);
   frames.shift()();
   const panAfterEdgeFrame = shell.__btreeCanvasState.panX;
-  const staleTimer = Array.from(timers.values()).at(-1);
-  staleTimer();
+  timerHarness.run(180);
 
   frames.shift()();
   assert.equal(shell.__btreeCanvasState.panX, panAfterEdgeFrame);

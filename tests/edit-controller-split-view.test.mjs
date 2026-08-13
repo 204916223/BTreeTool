@@ -36,7 +36,7 @@ function loadEditControllerRuntime() {
   const renderSplitCalls = [];
   const runtime = {
     dragImage: {
-      setNeutralDragImage() {}
+      setVisibleDragImage() {}
     },
     appState: {
       createInitialState() {

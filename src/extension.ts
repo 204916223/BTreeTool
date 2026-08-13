@@ -3,6 +3,7 @@ import { parseBehaviorTreeDocument } from "./core/parse";
 import { BehaviorTreePreviewPanel } from "./panel";
 import { createPreviewStatusBarController } from "./extension/statusBar";
 import type { ShortcutAction } from "./panel/messages";
+import { isBtreeCpp4XmlSource } from "./behaviorTreeDocumentDetection";
 
 class BtlogCustomEditorProvider implements vscode.CustomReadonlyEditorProvider<vscode.CustomDocument> {
   static readonly viewType = "btreeTool.btlogEditor";
@@ -36,6 +37,8 @@ class BtlogCustomEditorProvider implements vscode.CustomReadonlyEditorProvider<v
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("btreeTool");
+  const autoOpenedDocumentUris = new Set<string>();
+  const autoOpenTasks = new Map<string, Promise<void>>();
 
   const isBehaviorTreeDocument = (document: vscode.TextDocument | undefined): boolean => {
     if (!document) {
@@ -46,6 +49,34 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const previewButton = createPreviewStatusBarController(isBehaviorTreeDocument);
+
+  const openRecognizedBehaviorTreeDocument = (document: vscode.TextDocument | undefined): void => {
+    if (!document || document.uri.scheme !== "file" || !document.uri.fsPath.toLowerCase().endsWith(".xml")) {
+      return;
+    }
+
+    const documentKey = document.uri.toString();
+    if (
+      autoOpenedDocumentUris.has(documentKey) ||
+      autoOpenTasks.has(documentKey) ||
+      !isBtreeCpp4XmlSource(document.getText())
+    ) {
+      return;
+    }
+
+    const task = BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, document);
+    autoOpenTasks.set(documentKey, task);
+    void task.then(
+      () => {
+        autoOpenTasks.delete(documentKey);
+        autoOpenedDocumentUris.add(documentKey);
+      },
+      () => {
+        autoOpenTasks.delete(documentKey);
+        autoOpenedDocumentUris.delete(documentKey);
+      }
+    );
+  };
 
   const buildRange = (document: vscode.TextDocument): vscode.Range => {
     if (document.lineCount === 0) {
@@ -127,6 +158,15 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
+      const autoOpenTask = autoOpenTasks.get(document.uri.toString());
+      if (autoOpenTask) {
+        try {
+          await autoOpenTask;
+          return;
+        } catch (_error) {
+          // Fall through so the explicit command can retry the failed automatic open.
+        }
+      }
       await BehaviorTreePreviewPanel.createOrShow(context.extensionUri, context.globalStorageUri, document);
     })
   );
@@ -166,6 +206,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       previewButton.update(editor);
+      openRecognizedBehaviorTreeDocument(editor?.document);
     })
   );
 
@@ -179,6 +220,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((document) => {
       updateDiagnostics(document);
+      openRecognizedBehaviorTreeDocument(document);
     })
   );
 
@@ -191,11 +233,14 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidCloseTextDocument((document) => {
       diagnostics.delete(document.uri);
+      autoOpenedDocumentUris.delete(document.uri.toString());
+      autoOpenTasks.delete(document.uri.toString());
     })
   );
 
   previewButton.update(vscode.window.activeTextEditor);
   vscode.workspace.textDocuments.forEach((document) => updateDiagnostics(document));
+  openRecognizedBehaviorTreeDocument(vscode.window.activeTextEditor?.document);
 }
 
 export function deactivate(): void {

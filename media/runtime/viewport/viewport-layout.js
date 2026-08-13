@@ -7,8 +7,9 @@
   let dragPreviewTransitionTimer = null;
   let dragAutoPan = null;
   const DRAG_PREVIEW_ZOOM_FACTOR = 0.85;
-  const DRAG_AUTO_PAN_EDGE = 20;
-  const DRAG_AUTO_PAN_SPEED = 14;
+  const DRAG_AUTO_PAN_EDGE = 50;
+  const DRAG_AUTO_PAN_SPEED = 14 * 0.8;
+  const DRAG_AUTO_PAN_HOVER_MS = 1000;
   const DRAG_AUTO_PAN_STALE_MS = 180;
   const DROP_TARGET_REFERENCE_SIZE = {
     width: 230,
@@ -1132,17 +1133,58 @@
 
     dragAutoPan = dragAutoPan || {
       frame: null,
+      hoverTimer: null,
       staleTimer: null,
       canvasState,
       velocityX: 0,
       velocityY: 0
     };
+    const directionChanged =
+      dragAutoPan.canvasState !== canvasState ||
+      dragAutoPan.velocityX !== velocityX ||
+      dragAutoPan.velocityY !== velocityY;
+    if (directionChanged && dragAutoPan.frame !== null && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(dragAutoPan.frame);
+      dragAutoPan.frame = null;
+    }
     dragAutoPan.canvasState = canvasState;
     dragAutoPan.velocityX = velocityX;
     dragAutoPan.velocityY = velocityY;
-    refreshDragAutoPanTimeout(dragAutoPan);
-    if (dragAutoPan.frame === null) {
-      dragAutoPan.frame = requestAnimationFrame(runDragAutoPan);
+    if (directionChanged) {
+      cancelDragAutoPanHover(dragAutoPan);
+      cancelDragAutoPanStaleTimeout(dragAutoPan);
+    }
+    if (dragAutoPan.frame !== null) {
+      refreshDragAutoPanTimeout(dragAutoPan);
+      return;
+    }
+    if (dragAutoPan.frame === null && dragAutoPan.hoverTimer === null && typeof window.setTimeout === "function") {
+      const panState = dragAutoPan;
+      panState.hoverTimer = window.setTimeout(() => {
+        panState.hoverTimer = null;
+        if (dragAutoPan === panState && runtime.state.currentDragState) {
+          panState.frame = requestAnimationFrame(runDragAutoPan);
+          refreshDragAutoPanTimeout(panState);
+        }
+      }, DRAG_AUTO_PAN_HOVER_MS);
+    }
+  }
+
+  function cancelDragAutoPanHover(panState) {
+    if (panState && panState.hoverTimer !== null && typeof window.clearTimeout === "function") {
+      window.clearTimeout(panState.hoverTimer);
+    }
+    if (panState) {
+      panState.hoverTimer = null;
+    }
+  }
+
+  function cancelDragAutoPanStaleTimeout(panState) {
+    if (panState && panState.staleTimer !== null && typeof window.clearTimeout === "function") {
+      window.clearTimeout(panState.staleTimer);
+    }
+    if (panState) {
+      panState.staleTimer = null;
     }
   }
 
@@ -1183,9 +1225,8 @@
     if (dragAutoPan && dragAutoPan.frame !== null && typeof cancelAnimationFrame === "function") {
       cancelAnimationFrame(dragAutoPan.frame);
     }
-    if (dragAutoPan && dragAutoPan.staleTimer !== null && typeof window.clearTimeout === "function") {
-      window.clearTimeout(dragAutoPan.staleTimer);
-    }
+    cancelDragAutoPanHover(dragAutoPan);
+    cancelDragAutoPanStaleTimeout(dragAutoPan);
     dragAutoPan = null;
   }
 

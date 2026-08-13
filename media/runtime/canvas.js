@@ -505,7 +505,7 @@
           runtime.catalog.syncDeleteTargetIndicator?.();
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData("text/plain", node.nodePath);
-          runtime.setNeutralDragImage?.(event);
+          runtime.setVisibleDragImage?.(event, card);
         });
 
         heading.addEventListener("dragend", () => {

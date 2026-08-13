@@ -3,7 +3,7 @@
 
   function start({ vscode, persistedState, initialMode, initialSettings }) {
     runtime.vscode = vscode;
-    runtime.setNeutralDragImage = runtime.dragImage.setNeutralDragImage;
+    runtime.setVisibleDragImage = runtime.dragImage.setVisibleDragImage;
     runtime.state = runtime.appState.createInitialState(persistedState, initialMode, initialSettings);
 
     runtime.refs = runtime.domRefs.createRefs(document);

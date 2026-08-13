@@ -144,6 +144,7 @@ function loadCanvasRuntime(options = {}) {
       canPerformAction() {
         return true;
       },
+      activateTreePane() {},
       persistUiState() {},
       getTreeMap() {
         return new Map();
@@ -629,4 +630,45 @@ test("releasing a moved node without a committed drop uses cancellation cleanup"
   assert.equal(runtime.state.currentDragState, null);
   assert.equal(document.body.classList.contains("is-reordering-nodes"), false);
   assert.equal(document.body.classList.contains("is-ending-node-drag"), false);
+});
+
+test("moving nodes and subtree references keeps their card visible as the drag image", () => {
+  for (const category of ["Action", "SubTree"]) {
+    const { runtime, document } = loadCanvasRuntime();
+    document.body = new ElementStub("body");
+    runtime.viewport.beginDragPreviewViewport = () => {};
+    runtime.viewport.refreshDropTargetVisibility = () => {};
+    runtime.catalog.syncDeleteTargetIndicator = () => {};
+    const dragImages = [];
+    runtime.setVisibleDragImage = (event, source) => {
+      dragImages.push({ event, source });
+    };
+
+    const card = runtime.canvas.buildNodeCard({
+      nodePath: "0.1",
+      title: category === "SubTree" ? "Loading" : "Sleep",
+      kind: category === "SubTree" ? "SubTree" : "Sleep",
+      category,
+      attributes: {},
+      children: [],
+      warnings: [],
+      warningCount: 0,
+      hasError: false
+    }, { behaviorTrees: [] }, {
+      interactive: true,
+      currentTreeId: "MainTree",
+      parentPath: "0",
+      siblingIndex: 0
+    });
+    const heading = findByClass(card, "flow-card-heading")[0];
+    const dataTransfer = {
+      setData() {},
+      effectAllowed: ""
+    };
+
+    heading.dispatch("dragstart", { dataTransfer, clientX: 20, clientY: 20 });
+
+    assert.equal(dragImages.length, 1);
+    assert.equal(dragImages[0].source, card);
+  }
 });
