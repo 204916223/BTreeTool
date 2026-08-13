@@ -41,6 +41,50 @@ body.has-blocking-overlay .settings-dialog {
   cursor: grabbing;
 }
 
+.drag-auto-pan-hint {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  z-index: 20;
+  min-width: 180px;
+  padding: 8px 12px 10px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--line-strong));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-bg-card-strong) 94%, var(--accent) 6%);
+  color: var(--color-text, var(--foreground));
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.drag-auto-pan-hint[hidden] {
+  display: none;
+}
+
+.drag-auto-pan-hint.is-waiting::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: drag-auto-pan-hint-progress 500ms linear forwards;
+}
+
+@keyframes drag-auto-pan-hint-progress {
+  to {
+    transform: scaleX(1);
+  }
+}
+
 .canvas-fit-view-btn {
   position: absolute;
   right: calc(var(--workspace-right-overlay, 0px) + 12px);

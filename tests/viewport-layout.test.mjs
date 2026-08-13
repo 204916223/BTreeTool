@@ -76,6 +76,7 @@ function createElementStub(tagName = "div") {
   return {
     tagName: tagName.toUpperCase(),
     children: [],
+    dataset: {},
     style: {},
     appendChild(child) {
       this.children.push(child);
@@ -151,6 +152,11 @@ class InteractiveElementStub {
     if (this.listeners[type] === handler) {
       delete this.listeners[type];
     }
+  }
+
+  appendChild(child) {
+    this.children.push(child);
+    return child;
   }
 
   querySelector() {
@@ -385,6 +391,72 @@ test("drag preview keeps the dragged node centered while zooming", () => {
   assert.ok(Math.abs(after.y - before.y) <= 1);
 });
 
+test("palette drag keeps a nearby visible node anchored while opening drop targets", () => {
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub
+  });
+  const shell = new InteractiveElementStub("section");
+  runtime.state.showCatalog = true;
+  runtime.state.catalogWidth = 280;
+  runtime.refs.catalogPanel = {
+    hidden: false,
+    getBoundingClientRect() {
+      return { width: 280 };
+    }
+  };
+  const anchorEntry = {
+    x: 410,
+    y: 240,
+    width: 220,
+    height: 120,
+    dropTargetX: 700,
+    dropTargetY: 390,
+    dropTargetWidth: 300,
+    dropTargetHeight: 250,
+    node: { nodePath: "0.1", sourceTreeId: "MainTree" }
+  };
+  const canvasState = createCanvasState(null, {
+    shell,
+    layout: {
+      width: 2000,
+      height: 1400,
+      nodes: [
+        {
+          x: 40,
+          y: 36,
+          width: 220,
+          height: 100,
+          dropTargetX: 40,
+          dropTargetY: 36,
+          dropTargetWidth: 230,
+          dropTargetHeight: 250,
+          node: { nodePath: "0", sourceTreeId: "MainTree" }
+        },
+        anchorEntry
+      ]
+    },
+    panX: 0,
+    panY: 0,
+    zoom: 1
+  });
+  runtime.state.currentCanvasState = canvasState;
+  runtime.state.selectedTreeId = "MainTree";
+
+  const before = {
+    x: anchorEntry.x + anchorEntry.width / 2,
+    y: anchorEntry.y + anchorEntry.height / 2
+  };
+  runtime.viewport.beginDragPreviewViewport();
+  const after = {
+    x: (anchorEntry.dropTargetX + anchorEntry.dropTargetWidth / 2) * canvasState.zoom + canvasState.panX,
+    y: (anchorEntry.dropTargetY + anchorEntry.height / 2) * canvasState.zoom + canvasState.panY
+  };
+
+  assert.equal(canvasState.zoom, 0.85);
+  assert.ok(Math.abs(after.x - before.x) <= 1);
+  assert.ok(Math.abs(after.y - before.y) <= 1);
+});
+
 test("drag preview animates from a compensated layout before applying the zoom", () => {
   const frames = [];
   const runtime = loadViewportRuntime({
@@ -458,13 +530,82 @@ test("drag edge auto-pan keeps moving and cancellation restores the original vie
   shell.listeners.dragover({ clientX: 50, clientY: 350 });
   assert.equal(frames.length, 0);
   assert.equal(canvasState.panX, originalPanX);
-  timerHarness.run(1000);
+  timerHarness.run(500);
   assert.equal(frames.length, 1);
   frames.shift()();
   assert.equal(canvasState.panX, originalPanX + 11);
 
   runtime.viewport.endDragPreviewViewport({ cancelled: true });
   assert.equal(canvasState.panX, originalPanX);
+});
+
+test("drag edge auto-pan shows a directional 0.5 second waiting hint", () => {
+  const frames = [];
+  const timerHarness = createTimerHarness();
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelAnimationFrame() {},
+    setTimeout: timerHarness.setTimeout,
+    clearTimeout: timerHarness.clearTimeout
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.state.currentSettings.language = "zh-CN";
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  const canvasState = shell.__btreeCanvasState;
+  runtime.state.currentCanvasState = canvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+  frames.length = 0;
+  timerHarness.timers.clear();
+
+  shell.listeners.dragover({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
+  assert.equal(canvasState.dragAutoPanHint.hidden, false);
+  assert.equal(canvasState.dragAutoPanHint.dataset.direction, "left");
+  assert.match(canvasState.dragAutoPanHint.textContent, /停留 0\.5 秒后向左移动/);
+  assert.equal(canvasState.dragAutoPanHint.className, "drag-auto-pan-hint is-waiting");
+
+  timerHarness.run(500);
+  assert.equal(canvasState.dragAutoPanHint.hidden, true);
+  assert.equal(frames.length, 1);
+});
+
+test("drag edge auto-pan restarts its waiting hint when direction changes", () => {
+  const timerHarness = createTimerHarness();
+  const runtime = loadViewportRuntime({
+    Element: InteractiveElementStub,
+    requestAnimationFrame() {
+      return 1;
+    },
+    cancelAnimationFrame() {},
+    setTimeout: timerHarness.setTimeout,
+    clearTimeout: timerHarness.clearTimeout
+  });
+  const shell = new InteractiveElementStub("section");
+  const stage = new InteractiveElementStub("div");
+  runtime.state.currentSettings.language = "zh-CN";
+  runtime.viewport.setupCanvas(shell, stage, { width: 2000, height: 1400, nodes: [] }, null, { active: false });
+  const canvasState = shell.__btreeCanvasState;
+  runtime.state.currentCanvasState = canvasState;
+  runtime.state.currentDragState = { kind: "move", treeId: "MainTree", sourceNodePath: "0.1" };
+  timerHarness.timers.clear();
+
+  shell.listeners.dragover({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
+  const firstTimerId = Array.from(timerHarness.timers.keys())[0];
+  shell.listeners.dragover({ clientX: 795, clientY: 350, button: 0, buttons: 1 });
+
+  assert.equal(timerHarness.timers.has(firstTimerId), false);
+  assert.equal(canvasState.dragAutoPanHint.hidden, false);
+  assert.equal(canvasState.dragAutoPanHint.dataset.direction, "right");
+  assert.match(canvasState.dragAutoPanHint.textContent, /停留 0\.5 秒后向右移动/);
+  assert.equal(Array.from(timerHarness.timers.values()).filter((timer) => timer.delay === 500).length, 1);
+
+  shell.listeners.dragover({ clientX: 400, clientY: 350, button: 0, buttons: 1 });
+  assert.equal(canvasState.dragAutoPanHint.hidden, true);
+  assert.equal(Array.from(timerHarness.timers.values()).filter((timer) => timer.delay === 500).length, 0);
 });
 
 test("drag edge auto-pan follows the visible edges beside expanded side panels", () => {
@@ -509,13 +650,13 @@ test("drag edge auto-pan follows the visible edges beside expanded side panels",
   assert.equal(timerHarness.timers.size, 0);
   shell.listeners.dragover({ clientX: 330, clientY: 350, button: 0, buttons: 1 });
   assert.equal(scheduledFrames, 0);
-  timerHarness.run(1000);
+  timerHarness.run(500);
   assert.equal(scheduledFrames, 1);
 
   shell.listeners.dragover({ clientX: 429, clientY: 350, button: 0, buttons: 1 });
   assert.equal(timerHarness.timers.size, 0);
   shell.listeners.dragover({ clientX: 430, clientY: 350, button: 0, buttons: 1 });
-  timerHarness.run(1000);
+  timerHarness.run(500);
   assert.equal(scheduledFrames, 2);
 });
 
@@ -549,7 +690,7 @@ test("drag edge auto-pan keeps its direction outside the canvas and updates on r
   timerHarness.timers.clear();
 
   shell.listeners.dragover({ clientX: 285, clientY: 350, button: 0, buttons: 1 });
-  timerHarness.run(1000);
+  timerHarness.run(500);
   assert.equal(frames.length, 1);
   const panBeforeLeaving = shell.__btreeCanvasState.panX;
   shell.listeners.dragleave({ relatedTarget: null });
@@ -660,7 +801,7 @@ test("mouse movement after window re-entry releases stale edge auto-pan", () => 
   timerHarness.timers.clear();
 
   shell.listeners.dragover({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
-  timerHarness.run(1000);
+  timerHarness.run(500);
   const panBeforeEdgeFrame = shell.__btreeCanvasState.panX;
   frames.shift()();
   assert.ok(shell.__btreeCanvasState.panX > panBeforeEdgeFrame);
@@ -698,7 +839,7 @@ test("edge auto-pan stops when drag events are lost outside the webview", () => 
   timerHarness.timers.clear();
 
   shell.listeners.dragover({ clientX: 5, clientY: 350, button: 0, buttons: 1 });
-  timerHarness.run(1000);
+  timerHarness.run(500);
   frames.shift()();
   const panAfterEdgeFrame = shell.__btreeCanvasState.panX;
   timerHarness.run(180);

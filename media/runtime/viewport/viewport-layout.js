@@ -9,7 +9,7 @@
   const DRAG_PREVIEW_ZOOM_FACTOR = 0.85;
   const DRAG_AUTO_PAN_EDGE = 50;
   const DRAG_AUTO_PAN_SPEED = 14 * 0.8;
-  const DRAG_AUTO_PAN_HOVER_MS = 1000;
+  const DRAG_AUTO_PAN_HOVER_MS = 500;
   const DRAG_AUTO_PAN_STALE_MS = 180;
   const DROP_TARGET_REFERENCE_SIZE = {
     width: 230,
@@ -404,8 +404,16 @@
       restoringViewportState: viewportState || null,
       disposed: false,
       revealTimer: null,
-      disposeInteractions: null
+      disposeInteractions: null,
+      dragAutoPanHint: null
     };
+    const dragAutoPanHint = document.createElement("div");
+    dragAutoPanHint.className = "drag-auto-pan-hint";
+    dragAutoPanHint.hidden = true;
+    dragAutoPanHint.setAttribute?.("role", "status");
+    dragAutoPanHint.setAttribute?.("aria-live", "polite");
+    shell.appendChild?.(dragAutoPanHint);
+    canvasState.dragAutoPanHint = dragAutoPanHint;
     stage.style.visibility = "hidden";
     shell.__btreeCanvasState = canvasState;
     runtime.state.canvasStatesByPane = {
@@ -449,6 +457,9 @@
     if (dragAutoPan?.canvasState === canvasState) {
       stopDragAutoPan();
     }
+    hideDragAutoPanHint(canvasState);
+    canvasState.dragAutoPanHint?.remove?.();
+    canvasState.dragAutoPanHint = null;
     if (runtime.state.canvasStatesByPane?.[canvasState.paneId] === canvasState) {
       delete runtime.state.canvasStatesByPane[canvasState.paneId];
     }
@@ -1007,6 +1018,7 @@
     }
 
     const canvasState = runtime.state.currentCanvasState;
+    const resolvedAnchor = anchor || getDefaultDragPreviewAnchor(canvasState);
     const { panX, panY } = canvasState;
     dragPreviewViewport = {
       canvasState,
@@ -1022,7 +1034,7 @@
       // The drop-target layout is applied by the drag CSS before this call. First
       // compensate its world-position shift at the current zoom, then animate the
       // actual zoom on the next frame so the dragged node stays visually anchored.
-      applyDragPreviewZoom(currentZoom, anchor, canvasState);
+      applyDragPreviewZoom(currentZoom, resolvedAnchor, canvasState);
       canvasState.stage?.getBoundingClientRect?.();
       startDragPreviewTransition(canvasState.shell);
       if (typeof requestAnimationFrame === "function") {
@@ -1031,14 +1043,54 @@
           if (!dragPreviewViewport || dragPreviewViewport.canvasState !== canvasState) {
             return;
           }
-          applyDragPreviewZoom(nextZoom, anchor, canvasState);
+          applyDragPreviewZoom(nextZoom, resolvedAnchor, canvasState);
           scheduleDragPreviewTransitionEnd(canvasState.shell);
         });
       } else {
-        applyDragPreviewZoom(nextZoom, anchor, canvasState);
+        applyDragPreviewZoom(nextZoom, resolvedAnchor, canvasState);
         scheduleDragPreviewTransitionEnd(canvasState.shell);
       }
     }
+  }
+
+  function getDefaultDragPreviewAnchor(canvasState) {
+    const shell = canvasState?.shell;
+    if (!shell) {
+      return null;
+    }
+
+    const rect = shell.getBoundingClientRect();
+    const visibleBounds = getCanvasVisibleBounds(canvasState);
+    const visibleCenterX = (visibleBounds.left + visibleBounds.right) / 2;
+    const visibleCenterY = (visibleBounds.top + visibleBounds.bottom) / 2;
+    const zoom = canvasState.zoom || runtime.state.currentZoom || 1;
+    const entries = canvasState.layout?.nodes || [];
+    let closestEntry = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    entries.forEach((entry) => {
+      const localX = (entry.x + entry.width / 2) * zoom + canvasState.panX;
+      const localY = (entry.y + entry.height / 2) * zoom + canvasState.panY;
+      const distance = Math.hypot(localX - visibleCenterX, localY - visibleCenterY);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestEntry = entry;
+      }
+    });
+
+    if (closestEntry) {
+      return {
+        screenX: rect.left + (closestEntry.x + closestEntry.width / 2) * zoom + canvasState.panX,
+        screenY: rect.top + (closestEntry.y + closestEntry.height / 2) * zoom + canvasState.panY,
+        nodePath: closestEntry.node?.nodePath,
+        treeId: closestEntry.node?.sourceTreeId || runtime.state.selectedTreeId || ""
+      };
+    }
+
+    return {
+      screenX: rect.left + visibleCenterX,
+      screenY: rect.top + visibleCenterY
+    };
   }
 
   function endDragPreviewViewport(options = {}) {
@@ -1116,7 +1168,10 @@
       (!anchor?.treeId || !item.node?.sourceTreeId || item.node.sourceTreeId === anchor.treeId)
     ));
     if (!entry || !Number.isFinite(anchor?.screenX) || !Number.isFinite(anchor?.screenY)) {
-      applyZoom(nextZoom, true, null, canvasState);
+      const origin = Number.isFinite(anchor?.screenX) && Number.isFinite(anchor?.screenY)
+        ? { originX: anchor.screenX, originY: anchor.screenY }
+        : null;
+      applyZoom(nextZoom, true, origin, canvasState);
       return;
     }
 
@@ -1214,6 +1269,7 @@
     if (directionChanged) {
       cancelDragAutoPanHover(dragAutoPan);
       cancelDragAutoPanStaleTimeout(dragAutoPan);
+      showDragAutoPanHint(canvasState, velocityX, velocityY);
     }
     if (dragAutoPan.frame !== null) {
       refreshDragAutoPanTimeout(dragAutoPan);
@@ -1224,11 +1280,65 @@
       panState.hoverTimer = window.setTimeout(() => {
         panState.hoverTimer = null;
         if (dragAutoPan === panState && runtime.state.currentDragState) {
+          hideDragAutoPanHint(panState.canvasState);
           panState.frame = requestAnimationFrame(runDragAutoPan);
           refreshDragAutoPanTimeout(panState);
         }
       }, DRAG_AUTO_PAN_HOVER_MS);
     }
+  }
+
+  function showDragAutoPanHint(canvasState, velocityX, velocityY) {
+    const hint = canvasState?.dragAutoPanHint;
+    if (!hint) {
+      return;
+    }
+
+    const horizontal = velocityX > 0 ? "left" : velocityX < 0 ? "right" : "";
+    const vertical = velocityY > 0 ? "up" : velocityY < 0 ? "down" : "";
+    const direction = [vertical, horizontal].filter(Boolean).join("-");
+    const isChinese = runtime.state.currentSettings?.language === "zh-CN";
+    const labels = isChinese
+      ? {
+          left: ["←", "向左移动"],
+          right: ["→", "向右移动"],
+          up: ["↑", "向上移动"],
+          down: ["↓", "向下移动"],
+          "up-left": ["↖", "向左上移动"],
+          "up-right": ["↗", "向右上移动"],
+          "down-left": ["↙", "向左下移动"],
+          "down-right": ["↘", "向右下移动"]
+        }
+      : {
+          left: ["←", "pan left"],
+          right: ["→", "pan right"],
+          up: ["↑", "pan up"],
+          down: ["↓", "pan down"],
+          "up-left": ["↖", "pan up-left"],
+          "up-right": ["↗", "pan up-right"],
+          "down-left": ["↙", "pan down-left"],
+          "down-right": ["↘", "pan down-right"]
+        };
+    const [arrow, label] = labels[direction] || labels.left;
+    hint.dataset.direction = direction;
+    hint.textContent = isChinese
+      ? `${arrow} 停留 0.5 秒后${label}`
+      : `${arrow} Hold for 0.5s to ${label}`;
+    hint.hidden = false;
+    // Re-adding the class restarts the 0.5s progress animation when the
+    // pointer changes edge without leaving the auto-pan zone.
+    hint.className = "";
+    void hint.offsetWidth;
+    hint.className = "drag-auto-pan-hint is-waiting";
+  }
+
+  function hideDragAutoPanHint(canvasState) {
+    const hint = canvasState?.dragAutoPanHint;
+    if (!hint) {
+      return;
+    }
+    hint.hidden = true;
+    hint.className = "drag-auto-pan-hint";
   }
 
   function cancelDragAutoPanHover(panState) {
@@ -1283,12 +1393,14 @@
   }
 
   function stopDragAutoPan() {
+    const canvasState = dragAutoPan?.canvasState;
     if (dragAutoPan && dragAutoPan.frame !== null && typeof cancelAnimationFrame === "function") {
       cancelAnimationFrame(dragAutoPan.frame);
     }
     cancelDragAutoPanHover(dragAutoPan);
     cancelDragAutoPanStaleTimeout(dragAutoPan);
     dragAutoPan = null;
+    hideDragAutoPanHint(canvasState);
   }
 
   function fitCanvas(canvasState = runtime.state.currentCanvasState) {
