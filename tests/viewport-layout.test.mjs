@@ -6,6 +6,7 @@ import vm from "node:vm";
 
 function loadViewportRuntime(options = {}) {
   const windowListeners = {};
+  const documentListeners = {};
   const runtime = {
     state: {
       currentZoom: 1,
@@ -35,6 +36,9 @@ function loadViewportRuntime(options = {}) {
         windowListeners[type] = windowListeners[type] || [];
         windowListeners[type].push(handler);
       },
+      removeEventListener(type, handler) {
+        windowListeners[type] = (windowListeners[type] || []).filter((entry) => entry !== handler);
+      },
       setTimeout: options.setTimeout || (() => {}),
       clearTimeout: options.clearTimeout || (() => {}),
       requestAnimationFrame: options.requestAnimationFrame || ((callback) => callback())
@@ -47,6 +51,13 @@ function loadViewportRuntime(options = {}) {
       querySelectorAll() {
         return [];
       },
+      addEventListener(type, handler) {
+        documentListeners[type] = documentListeners[type] || [];
+        documentListeners[type].push(handler);
+      },
+      removeEventListener(type, handler) {
+        documentListeners[type] = (documentListeners[type] || []).filter((entry) => entry !== handler);
+      },
       hidden: false
     },
     Element: ElementClass,
@@ -57,6 +68,7 @@ function loadViewportRuntime(options = {}) {
   const scriptPath = path.resolve("media/runtime/viewport/viewport-layout.js");
   vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), context, { filename: scriptPath });
   runtime.__windowListeners = windowListeners;
+  runtime.__documentListeners = documentListeners;
   return runtime;
 }
 
@@ -133,6 +145,12 @@ class InteractiveElementStub {
 
   addEventListener(type, handler) {
     this.listeners[type] = handler;
+  }
+
+  removeEventListener(type, handler) {
+    if (this.listeners[type] === handler) {
+      delete this.listeners[type];
+    }
   }
 
   querySelector() {
@@ -266,6 +284,32 @@ test("canvas pan stops when pointer returns after primary button was released", 
 
   assert.equal(shell.__btreeCanvasState.panX, initialPanX);
   assert.equal(shell.__btreeCanvasState.panY, initialPanY);
+});
+
+test("rebuilding a canvas disposes global listeners from the previous instance", () => {
+  const runtime = loadViewportRuntime({ Element: InteractiveElementStub });
+  const firstShell = new InteractiveElementStub("section");
+  const secondShell = new InteractiveElementStub("section");
+  const layout = { width: 2000, height: 1400, nodes: [] };
+
+  runtime.viewport.setupCanvas(firstShell, new InteractiveElementStub("div"), layout, null, {
+    active: false,
+    paneId: "main"
+  });
+  const listenerCounts = Object.fromEntries(
+    Object.entries(runtime.__windowListeners).map(([type, listeners]) => [type, listeners.length])
+  );
+
+  runtime.viewport.setupCanvas(secondShell, new InteractiveElementStub("div"), layout, null, {
+    active: false,
+    paneId: "main"
+  });
+
+  Object.entries(listenerCounts).forEach(([type, count]) => {
+    assert.equal(runtime.__windowListeners[type].length, count, `${type} listeners accumulated`);
+  });
+  assert.equal(firstShell.__btreeCanvasState, null);
+  assert.equal(runtime.state.canvasStatesByPane.main.shell, secondShell);
 });
 
 test("drag preview only zooms out one step instead of fitting a large tree", () => {

@@ -109,7 +109,7 @@
     if (!canvasRootNode) {
       const shell = document.createElement("div");
       shell.className = "canvas-shell";
-      runtime.state.currentCanvasState = null;
+      runtime.viewport.disposeAllCanvasStates();
       runtime.state.currentZoom = 1;
       runtime.viewport.updateZoomLabel();
       shell.appendChild(runtime.app.emptyState(runtime.i18n.getAppCopy().selectedTreeNotFound));

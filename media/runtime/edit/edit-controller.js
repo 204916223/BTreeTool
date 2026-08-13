@@ -163,8 +163,7 @@
         runtime.state.currentFileName = toBaseName(payload.fileName);
         runtime.state.currentPreview = null;
         runtime.state.editAssistantLastScan = null;
-        runtime.state.currentCanvasState = null;
-        runtime.state.canvasStatesByPane = {};
+        runtime.viewport.disposeAllCanvasStates();
         runtime.state.currentHasBlockingIssues = true;
         runtime.refs.treeSwitcher.replaceChildren();
         renderWarnings([{ severity: "error", message: payload.parseError }]);
@@ -184,8 +183,7 @@
         runtime.state.currentFileName = toBaseName(payload.fileName);
         runtime.state.currentPreview = null;
         runtime.state.editAssistantLastScan = null;
-        runtime.state.currentCanvasState = null;
-        runtime.state.canvasStatesByPane = {};
+        runtime.viewport.disposeAllCanvasStates();
         runtime.state.currentCatalogGroups = [];
         runtime.state.currentHasBlockingIssues = false;
         runtime.refs.treeSwitcher.replaceChildren();
@@ -213,8 +211,7 @@
 
       if (result.warnings.some((warning) => warning.code === "empty_document")) {
         runtime.state.editAssistantLastScan = null;
-        runtime.state.currentCanvasState = null;
-        runtime.state.canvasStatesByPane = {};
+        runtime.viewport.disposeAllCanvasStates();
         runtime.state.currentZoom = 1;
         runtime.viewport.updateZoomLabel();
         runtime.refs.treeSwitcher.replaceChildren();
@@ -230,8 +227,7 @@
 
       if (result.behaviorTrees.length === 0) {
         runtime.state.editAssistantLastScan = null;
-        runtime.state.currentCanvasState = null;
-        runtime.state.canvasStatesByPane = {};
+        runtime.viewport.disposeAllCanvasStates();
         runtime.state.currentZoom = 1;
         runtime.viewport.updateZoomLabel();
         runtime.refs.treeSwitcher.replaceChildren();
@@ -458,8 +454,7 @@
       runtime.state.openingXmlDocument = false;
       runtime.state.currentFileName = appCopy.noActiveDocument;
       runtime.state.currentPreview = null;
-      runtime.state.currentCanvasState = null;
-      runtime.state.canvasStatesByPane = {};
+      runtime.viewport.disposeAllCanvasStates();
       runtime.state.currentCatalogGroups = [];
       runtime.state.currentZoom = 1;
       runtime.state.currentHasBlockingIssues = false;
@@ -536,6 +531,7 @@
       const selectedTree = renderContext.tree;
       if (!selectedTree) {
         const appCopy = runtime.i18n.getAppCopy();
+        runtime.viewport.disposeAllCanvasStates();
         runtime.refs.fileLabel.textContent = runtime.state.currentFileName;
         runtime.search.clearResults();
         runtime.refs.treeContent.replaceChildren(emptyState(appCopy.selectedTreeNotFound));
@@ -544,7 +540,7 @@
         return;
       }
 
-      runtime.state.canvasStatesByPane = {};
+      runtime.viewport.disposeAllCanvasStates();
       if (!renderContext.expanded) {
         runtime.state.selectedNodePath = pickNodePath(selectedTree, runtime.state.selectedNodePath);
       }

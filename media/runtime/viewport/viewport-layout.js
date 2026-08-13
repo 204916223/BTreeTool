@@ -387,6 +387,10 @@
 
   function setupCanvas(shell, stage, layout, viewportState = null, options = {}) {
     const paneId = options.paneId || "main";
+    const previousCanvasState = runtime.state.canvasStatesByPane?.[paneId];
+    if (previousCanvasState && previousCanvasState.shell !== shell) {
+      disposeCanvasState(previousCanvasState);
+    }
     const canvasState = {
       shell,
       stage,
@@ -397,7 +401,10 @@
       zoom: viewportState?.zoom || 1,
       selectedCard: null,
       viewportReady: false,
-      restoringViewportState: viewportState || null
+      restoringViewportState: viewportState || null,
+      disposed: false,
+      revealTimer: null,
+      disposeInteractions: null
     };
     stage.style.visibility = "hidden";
     shell.__btreeCanvasState = canvasState;
@@ -416,15 +423,55 @@
     } else {
       fitCanvasWhenReady(canvasState, options.active !== false);
     }
-    window.setTimeout(() => {
+    canvasState.revealTimer = window.setTimeout(() => {
+      canvasState.revealTimer = null;
       if (!canvasState.viewportReady) {
         revealCanvasStage(canvasState);
       }
     }, 600);
   }
 
+  function disposeCanvasState(canvasState) {
+    if (!canvasState || canvasState.disposed) {
+      return;
+    }
+
+    canvasState.disposed = true;
+    canvasState.disposeInteractions?.();
+    canvasState.disposeInteractions = null;
+    if (canvasState.revealTimer !== null && typeof window.clearTimeout === "function") {
+      window.clearTimeout(canvasState.revealTimer);
+      canvasState.revealTimer = null;
+    }
+    if (dragPreviewViewport?.canvasState === canvasState) {
+      endDragPreviewViewport({ cancelled: true });
+    }
+    if (dragAutoPan?.canvasState === canvasState) {
+      stopDragAutoPan();
+    }
+    if (runtime.state.canvasStatesByPane?.[canvasState.paneId] === canvasState) {
+      delete runtime.state.canvasStatesByPane[canvasState.paneId];
+    }
+    if (runtime.state.currentCanvasState === canvasState) {
+      runtime.state.currentCanvasState = null;
+    }
+    if (canvasState.shell?.__btreeCanvasState === canvasState) {
+      canvasState.shell.__btreeCanvasState = null;
+    }
+  }
+
+  function disposeAllCanvasStates() {
+    const states = new Set(Object.values(runtime.state.canvasStatesByPane || {}));
+    if (runtime.state.currentCanvasState) {
+      states.add(runtime.state.currentCanvasState);
+    }
+    states.forEach(disposeCanvasState);
+    runtime.state.canvasStatesByPane = {};
+    runtime.state.currentCanvasState = null;
+  }
+
   function waitForStableCanvasSize(canvasState, onReady, previousSize = null, frame = 0) {
-    if (!canvasState?.shell) {
+    if (!canvasState?.shell || canvasState.disposed) {
       return;
     }
 
@@ -652,12 +699,17 @@
     let initialPanX = 0;
     let initialPanY = 0;
     let capturedPointerId = null;
+    const listenerDisposers = [];
+    const listen = (target, type, handler, options) => {
+      target?.addEventListener?.(type, handler, options);
+      listenerDisposers.push(() => target?.removeEventListener?.(type, handler, options));
+    };
 
-    shell.addEventListener("pointerenter", () => {
+    listen(shell, "pointerenter", () => {
       activateCanvasState(shell.__btreeCanvasState);
     });
 
-    shell.addEventListener("contextmenu", (event) => {
+    listen(shell, "contextmenu", (event) => {
       if (!runtime.state.currentDragState) {
         return;
       }
@@ -682,12 +734,12 @@
       }
       runtime.canvas?.clearDragState?.({ cancelled: true });
     };
-    shell.addEventListener("pointerdown", cancelNodeDrag, true);
-    window.addEventListener("pointerdown", cancelNodeDrag, true);
-    window.addEventListener("mousedown", cancelNodeDrag, true);
-    window.addEventListener("mouseup", cancelNodeDrag, true);
-    window.addEventListener("auxclick", cancelNodeDrag, true);
-    window.addEventListener("contextmenu", (event) => {
+    listen(shell, "pointerdown", cancelNodeDrag, true);
+    listen(window, "pointerdown", cancelNodeDrag, true);
+    listen(window, "mousedown", cancelNodeDrag, true);
+    listen(window, "mouseup", cancelNodeDrag, true);
+    listen(window, "auxclick", cancelNodeDrag, true);
+    listen(window, "contextmenu", (event) => {
       if (!runtime.state.currentDragState) {
         return;
       }
@@ -718,10 +770,10 @@
         }
       }, 0);
     };
-    shell.addEventListener("mouseup", finishNodeDragOnPrimaryRelease, true);
-    window.addEventListener("mouseup", finishNodeDragOnPrimaryRelease, true);
+    listen(shell, "mouseup", finishNodeDragOnPrimaryRelease, true);
+    listen(window, "mouseup", finishNodeDragOnPrimaryRelease, true);
 
-    window.addEventListener("blur", () => {
+    listen(window, "blur", () => {
       if (
         runtime.state.currentDragState &&
         runtime.state.currentCanvasState === shell.__btreeCanvasState
@@ -750,15 +802,15 @@
         visibleBounds
       );
     };
-    shell.addEventListener("dragover", handleNodeDrag);
-    shell.addEventListener("dragenter", handleNodeDrag);
-    window.addEventListener("dragover", handleNodeDrag, true);
-    window.addEventListener("dragenter", handleNodeDrag, true);
-    window.addEventListener("drag", handleNodeDrag, true);
-    window.addEventListener("mousemove", handleNodeDrag, true);
-    window.addEventListener("pointermove", handleNodeDrag, true);
+    listen(shell, "dragover", handleNodeDrag);
+    listen(shell, "dragenter", handleNodeDrag);
+    listen(window, "dragover", handleNodeDrag, true);
+    listen(window, "dragenter", handleNodeDrag, true);
+    listen(window, "drag", handleNodeDrag, true);
+    listen(window, "mousemove", handleNodeDrag, true);
+    listen(window, "pointermove", handleNodeDrag, true);
 
-    shell.addEventListener("dragleave", (event) => {
+    listen(shell, "dragleave", (event) => {
       if (!event.relatedTarget || !(event.relatedTarget instanceof Element) || !shell.contains?.(event.relatedTarget)) {
         // Keep the last edge velocity while the pointer is outside the visible
         // canvas. Re-entry events will update or stop it using real coordinates.
@@ -766,7 +818,7 @@
       }
     });
 
-    shell.addEventListener("pointerdown", (event) => {
+    listen(shell, "pointerdown", (event) => {
       activateCanvasState(shell.__btreeCanvasState);
       const target = event.target;
       if (!(target instanceof Element) || event.button !== 0 || target.closest("button")) {
@@ -801,7 +853,7 @@
       event.preventDefault();
     });
 
-    shell.addEventListener("pointermove", (event) => {
+    listen(shell, "pointermove", (event) => {
       if (!dragging) {
         return;
       }
@@ -852,20 +904,21 @@
       capturedPointerId = null;
     };
 
-    shell.addEventListener("pointerup", stopDragging);
-    shell.addEventListener("pointercancel", stopDragging);
-    shell.addEventListener("lostpointercapture", stopDragging);
-    window.addEventListener("pointerup", stopDragging, true);
-    window.addEventListener("pointercancel", stopDragging, true);
-    window.addEventListener("mouseup", stopDragging, true);
-    window.addEventListener("blur", stopDragging);
-    document.addEventListener?.("visibilitychange", () => {
+    listen(shell, "pointerup", stopDragging);
+    listen(shell, "pointercancel", stopDragging);
+    listen(shell, "lostpointercapture", stopDragging);
+    listen(window, "pointerup", stopDragging, true);
+    listen(window, "pointercancel", stopDragging, true);
+    listen(window, "mouseup", stopDragging, true);
+    listen(window, "blur", stopDragging);
+    listen(document, "visibilitychange", () => {
       if (document.hidden) {
         stopDragging(null, { force: true });
       }
     });
 
-    shell.addEventListener(
+    listen(
+      shell,
       "wheel",
       (event) => {
         activateCanvasState(shell.__btreeCanvasState);
@@ -877,6 +930,14 @@
       },
       { passive: false }
     );
+
+    const canvasState = shell.__btreeCanvasState;
+    canvasState.disposeInteractions = () => {
+      stopDragging(null, { force: true });
+      while (listenerDisposers.length > 0) {
+        listenerDisposers.pop()?.();
+      }
+    };
   }
 
   function blurActiveCanvasInput() {
@@ -1295,7 +1356,6 @@
     canvasState.stage.style.transformOrigin = "top left";
     if (runtime.state.currentCanvasState === canvasState) {
       runtime.state.currentZoom = canvasState.zoom || runtime.state.currentZoom || 1;
-      updateZoomLabel();
     }
   }
 
@@ -1462,6 +1522,8 @@
     clampNumber,
     buildTreeLayout,
     setupCanvas,
+    disposeCanvasState,
+    disposeAllCanvasStates,
     activateCanvasState,
     enableHorizontalWheelScroll,
     getCanvasViewportState,

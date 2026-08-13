@@ -17,7 +17,7 @@
     function renderPlaybackDashboardLog(log, playbackSnapshot, playbackCopy = runtime.i18n.getPlaybackCopy()) {
       runtime.refs.treeSwitcher.replaceChildren();
       runtime.mainTreeLocator.clear();
-      runtime.state.currentCanvasState = null;
+      runtime.viewport.disposeAllCanvasStates();
 
       const layout = document.createElement("div");
       layout.className = "playback-dashboard-layout";

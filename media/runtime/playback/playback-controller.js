@@ -174,8 +174,7 @@
 
       runtime.state.currentFileName = log?.fileName || appCopy.noActiveDocument;
       runtime.state.currentPreview = log?.preview || null;
-      runtime.state.currentCanvasState = null;
-      runtime.state.canvasStatesByPane = {};
+      runtime.viewport.disposeAllCanvasStates();
       runtime.state.currentCatalogGroups = [];
       runtime.state.currentZoom = 1;
       runtime.state.currentHasBlockingIssues = false;
@@ -219,6 +218,7 @@
           })
           : null
       );
+      runtime.viewport.disposeAllCanvasStates();
 
       const frameCount = log.frames?.length || 0;
       runtime.state.playbackFrameIndex = clampInteger(runtime.state.playbackFrameIndex, 0, Math.max(0, frameCount - 1));

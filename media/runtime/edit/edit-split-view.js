@@ -16,7 +16,7 @@
     function renderSplitTreeView(result, viewportStates = {}) {
       ensureSplitPaneState(result);
       runtime.treeSwitcher.updateActive?.();
-      runtime.state.canvasStatesByPane = {};
+      runtime.viewport.disposeAllCanvasStates();
 
       const treeMap = getTreeMap(result);
       const container = document.createElement("div");
