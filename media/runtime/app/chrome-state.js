@@ -12,6 +12,8 @@
       runtime.state.currentSettings?.nodeAttributeLayout === "stacked" ? "stacked" : "inline";
     document.documentElement.dataset.nodeSectionTitleMode =
       normalizeNodeSectionTitleMode(runtime.state.currentSettings?.nodeSectionTitleMode);
+    document.documentElement.dataset.editNodeMode =
+      runtime.state.currentSettings?.editNodeMode === "free" ? "free" : "tree";
     applyPlaybackPanelOpacity(runtime.state.currentSettings?.playbackPanelOpacity);
     runtime.refs.toggleCatalogButton.title = chromeCopy.toggleCatalogTitle;
     runtime.refs.toggleCatalogButton.setAttribute("aria-label", chromeCopy.toggleCatalogTitle);

@@ -42,6 +42,11 @@
         regular: "Regular",
         emphasis: "Emphasis"
       },
+      editNodeMode: "Edit Mode",
+      editNodeModeOptions: {
+        tree: "Tree structure",
+        free: "Free nodes"
+      },
       treeRenderMode: "Tree Render",
       treeRenderModeOptions: {
         paged: "Tree tabs",
@@ -109,6 +114,11 @@
           hidden: "隐藏",
           regular: "常规",
           emphasis: "强调"
+        },
+        editNodeMode: "编辑模式",
+        editNodeModeOptions: {
+          tree: "树形结构",
+          free: "自由节点"
         },
         treeRenderMode: "树渲染方式",
         treeRenderModeOptions: {

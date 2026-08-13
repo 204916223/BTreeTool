@@ -17,6 +17,7 @@ export type BtSettingsNodeCategory = "Action" | "Condition" | "Control" | "Decor
 export type BtSettingsFieldRole = "input" | "output" | "inout" | "param";
 export type BtNodeAttributeLayout = "inline" | "stacked";
 export type BtNodeSectionTitleMode = "hidden" | "regular" | "emphasis";
+export type BtEditNodeMode = "tree" | "free";
 export type BtTreeRenderMode = "paged" | "expanded";
 export type BtPlaybackPanelLayout = "classic" | "dashboard";
 export type BtSimplifySection = "description" | "code" | "inputs" | "outputs" | "params" | "subtreeJump";
@@ -54,6 +55,7 @@ export interface BtUserSettings {
   traceLearningEnhancementEnabled: boolean;
   nodeAttributeLayout: BtNodeAttributeLayout;
   nodeSectionTitleMode: BtNodeSectionTitleMode;
+  editNodeMode: BtEditNodeMode;
   editTreeRenderMode: BtTreeRenderMode;
   playbackTreeRenderMode: BtTreeRenderMode;
   playbackPanelLayout: BtPlaybackPanelLayout;
@@ -87,6 +89,7 @@ export const DEFAULT_USER_SETTINGS: BtUserSettings = {
   traceLearningEnhancementEnabled: false,
   nodeAttributeLayout: "inline",
   nodeSectionTitleMode: "regular",
+  editNodeMode: "tree",
   editTreeRenderMode: "paged",
   playbackTreeRenderMode: "paged",
   playbackPanelLayout: "classic",
@@ -222,6 +225,7 @@ export function cloneUserSettings(settings: BtUserSettings): BtUserSettings {
     traceLearningEnabled: settings.traceLearningEnabled === true || settings.traceLearningEnhancementEnabled === true,
     nodeAttributeLayout: normalizeNodeAttributeLayout(settings.nodeAttributeLayout),
     nodeSectionTitleMode: normalizeNodeSectionTitleMode(settings.nodeSectionTitleMode),
+    editNodeMode: normalizeEditNodeMode(settings.editNodeMode),
     editTreeRenderMode: normalizeTreeRenderMode(settings.editTreeRenderMode),
     playbackTreeRenderMode: normalizeTreeRenderMode(settings.playbackTreeRenderMode),
     playbackPanelLayout: normalizePlaybackPanelLayout(settings.playbackPanelLayout),
@@ -269,6 +273,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
   const traceLearningEnabled = input.traceLearningEnabled === true || traceLearningEnhancementEnabled;
   const nodeAttributeLayout = normalizeNodeAttributeLayout(input.nodeAttributeLayout);
   const nodeSectionTitleMode = normalizeNodeSectionTitleMode(input.nodeSectionTitleMode);
+  const editNodeMode = normalizeEditNodeMode(input.editNodeMode);
   const editTreeRenderMode = normalizeTreeRenderMode(input.editTreeRenderMode);
   const playbackTreeRenderMode = normalizeTreeRenderMode(input.playbackTreeRenderMode);
   const playbackPanelLayout = normalizePlaybackPanelLayout(input.playbackPanelLayout);
@@ -296,6 +301,7 @@ function normalizeUserSettings(value: unknown): BtUserSettings {
     traceLearningEnhancementEnabled,
     nodeAttributeLayout,
     nodeSectionTitleMode,
+    editNodeMode,
     editTreeRenderMode,
     playbackTreeRenderMode,
     playbackPanelLayout,
@@ -341,6 +347,10 @@ function normalizeNodeAttributeLayout(value: unknown): BtNodeAttributeLayout {
 
 function normalizeNodeSectionTitleMode(value: unknown): BtNodeSectionTitleMode {
   return value === "hidden" || value === "emphasis" ? value : "regular";
+}
+
+function normalizeEditNodeMode(value: unknown): BtEditNodeMode {
+  return value === "free" ? "free" : "tree";
 }
 
 function normalizeTreeRenderMode(value: unknown): BtTreeRenderMode {

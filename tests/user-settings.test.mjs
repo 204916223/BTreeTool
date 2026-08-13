@@ -53,6 +53,7 @@ test("default user settings match the product defaults", () => {
   assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnabled, false);
   assert.equal(DEFAULT_USER_SETTINGS.traceLearningEnhancementEnabled, false);
   assert.equal(DEFAULT_USER_SETTINGS.nodeSectionTitleMode, "regular");
+  assert.equal(DEFAULT_USER_SETTINGS.editNodeMode, "tree");
   assert.deepEqual(DEFAULT_USER_SETTINGS.editAssistantWarningWhitelist, []);
 });
 
@@ -71,6 +72,7 @@ test("cloned user settings keep the new boolean defaults", () => {
   assert.equal(cloned.traceLearningEnabled, false);
   assert.equal(cloned.traceLearningEnhancementEnabled, false);
   assert.equal(cloned.nodeSectionTitleMode, "regular");
+  assert.equal(cloned.editNodeMode, "tree");
   assert.deepEqual(cloned.editAssistantWarningWhitelist, []);
 });
 
@@ -156,6 +158,23 @@ test("node section title mode is normalized when loading user settings", async (
   }));
   const fallback = await loadUserSettings({ fsPath: "/storage" });
   assert.equal(fallback.settings.nodeSectionTitleMode, "regular");
+});
+
+test("edit node mode is normalized when loading user settings", async () => {
+  fsState.files.clear();
+  fsState.writes = [];
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    editNodeMode: "free"
+  }));
+
+  const free = await loadUserSettings({ fsPath: "/storage" });
+  assert.equal(free.settings.editNodeMode, "free");
+
+  fsState.files.set("/storage/user-settings.json", JSON.stringify({
+    editNodeMode: "unknown"
+  }));
+  const fallback = await loadUserSettings({ fsPath: "/storage" });
+  assert.equal(fallback.settings.editNodeMode, "tree");
 });
 
 test("legacy learning collection setting maps to learning enhancement", async () => {

@@ -91,6 +91,15 @@
 
     const editSection = createSettingsSection("Edit Mode");
     editSection.element.classList.add("settings-section-edit");
+    const editNodeModeRow = createInlineField("Edit Mode");
+    editNodeModeRow.element.classList.add("settings-inline-field-horizontal");
+    const editNodeModeControl = createSegmentedControl([
+      { value: "tree", label: "Tree structure" },
+      { value: "free", label: "Free nodes" }
+    ]);
+    editNodeModeRow.control.appendChild(editNodeModeControl.element);
+    editSection.body.appendChild(editNodeModeRow.element);
+
     const editTreeRenderModeRow = createInlineField("Tree Render");
     editTreeRenderModeRow.element.classList.add("settings-inline-field-horizontal");
     const editTreeRenderModeControl = createSegmentedControl([
@@ -245,6 +254,7 @@
           secondaryColor: normalizeColorInputValue(customThemePicker.secondaryInput.value, "#df78cf")
         },
         nodeAttributeLayout: nodeLayoutControl.getValue(),
+        editNodeMode: editNodeModeControl.getValue(),
         editTreeRenderMode: editTreeRenderModeControl.getValue(),
         playbackTreeRenderMode: playbackTreeRenderModeControl.getValue(),
         playbackPanelLayout: playbackPanelLayoutControl.getValue(),
@@ -263,6 +273,7 @@
       const preserveViewport =
         currentSettings.nodeAttributeLayout === nextSettings.nodeAttributeLayout &&
         currentSettings.nodeSectionTitleMode === nextSettings.nodeSectionTitleMode &&
+        currentSettings.editNodeMode === nextSettings.editNodeMode &&
         currentSettings.editTreeRenderMode === nextSettings.editTreeRenderMode &&
         currentSettings.playbackTreeRenderMode === nextSettings.playbackTreeRenderMode &&
         currentSettings.playbackPanelLayout === nextSettings.playbackPanelLayout &&
@@ -306,6 +317,8 @@
       nodeLayoutRow,
       nodeLayoutControl,
       editSectionTitle: editSection.title,
+      editNodeModeRow,
+      editNodeModeControl,
       editTreeRenderModeRow,
       editTreeRenderModeControl,
       mainTreeLocatorInput,
@@ -606,6 +619,11 @@
     overlayState.settingsDialog.languageRow.text.textContent = copy.language;
     overlayState.settingsDialog.themeRow.text.textContent = copy.theme;
     overlayState.settingsDialog.editSectionTitle.textContent = copy.editMode;
+    overlayState.settingsDialog.editNodeModeRow.text.textContent = copy.editNodeMode;
+    overlayState.settingsDialog.editNodeModeControl.setLabels({
+      tree: copy.editNodeModeOptions.tree,
+      free: copy.editNodeModeOptions.free
+    });
     overlayState.settingsDialog.editTreeRenderModeRow.text.textContent = copy.treeRenderMode;
     overlayState.settingsDialog.editTreeRenderModeControl.setLabels({
       paged: copy.treeRenderModeOptions.paged,
@@ -702,6 +720,9 @@
     );
     overlayState.settingsDialog.nodeSectionTitleControl.setValue(
       normalizeNodeSectionTitleMode(runtime.state.currentSettings?.nodeSectionTitleMode)
+    );
+    overlayState.settingsDialog.editNodeModeControl.setValue(
+      runtime.state.currentSettings?.editNodeMode === "free" ? "free" : "tree"
     );
     overlayState.settingsDialog.editTreeRenderModeControl.setValue(
       runtime.state.currentSettings?.editTreeRenderMode === "expanded" ? "expanded" : "paged"
